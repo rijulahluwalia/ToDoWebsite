@@ -2149,11 +2149,20 @@ function dueTone(iso) {
   if (diff <= 7) return "soon";
   return "later";
 }
+function uniDueLabel(iso) {
+  if (!iso) return { label: "No date", date: "No due date" };
+  const today = parseISODate(todayStr());
+  const d = parseISODate(iso);
+  const diff = Math.ceil((d - today) / 86400000);
+  if (diff < 0) return { label: `${Math.abs(diff)} day${Math.abs(diff) === 1 ? "" : "s"} late`, date: niceDate(iso) };
+  if (diff === 0) return { label: "Today", date: niceDate(iso) };
+  if (diff === 1) return { label: "Tomorrow", date: niceDate(iso) };
+  return { label: `${diff} days`, date: niceDate(iso) };
+}
 function renderDueBadge(iso) {
   const tone = dueTone(iso);
-  const label = daysUntil(iso);
-  const date = iso ? niceDate(iso) : "No due date";
-  return `<div class="due-badge ${tone}"><span>${esc(label)}</span><small>${esc(date)}</small></div>`;
+  const due = uniDueLabel(iso);
+  return `<div class="due-badge ${tone}"><span>${esc(due.label)}</span><small>${esc(due.date)}</small></div>`;
 }
 function renderAssessmentMini(a) {
   const s = uniSubjects.find((x) => x.id === a.subject_id);
