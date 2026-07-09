@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Rooted · Home</title>
+  <title>Prio · Home</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Sora:wght@600;700&family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" />
@@ -14,8 +14,8 @@
   <div class="splash" id="splash">
     <div class="splash-inner">
       <div class="splash-dots"><i></i><i></i><i></i><i></i></div>
-      <div class="splash-word">Rooted</div>
-      <div class="splash-tag">grow a well-rooted life</div>
+      <div class="splash-word">Prio</div>
+      <div class="splash-tag">your day, in colour</div>
     </div>
   </div>
 
@@ -29,7 +29,12 @@
         <h1 id="greetName">Hello!</h1>
         <p id="greetDate"></p>
       </div>
-      <button class="avatar" id="avatarBtn" title="Profile">?</button>
+      <div class="top-actions">
+        <button class="menu-trigger" id="menuBtn" aria-label="Open menu" aria-expanded="false">
+          <span></span><span></span><span></span>
+        </button>
+        <button class="avatar" id="avatarBtn" title="Profile">?</button>
+      </div>
     </header>
 
     <!-- Desktop nav -->
@@ -49,6 +54,10 @@
       <button data-view="projects">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 7a2 2 0 012-2h4l2 2h8a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V7z"/></svg>
         Projects
+      </button>
+      <button data-view="uni">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 19.5A2.5 2.5 0 016.5 17H20"/><path d="M4 4.5A2.5 2.5 0 016.5 2H20v20H6.5A2.5 2.5 0 014 19.5v-15z"/></svg>
+        Uni
       </button>
       <button data-view="routines">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 12a8 8 0 0113.7-5.6M20 12a8 8 0 01-13.7 5.6"/><path d="M17 3v4h4M7 21v-4H3"/></svg>
@@ -162,6 +171,12 @@
       <div id="projectsRoot"></div>
     </section>
 
+
+    <!-- ================= UNI VIEW (PHASE 3 STARTER) ================= -->
+    <section class="view" id="view-uni">
+      <div id="uniRoot"></div>
+    </section>
+
     <!-- ================= ROUTINES VIEW ================= -->
     <section class="view" id="view-routines">
       <div id="routinesRoot"></div>
@@ -222,37 +237,26 @@
   <!-- Floating add button -->
   <button class="fab" id="fabBtn" aria-label="Add task">+</button>
 
-  <!-- Mobile bottom nav -->
-  <nav class="bottom-nav">
-    <button data-view="home" class="active">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 11l9-7 9 7v9a1 1 0 01-1 1h-5v-6h-6v6H4a1 1 0 01-1-1v-9z"/></svg>
-      Home
-    </button>
-    <button data-view="tasks">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M9 6h11M9 12h11M9 18h11M4 6l1 1 2-2M4 12l1 1 2-2M4 18l1 1 2-2"/></svg>
-      Planner
-    </button>
-    <button data-view="calendar">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="5" width="18" height="16" rx="3"/><path d="M8 3v4M16 3v4M3 10h18"/></svg>
-      Calendar
-    </button>
-    <button data-view="projects">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 7a2 2 0 012-2h4l2 2h8a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V7z"/></svg>
-      Projects
-    </button>
-    <button data-view="routines">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 12a8 8 0 0113.7-5.6M20 12a8 8 0 01-13.7 5.6"/><path d="M17 3v4h4M7 21v-4H3"/></svg>
-      Routines
-    </button>
-    <button data-view="colors">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><circle cx="9" cy="9" r="1.2" fill="currentColor"/><circle cx="15" cy="9" r="1.2" fill="currentColor"/><circle cx="9" cy="15" r="1.2" fill="currentColor"/><path d="M12 21a9 9 0 0 0 0-18"/></svg>
-      Colours
-    </button>
-    <button data-view="profile">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="8" r="4"/><path d="M4 21c1.5-4 5-6 8-6s6.5 2 8 6"/></svg>
-      Profile
-    </button>
-  </nav>
+  <!-- Mobile menu drawer -->
+  <div class="mobile-menu-backdrop" id="menuBackdrop" aria-hidden="true">
+    <nav class="mobile-menu" id="mobileMenu" aria-label="Mobile menu">
+      <div class="mobile-menu-head">
+        <div>
+          <strong>Prio menu</strong>
+          <span>Choose where you want to go</span>
+        </div>
+        <button class="menu-close" id="menuClose" aria-label="Close menu">×</button>
+      </div>
+      <button data-view="home" class="active">🏠 <span>Home</span></button>
+      <button data-view="tasks">✅ <span>Planner</span></button>
+      <button data-view="calendar">📅 <span>Calendar</span></button>
+      <button data-view="projects">📂 <span>Projects</span></button>
+      <button data-view="uni">🎓 <span>Uni</span></button>
+      <button data-view="routines">🔁 <span>Routines</span></button>
+      <button data-view="colors">🎨 <span>Colours</span></button>
+      <button data-view="profile">👤 <span>Profile</span></button>
+    </nav>
+  </div>
 
   <!-- Task modal -->
   <div class="modal-backdrop" id="taskModal">
@@ -270,9 +274,12 @@
         <label>Priority</label>
         <div class="prio-pick" id="prioPick"></div>
       </div>
-      <div class="field">
+      <div class="field date-field">
         <label for="taskDate">Due date (optional)</label>
-        <input type="date" id="taskDate" />
+        <div class="date-shell">
+          <span class="date-icon">📅</span>
+          <input type="date" id="taskDate" />
+        </div>
       </div>
       <div class="modal-actions">
         <button class="btn-cancel" id="modalCancel">Cancel</button>
@@ -335,9 +342,12 @@
         <label for="pitemLink">Link (optional)</label>
         <div class="input-shell"><input type="url" id="pitemLink" placeholder="https://…" /></div>
       </div>
-      <div class="field">
+      <div class="field date-field">
         <label for="pitemDate">Deadline (optional)</label>
-        <input type="date" id="pitemDate" />
+        <div class="date-shell">
+          <span class="date-icon">📅</span>
+          <input type="date" id="pitemDate" />
+        </div>
       </div>
       <div class="modal-actions">
         <button class="btn-cancel" id="pitemCancel">Cancel</button>
@@ -366,6 +376,34 @@
       <div class="modal-actions">
         <button class="btn-cancel" id="routineCancel">Cancel</button>
         <button class="btn-primary" id="routineSave">Save routine</button>
+      </div>
+    </div>
+  </div>
+
+
+  <!-- Phone-friendly text input modal (replaces browser prompts) -->
+  <div class="modal-backdrop" id="textPromptModal">
+    <div class="modal mini-modal">
+      <h2 id="textPromptTitle">Add details</h2>
+      <p class="modal-sub" id="textPromptSub"></p>
+      <div class="field">
+        <div class="input-shell"><input type="text" id="textPromptInput" /></div>
+      </div>
+      <div class="modal-actions">
+        <button class="btn-cancel" id="textPromptCancel">Cancel</button>
+        <button class="btn-primary" id="textPromptSave">Save</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Phone-friendly confirm modal (replaces browser confirms) -->
+  <div class="modal-backdrop" id="confirmModal">
+    <div class="modal mini-modal">
+      <h2 id="confirmTitle">Are you sure?</h2>
+      <p class="modal-sub" id="confirmMessage"></p>
+      <div class="modal-actions">
+        <button class="btn-cancel" id="confirmCancel">Cancel</button>
+        <button class="btn-danger-ghost" id="confirmOk">Delete</button>
       </div>
     </div>
   </div>

@@ -1,4 +1,4 @@
-# Rooted · grow a well-rooted life
+# Prio · your day, in colour
 
 An animated, mobile-friendly life management app with accounts, a dashboard, planner, projects, routines, and a calendar. Built with plain HTML/CSS/JavaScript + Supabase, ready to deploy on Vercel.
 
@@ -8,18 +8,19 @@ An animated, mobile-friendly life management app with accounts, a dashboard, pla
 - **Planner** — Daily / Weekly / Monthly / Half-Yearly / Yearly tabs + an autosaving Brain Dump
 - **Projects (Phase 2)** — unlimited projects, each with autosaving notes, nested sections, and items with links, notes, and deadlines. Progress % updates live; the nearest deadline shows on each project card
 - **Routines (Phase 2)** — build master routines (steps with optional times) scheduled on chosen weekdays. On their days they auto-populate the Daily planner as a fresh per-day copy — check off, rename, add, or remove steps for *today only*; the master never changes
+- **University (Phase 3 starter)** — subjects, class timetable, assessment list, due dates, weighting, group/individual type, and assessment breakdown steps with progress %.
 - **Tasks** with title, notes, priority, and due date — add, edit, tick off, delete
 - **Colour lab** — the classic green/yellow/red comes built in, but you can rename any label, change its colour with a colour picker, or create brand-new ones
 - **Calendar** — every task with a due date shows as a coloured dot; tap a day to see or add tasks
 - **Profile** — change your display name, email, or password, and log out
-- Fully responsive with a bottom nav bar on phones, and animations everywhere (that respect reduced-motion settings)
+- Fully responsive with an animated mobile menu on phones, and animations everywhere (that respect reduced-motion settings)
 
 ## Setup (about 10 minutes)
 
 ### 1. Supabase
 
 1. Go to [supabase.com](https://supabase.com) → New project (free tier is fine).
-2. Once it's created, open **SQL Editor → New query** and run these three files in order (each once): `schema.sql`, then `schema-update.sql`, then `schema-update-2.sql`. Together they create the `profiles`, `priorities`, `tasks`, `habits`, `brain_dump`, `projects`, and `routines` tables (and friends), all with Row Level Security so each user only ever sees their own data. If your project already has the first two from earlier phases, just run `schema-update-2.sql`.
+2. Once it's created, open **SQL Editor → New query** and run these three files in order (each once): `schema.sql`, then `schema-update.sql`, then `schema-update-2.sql`, then `schema-update-3.sql`. Together they create the `profiles`, `priorities`, `tasks`, `habits`, `brain_dump`, `projects`, and `routines` tables (and friends), all with Row Level Security so each user only ever sees their own data. If your project already has the first two from earlier phases, just run `schema-update-2.sql`, then run `schema-update-3.sql`.
 3. Go to **Settings → API** and copy:
    - Project URL
    - `anon` `public` key
@@ -50,7 +51,7 @@ git push -u origin main
 ## File map
 
 ```
-rooted/
+prio/
 ├── index.html            ← login / sign up page
 ├── app.html              ← the app (dashboard, planner, projects, routines, calendar, colours, profile)
 ├── style.css             ← all styling + animations
@@ -60,10 +61,11 @@ rooted/
 ├── schema.sql            ← run once (base tables)
 ├── schema-update.sql     ← run once (Phase 1: habits, brain dump, task scopes)
 └── schema-update-2.sql   ← run once (Phase 2: projects + routines)
+schema-update-3.sql   ← run once (Phase 3 starter: university)
 ```
 
 ## Roadmap
 
-- **Phase 3:** University (notes + results/WAM) + Knowledge (nested folders)
+- **Phase 3:** University starter is included; next expansion is notes, results/WAM, and Knowledge nested folders
 - **Phase 4:** Achievements & trophies, theme customisation + dark mode, reminders, Sunday review
 - Also on the list: drag-and-drop reordering, workout of the day, cycle tracker

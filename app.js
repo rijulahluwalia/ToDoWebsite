@@ -36,6 +36,14 @@ let editingRoutineId = null;   // routine modal
 let routineIcon = "🔁";
 let routineDaysPick = "0123456";
 
+// Phase 3 · University starter
+let uniSubjects = [];
+let uniClasses = [];
+let uniAssessments = [];
+let assessmentSteps = [];
+let openUniSubjectId = null;
+let openAssessmentId = null;
+
 const $ = (id) => document.getElementById(id);
 const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) =>
   ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
@@ -73,13 +81,14 @@ async function init() {
   await loadHabits();
   await loadProjects();
   await loadRoutines();
+  await loadUni();
   await ensureTodayRoutines();
 
   renderGreeting();
   renderQuote();
   renderAll();
   wireEvents();
-  wireRootedEvents();
+  wirePrioEvents();
   wirePhase2Events();
   loadWeather();
   loadDump();
@@ -117,6 +126,79 @@ function toast(msg) {
   clearTimeout(t._timer);
   t._timer = setTimeout(() => t.classList.remove("show"), 2400);
 }
+
+function setMenu(open) {
+  const backdrop = $("menuBackdrop");
+  const trigger = $("menuBtn");
+  if (!backdrop || !trigger) return;
+  backdrop.classList.toggle("open", open);
+  trigger.classList.toggle("open", open);
+  trigger.setAttribute("aria-expanded", String(open));
+  backdrop.setAttribute("aria-hidden", String(!open));
+}
+
+function promptDialog({ title = "Add details", message = "", value = "", placeholder = "Type here…", saveText = "Save" } = {}) {
+  const modal = $("textPromptModal");
+  const input = $("textPromptInput");
+  const sub = $("textPromptSub");
+  $("textPromptTitle").textContent = title;
+  sub.textContent = message;
+  sub.style.display = message ? "block" : "none";
+  input.value = value || "";
+  input.placeholder = placeholder;
+  $("textPromptSave").textContent = saveText;
+  modal.classList.add("open");
+  setTimeout(() => { input.focus(); input.select(); }, 200);
+
+  return new Promise((resolve) => {
+    const cleanup = (answer) => {
+      modal.classList.remove("open");
+      $("textPromptCancel").removeEventListener("click", onCancel);
+      $("textPromptSave").removeEventListener("click", onSave);
+      input.removeEventListener("keydown", onKey);
+      modal.removeEventListener("click", onBackdrop);
+      resolve(answer);
+    };
+    const onCancel = () => cleanup(null);
+    const onSave = () => cleanup(input.value.trim());
+    const onKey = (e) => {
+      if (e.key === "Enter") onSave();
+      if (e.key === "Escape") onCancel();
+    };
+    const onBackdrop = (e) => { if (e.target === modal) onCancel(); };
+    $("textPromptCancel").addEventListener("click", onCancel);
+    $("textPromptSave").addEventListener("click", onSave);
+    input.addEventListener("keydown", onKey);
+    modal.addEventListener("click", onBackdrop);
+  });
+}
+
+function confirmDialog({ title = "Are you sure?", message = "", okText = "Delete" } = {}) {
+  const modal = $("confirmModal");
+  $("confirmTitle").textContent = title;
+  $("confirmMessage").textContent = message;
+  $("confirmOk").textContent = okText;
+  modal.classList.add("open");
+
+  return new Promise((resolve) => {
+    const cleanup = (answer) => {
+      modal.classList.remove("open");
+      $("confirmCancel").removeEventListener("click", onCancel);
+      $("confirmOk").removeEventListener("click", onOk);
+      modal.removeEventListener("click", onBackdrop);
+      document.removeEventListener("keydown", onKey);
+      resolve(answer);
+    };
+    const onCancel = () => cleanup(false);
+    const onOk = () => cleanup(true);
+    const onBackdrop = (e) => { if (e.target === modal) onCancel(); };
+    const onKey = (e) => { if (e.key === "Escape") onCancel(); };
+    $("confirmCancel").addEventListener("click", onCancel);
+    $("confirmOk").addEventListener("click", onOk);
+    modal.addEventListener("click", onBackdrop);
+    document.addEventListener("keydown", onKey);
+  });
+}
 function todayStr() {
   const d = new Date();
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
@@ -146,6 +228,7 @@ function renderAll() {
   renderDashboard();
   renderProjects();
   renderRoutines();
+  renderUni();
   renderTodayRoutines();
 }
 
@@ -406,7 +489,14 @@ function renderPriorities() {
     row.querySelector(".del").addEventListener("click", async () => {
       if (priorities.length === 1) return toast("Keep at least one priority");
       const inUse = tasks.filter((t) => t.priority_id === id).length;
-      if (inUse && !confirm(`${inUse} task(s) use this label. They'll become uncoloured. Delete anyway?`)) return;
+      if (inUse) {
+        const ok = await confirmDialog({
+          title: "Delete priority?",
+          message: `${inUse} task(s) use this label. They'll become uncoloured.`,
+          okText: "Delete priority"
+        });
+        if (!ok) return;
+      }
       await db.from("priorities").delete().eq("id", id);
       priorities = priorities.filter((p) => p.id !== id);
       tasks.forEach((t) => { if (t.priority_id === id) t.priority_id = null; });
@@ -469,8 +559,11 @@ async function savePassword() {
 // ---------- events ----------
 function wireEvents() {
   document.querySelectorAll("[data-view]").forEach((b) =>
-    b.addEventListener("click", () => switchView(b.dataset.view)));
-  $("avatarBtn").addEventListener("click", () => switchView("profile"));
+    b.addEventListener("click", () => { switchView(b.dataset.view); setMenu(false); }));
+  $("avatarBtn").addEventListener("click", () => { switchView("profile"); setMenu(false); });
+  if ($("menuBtn")) $("menuBtn").addEventListener("click", () => setMenu(!$('menuBackdrop').classList.contains("open")));
+  if ($("menuClose")) $("menuClose").addEventListener("click", () => setMenu(false));
+  if ($("menuBackdrop")) $("menuBackdrop").addEventListener("click", (e) => { if (e.target.id === "menuBackdrop") setMenu(false); });
 
   $("fabBtn").addEventListener("click", () => {
     const inCalendar = $("view-calendar").classList.contains("active");
@@ -572,7 +665,7 @@ function openGoogleCalendar(taskId) {
 }
 
 // ============================================
-// ROOTED · Quote of the day
+// PRIO · Quote of the day
 // ============================================
 const QUOTES = [
   ["We suffer more often in imagination than in reality.", "Seneca"],
@@ -627,7 +720,7 @@ function renderQuote() {
 }
 
 // ============================================
-// ROOTED · Priority tiers (red / yellow / green)
+// PRIO · Priority tiers (red / yellow / green)
 // Highest-position priority = red tier, second = yellow, rest = green.
 // With the defaults (Low, Medium, High) that maps exactly to 🔴🟡🟢.
 // ============================================
@@ -645,7 +738,7 @@ function todaysTasks() {
 }
 
 // ============================================
-// ROOTED · Dashboard renders
+// PRIO · Dashboard renders
 // ============================================
 function renderDashboard() {
   renderPriorityStats();
@@ -704,7 +797,7 @@ function renderWins() {
 }
 
 // ============================================
-// ROOTED · Habits & streaks
+// PRIO · Habits & streaks
 // ============================================
 const HABIT_EMOJIS = ["⭐", "😴", "🌅", "📖", "🏋️", "💧", "🧘", "🙏", "☀️", "📵", "🥗", "🏃", "✍️", "🎯", "💊", "🦷"];
 
@@ -794,7 +887,8 @@ async function moveHabit(id, dir) {
 
 async function deleteHabit(id) {
   const h = habits.find((x) => x.id === id);
-  if (!confirm(`Delete "${h.name}" and its streak history?`)) return;
+  const ok = await confirmDialog({ title: "Delete habit?", message: `Delete "${h.name}" and its streak history?`, okText: "Delete habit" });
+  if (!ok) return;
   await db.from("habits").delete().eq("id", id);
   habits = habits.filter((x) => x.id !== id);
   renderHabits();
@@ -838,7 +932,7 @@ async function saveHabit() {
 }
 
 // ============================================
-// ROOTED · Brain dump (autosave)
+// PRIO · Brain dump (autosave)
 // ============================================
 let dumpTimer = null;
 
@@ -858,7 +952,7 @@ function queueDumpSave() {
 }
 
 // ============================================
-// ROOTED · Planner tabs + dashboard events
+// PRIO · Planner tabs + dashboard events
 // ============================================
 function syncPlannerTabs() {
   $("plannerTabs").querySelectorAll("button").forEach((b) =>
@@ -870,7 +964,7 @@ function syncPlannerTabs() {
   $("routineToday").style.display = activeScope === "daily" ? "block" : "none";
 }
 
-function wireRootedEvents() {
+function wirePrioEvents() {
   $("plannerTabs").querySelectorAll("button").forEach((b) =>
     b.addEventListener("click", () => {
       activeScope = b.dataset.scope;
@@ -1120,7 +1214,8 @@ async function saveProject() {
 async function deleteProject(id) {
   const p = projects.find((x) => x.id === id);
   const count = projectItems.filter((i) => i.project_id === id).length;
-  if (!confirm(`Delete "${p.name}"${count ? ` and its ${count} item(s)` : ""}? This can't be undone.`)) return;
+  const ok = await confirmDialog({ title: "Delete project?", message: `Delete "${p.name}"${count ? ` and its ${count} item(s)` : ""}? This can't be undone.`, okText: "Delete project" });
+  if (!ok) return;
   const { error } = await db.from("projects").delete().eq("id", id);
   if (error) return toast("Couldn't delete — try again");
   projects = projects.filter((x) => x.id !== id);
@@ -1133,7 +1228,7 @@ async function deleteProject(id) {
 
 // ---------- sections ----------
 async function addSection(projectId, parentId) {
-  const name = (prompt("Section name:") || "").trim();
+  const name = await promptDialog({ title: "New section", placeholder: "e.g. Assessments" });
   if (!name) return;
   const siblings = projectSections.filter((s) => s.project_id === projectId && s.parent_id === (parentId || null));
   const { data, error } = await db.from("project_sections")
@@ -1146,7 +1241,7 @@ async function addSection(projectId, parentId) {
 
 async function renameSection(id) {
   const s = projectSections.find((x) => x.id === id);
-  const name = (prompt("Rename section:", s.name) || "").trim();
+  const name = await promptDialog({ title: "Rename section", value: s.name, placeholder: "Section name" });
   if (!name || name === s.name) return;
   const { error } = await db.from("project_sections").update({ name }).eq("id", id);
   if (error) return toast("Couldn't rename — try again");
@@ -1163,7 +1258,8 @@ async function deleteSection(id) {
   const s = projectSections.find((x) => x.id === id);
   const ids = [id, ...descendantSections(id)];
   const count = projectItems.filter((i) => ids.includes(i.section_id)).length;
-  if (!confirm(`Delete section "${s.name}"${count ? ` and its ${count} item(s)` : ""}?`)) return;
+  const ok = await confirmDialog({ title: "Delete section?", message: `Delete section "${s.name}"${count ? ` and its ${count} item(s)` : ""}?`, okText: "Delete section" });
+  if (!ok) return;
   const { error } = await db.from("project_sections").delete().eq("id", id);
   if (error) return toast("Couldn't delete — try again");
   projectSections = projectSections.filter((x) => !ids.includes(x.id));
@@ -1347,7 +1443,7 @@ async function toggleDayStep(id) {
 
 async function renameDayStep(id) {
   const s = dayRoutineSteps.find((x) => x.id === id);
-  const title = (prompt("Rename step (today only):", s.title) || "").trim();
+  const title = await promptDialog({ title: "Rename today's step", message: "This only changes today's copy.", value: s.title, placeholder: "Step name" });
   if (!title || title === s.title) return;
   const { error } = await db.from("routine_day_steps").update({ title }).eq("id", id);
   if (error) return toast("Couldn't save — try again");
@@ -1364,7 +1460,7 @@ async function removeDayStep(id) {
 }
 
 async function addDayStep(routineId) {
-  const title = (prompt("Step to add (today only):") || "").trim();
+  const title = await promptDialog({ title: "Add today's step", message: "This only adds it for today.", placeholder: "e.g. Pack bag" });
   if (!title) return;
   const siblings = dayRoutineSteps.filter((x) => x.routine_id === routineId);
   const today = todayStr();
@@ -1491,7 +1587,7 @@ function renderRoutineEditor(root) {
 }
 
 async function addRoutineStep(routineId) {
-  const title = (prompt("Step:") || "").trim();
+  const title = await promptDialog({ title: "Add routine step", placeholder: "e.g. Drink water" });
   if (!title) return;
   const siblings = routineSteps.filter((s) => s.routine_id === routineId);
   const { data, error } = await db.from("routine_steps")
@@ -1576,12 +1672,14 @@ async function saveRoutine() {
   editingRoutineId = null;
   await ensureTodayRoutines(); // if it runs today, it shows up today
   renderRoutines();
+  renderUni();
   renderTodayRoutines();
 }
 
 async function deleteRoutine(id) {
   const r = routines.find((x) => x.id === id);
-  if (!confirm(`Delete "${r.name}" and all its history?`)) return;
+  const ok = await confirmDialog({ title: "Delete routine?", message: `Delete "${r.name}" and all its history?`, okText: "Delete routine" });
+  if (!ok) return;
   const { error } = await db.from("routines").delete().eq("id", id);
   if (error) return toast("Couldn't delete — try again");
   routines = routines.filter((x) => x.id !== id);
@@ -1589,6 +1687,7 @@ async function deleteRoutine(id) {
   dayRoutineSteps = dayRoutineSteps.filter((s) => s.routine_id !== id);
   openRoutineId = null;
   renderRoutines();
+  renderUni();
   renderTodayRoutines();
   toast("Routine deleted");
 }
