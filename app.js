@@ -55,6 +55,47 @@ const DEFAULT_PRIORITIES = [
 ];
 const PRESET_COLORS = ["#2fbf71", "#f5a623", "#f0455a", "#4353ff", "#8a63ff", "#ff6fae", "#18c2c2", "#171b36"];
 
+// Phase 4 · Theme studio + review
+const THEME_ACCENTS = [
+  { name: "Prio Blue", color: "#4353ff" },
+  { name: "Lavender", color: "#8a63ff" },
+  { name: "Rose", color: "#ff6fae" },
+  { name: "Mint", color: "#18c2c2" },
+  { name: "Sunset", color: "#ff8a3d" },
+];
+const defaultTheme = { mode: "light", accent: "#4353ff" };
+function getTheme() {
+  try { return { ...defaultTheme, ...(JSON.parse(localStorage.getItem("prioTheme") || "{}")) }; }
+  catch { return defaultTheme; }
+}
+function setTheme(next) {
+  const theme = { ...getTheme(), ...next };
+  localStorage.setItem("prioTheme", JSON.stringify(theme));
+  applyTheme();
+  renderThemeStudio?.();
+}
+function applyTheme() {
+  const theme = getTheme();
+  document.documentElement.dataset.theme = theme.mode;
+  document.documentElement.style.setProperty("--primary", theme.accent);
+  document.documentElement.style.setProperty("--primary-deep", shadeHex(theme.accent, -18));
+  document.documentElement.style.setProperty("--primary-soft", softHex(theme.accent));
+}
+function shadeHex(hex, pct) {
+  const n = parseInt(hex.replace("#", ""), 16);
+  const amt = Math.round(2.55 * pct);
+  const r = Math.max(0, Math.min(255, (n >> 16) + amt));
+  const g = Math.max(0, Math.min(255, ((n >> 8) & 255) + amt));
+  const b = Math.max(0, Math.min(255, (n & 255) + amt));
+  return `#${(1 << 24 | r << 16 | g << 8 | b).toString(16).slice(1)}`;
+}
+function softHex(hex) {
+  const n = parseInt(hex.replace("#", ""), 16);
+  const r = n >> 16, g = (n >> 8) & 255, b = n & 255;
+  return `rgba(${r}, ${g}, ${b}, 0.14)`;
+}
+applyTheme();
+
 // ---------- boot ----------
 runSplash();
 init();
@@ -287,6 +328,8 @@ function renderAll() {
   renderRoutines();
   renderUni();
   renderTodayRoutines();
+  renderPhase4();
+  renderThemeStudio();
 }
 
 // ---------- navigation ----------
@@ -654,6 +697,13 @@ function wireEvents() {
     await db.auth.signOut();
     window.location.href = "index.html";
   });
+
+  $("sundayReviewBtn")?.addEventListener("click", openSundayReview);
+  $("reviewClose")?.addEventListener("click", closeSundayReview);
+  $("reviewCancel")?.addEventListener("click", closeSundayReview);
+  $("reviewSave")?.addEventListener("click", saveSundayReview);
+  $("reviewModal")?.addEventListener("click", (e) => { if (e.target.id === "reviewModal") closeSundayReview(); });
+  $("themeResetBtn")?.addEventListener("click", () => setTheme(defaultTheme));
 }
 
 // ============================================
@@ -1507,6 +1557,8 @@ async function renameDayStep(id) {
   if (error) return toast("Couldn't save — try again");
   s.title = title;
   renderTodayRoutines();
+  renderPhase4();
+  renderThemeStudio();
 }
 
 async function removeDayStep(id) {
@@ -1533,6 +1585,8 @@ async function addDayStep(routineId) {
     routineDayState.add(routineId + "|" + today);
   }
   renderTodayRoutines();
+  renderPhase4();
+  renderThemeStudio();
 }
 
 // ---------- routines management view ----------
@@ -1732,6 +1786,8 @@ async function saveRoutine() {
   renderRoutines();
   renderUni();
   renderTodayRoutines();
+  renderPhase4();
+  renderThemeStudio();
 }
 
 async function deleteRoutine(id) {
@@ -2154,4 +2210,118 @@ function wireUniEvents() {
   $("uniAssessmentSave")?.addEventListener("click", saveUniAssessment);
   $("uniStepSave")?.addEventListener("click", saveUniStep);
   $("uniStepTitle")?.addEventListener("keydown", (e) => { if (e.key === "Enter") saveUniStep(); });
+}
+
+
+// ============================================
+// Phase 4 · Achievements, reminder hub, theme studio, Sunday review
+// ============================================
+function daysUntil(iso) {
+  if (!iso) return null;
+  const today = new Date(todayStr() + "T00:00");
+  const due = new Date(iso + "T00:00");
+  return Math.round((due - today) / 86400000);
+}
+function dueBadge(iso) {
+  const d = daysUntil(iso);
+  if (d === null) return { cls: "none", text: "⚪ No due date" };
+  if (d < 0) return { cls: "urgent", text: `🔴 ${Math.abs(d)}d overdue` };
+  if (d === 0) return { cls: "urgent", text: "🔴 Today" };
+  if (d === 1) return { cls: "urgent", text: "🔴 Tomorrow" };
+  if (d <= 4) return { cls: "soon", text: `🟠 ${d} days` };
+  return { cls: "later", text: `🟢 ${niceDate(iso)}` };
+}
+function getAchievements() {
+  const doneTasks = tasks.filter((t) => t.completed).length;
+  const doneSteps = assessmentSteps.filter((s) => s.done).length;
+  const hasUni = uniSubjects.length > 0;
+  const hasProject = projects.length > 0;
+  const checkedHabitsToday = habits.filter((h) => habitChecks.has(`${h.id}|${todayStr()}`)).length;
+  return [
+    { icon: "🌱", name: "First step", desc: "Complete 1 task", earned: doneTasks >= 1 },
+    { icon: "🔥", name: "Ten wins", desc: "Complete 10 tasks", earned: doneTasks >= 10 },
+    { icon: "🎓", name: "Uni ready", desc: "Add your first subject", earned: hasUni },
+    { icon: "📂", name: "Project mode", desc: "Create a project", earned: hasProject },
+    { icon: "✅", name: "Breakdown boss", desc: "Tick 5 assessment steps", earned: doneSteps >= 5 },
+    { icon: "☀️", name: "Routine energy", desc: "Tick a habit today", earned: checkedHabitsToday >= 1 },
+  ];
+}
+function getUpcomingReminders() {
+  const taskReminders = tasks
+    .filter((t) => !t.completed && t.due_date)
+    .map((t) => ({ type: "Task", title: t.title, date: t.due_date, meta: prioById(t.priority_id)?.name || "Planner" }));
+  const uniReminders = uniAssessments
+    .filter((a) => a.due_date)
+    .map((a) => ({ type: "Uni", title: a.title, date: a.due_date, meta: uniSubjects.find((s) => s.id === a.subject_id)?.code || "Assessment" }));
+  return [...taskReminders, ...uniReminders]
+    .sort((a, b) => (a.date || "9999").localeCompare(b.date || "9999"))
+    .slice(0, 5);
+}
+function renderPhase4() {
+  const root = $("phase4Root");
+  if (!root) return;
+  const earned = getAchievements();
+  const reminders = getUpcomingReminders();
+  const earnedCount = earned.filter((a) => a.earned).length;
+  root.innerHTML = `
+    <div class="phase4-grid">
+      <div class="phase4-panel">
+        <div class="phase4-mini-head"><span>🏆 Achievements</span><strong>${earnedCount}/${earned.length}</strong></div>
+        <div class="achievement-row">
+          ${earned.map((a) => `<div class="achievement ${a.earned ? "earned" : "locked"}" title="${esc(a.desc)}"><b>${a.icon}</b><span>${esc(a.name)}</span></div>`).join("")}
+        </div>
+      </div>
+      <div class="phase4-panel">
+        <div class="phase4-mini-head"><span>🔔 Reminder hub</span><strong>${reminders.length}</strong></div>
+        <div class="reminder-list">
+          ${reminders.length ? reminders.map((r) => { const badge = dueBadge(r.date); return `<div class="reminder-row"><div><b>${esc(r.title)}</b><span>${esc(r.type)} · ${esc(r.meta)}</span></div><em class="due-badge ${badge.cls}">${badge.text}</em></div>`; }).join("") : `<div class="empty slim"><span class="emoji">✨</span>No upcoming due dates.</div>`}
+        </div>
+      </div>
+    </div>`;
+}
+function renderThemeStudio() {
+  const grid = $("themeGrid");
+  if (!grid) return;
+  const theme = getTheme();
+  grid.innerHTML = `
+    <div class="theme-modes">
+      <button class="theme-pill ${theme.mode === "light" ? "active" : ""}" data-theme-mode="light">☀️ Light</button>
+      <button class="theme-pill ${theme.mode === "dark" ? "active" : ""}" data-theme-mode="dark">🌙 Dark</button>
+    </div>
+    <div class="accent-row">
+      ${THEME_ACCENTS.map((a) => `<button class="accent-dot ${theme.accent.toLowerCase() === a.color.toLowerCase() ? "active" : ""}" data-accent="${a.color}" style="--accent-choice:${a.color}" aria-label="${esc(a.name)}"></button>`).join("")}
+    </div>`;
+  grid.querySelectorAll("[data-theme-mode]").forEach((b) => b.addEventListener("click", () => setTheme({ mode: b.dataset.themeMode })));
+  grid.querySelectorAll("[data-accent]").forEach((b) => b.addEventListener("click", () => setTheme({ accent: b.dataset.accent })));
+}
+function weeklyCompletedCount() {
+  const now = new Date();
+  const start = new Date(now);
+  start.setDate(now.getDate() - 6);
+  start.setHours(0, 0, 0, 0);
+  return tasks.filter((t) => t.completed_at && new Date(t.completed_at) >= start).length;
+}
+function openSundayReview() {
+  const modal = $("reviewModal");
+  if (!modal) return;
+  const upcoming = getUpcomingReminders().slice(0, 3);
+  const achievements = getAchievements().filter((a) => a.earned).length;
+  $("reviewSummary").innerHTML = `
+    <div class="review-summary-grid">
+      <div><strong>${weeklyCompletedCount()}</strong><span>tasks completed this week</span></div>
+      <div><strong>${achievements}</strong><span>achievements unlocked</span></div>
+      <div><strong>${upcoming.length}</strong><span>priority due dates ahead</span></div>
+    </div>
+    <div class="review-next">
+      <h3>Next things to watch</h3>
+      ${upcoming.length ? upcoming.map((r) => { const b = dueBadge(r.date); return `<p><span>${esc(r.title)}</span><em class="due-badge ${b.cls}">${b.text}</em></p>`; }).join("") : `<p><span>Your week is clear.</span><em class="due-badge later">Plan gently</em></p>`}
+    </div>`;
+  $("reviewNotes").value = localStorage.getItem("prioSundayReview") || "";
+  modal.classList.add("open");
+}
+function closeSundayReview() { $("reviewModal")?.classList.remove("open"); }
+function saveSundayReview() {
+  localStorage.setItem("prioSundayReview", $("reviewNotes").value.trim());
+  closeSundayReview();
+  toast("Sunday review saved ✨");
 }

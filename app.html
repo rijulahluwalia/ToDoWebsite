@@ -137,6 +137,14 @@
           </div>
           <div id="habitList"></div>
         </div>
+
+        <div class="card span2 phase4-card fade-up d4">
+          <div class="section-head" style="margin-bottom:10px">
+            <h2>✨ Phase 4 command centre</h2>
+            <button class="btn-ghost" id="sundayReviewBtn" style="padding:8px 14px;font-size:0.85rem">Sunday review</button>
+          </div>
+          <div id="phase4Root"></div>
+        </div>
       </div>
     </section>
 
@@ -201,6 +209,14 @@
       <p style="color:var(--ink-soft);margin-bottom:16px;font-size:0.92rem">
         Tap a swatch to change its colour, rename a label, or create your own. Every task wears its priority colour.
       </p>
+      <div class="card theme-card" style="margin-bottom:18px">
+        <div class="section-head" style="margin-bottom:10px">
+          <h3>Theme studio</h3>
+          <button class="btn-ghost" id="themeResetBtn" style="padding:8px 14px;font-size:0.85rem">Reset</button>
+        </div>
+        <p class="field-hint" style="margin-bottom:12px">Switch between light, dark, and soft app accents without touching the code.</p>
+        <div class="theme-grid" id="themeGrid"></div>
+      </div>
       <div class="prio-list" id="prioList"></div>
       <button class="btn-ghost" id="addPrioBtn">+ New priority</button>
     </section>
@@ -488,6 +504,30 @@
       <h2 id="uniStepModalTitle">Add breakdown task</h2>
       <div class="field"><label for="uniStepTitle">Step</label><div class="input-shell"><input type="text" id="uniStepTitle" placeholder="e.g. Draft introduction" /></div></div>
       <div class="modal-actions"><button class="btn-cancel" id="uniStepCancel">Cancel</button><button class="btn-primary" id="uniStepSave">Save step</button></div>
+    </div>
+  </div>
+
+
+
+  <!-- Sunday review modal -->
+  <div class="modal-backdrop" id="reviewModal">
+    <div class="modal review-modal">
+      <div class="date-picker-top">
+        <div>
+          <p class="modal-kicker">Weekly reset</p>
+          <h2>Sunday review</h2>
+        </div>
+        <button class="icon-btn" id="reviewClose" aria-label="Close review">×</button>
+      </div>
+      <div id="reviewSummary"></div>
+      <div class="field">
+        <label for="reviewNotes">Notes for next week</label>
+        <textarea id="reviewNotes" placeholder="What worked, what felt messy, and what needs attention next week?"></textarea>
+      </div>
+      <div class="modal-actions">
+        <button class="btn-cancel" id="reviewCancel">Cancel</button>
+        <button class="btn-primary" id="reviewSave">Save review</button>
+      </div>
     </div>
   </div>
 
