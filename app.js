@@ -2064,7 +2064,7 @@ function renderUni() {
   root.innerHTML = `
     <div class="section-head"><h2>🎓 Uni Dashboard</h2><button class="btn-ghost" id="addUniSubjectBtn">+ Subject</button></div>
     <div class="uni-hero card span2">
-      <div><p class="modal-kicker">Semester command centre</p><h2>${totalAssessments ? `${avgProgress}% assessment progress` : "Set up your semester"}</h2><p class="uni-muted">Subjects, timetable, assessments and breakdown tasks in one clean view.</p></div>
+      <div><p class="modal-kicker">Semester overview</p><h2>${totalAssessments ? `${avgProgress}% assessment progress` : "Set up your semester"}</h2><p class="uni-muted">Subjects, timetable, assessments and breakdown tasks in one clean view.</p></div>
       <div class="uni-big-progress"><div style="width:${avgProgress}%"></div></div>
     </div>
     <div class="dash-grid uni-grid">

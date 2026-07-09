@@ -2295,3 +2295,253 @@ input, select, textarea { font-family: inherit; font-size: 1rem; color: var(--in
 :root[data-theme="dark"] .accent-dot.active {
   border-color: #ffffff;
 }
+
+
+/* ============================================
+   PRIO · Dark mode overhaul
+   Soft, consistent surfaces. No harsh white cards.
+   ============================================ */
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --bg: #11131f;
+  --surface: #191d30;
+  --surface-2: #20253b;
+  --surface-3: #262c45;
+  --ink: #f6f7ff;
+  --ink-soft: #b6bdd8;
+  --line: rgba(255,255,255,0.075);
+  --primary-soft: color-mix(in srgb, var(--primary) 18%, transparent);
+  --shadow: 0 14px 36px rgba(0,0,0,0.30);
+  --shadow-lift: 0 22px 56px rgba(0,0,0,0.42);
+}
+
+:root[data-theme="dark"] body {
+  background:
+    radial-gradient(circle at 82% 2%, color-mix(in srgb, var(--primary) 18%, transparent), transparent 32%),
+    radial-gradient(circle at 7% 0%, rgba(255,185,56,0.08), transparent 24%),
+    var(--bg);
+}
+
+:root[data-theme="dark"] .card,
+:root[data-theme="dark"] .hero,
+:root[data-theme="dark"] .quote-card,
+:root[data-theme="dark"] .auth-card,
+:root[data-theme="dark"] .modal,
+:root[data-theme="dark"] .phase4-card,
+:root[data-theme="dark"] .theme-card,
+:root[data-theme="dark"] .uni-hero,
+:root[data-theme="dark"] .day-panel,
+:root[data-theme="dark"] .mobile-menu {
+  background: linear-gradient(180deg, rgba(32,37,59,0.96), rgba(25,29,48,0.96)) !important;
+  border: 1px solid var(--line) !important;
+  box-shadow: var(--shadow) !important;
+  color: var(--ink) !important;
+}
+
+:root[data-theme="dark"] .section-head h2,
+:root[data-theme="dark"] .section-head h3,
+:root[data-theme="dark"] h1,
+:root[data-theme="dark"] h2,
+:root[data-theme="dark"] h3,
+:root[data-theme="dark"] strong,
+:root[data-theme="dark"] .task-title,
+:root[data-theme="dark"] .timetable-main strong,
+:root[data-theme="dark"] .uni-step span {
+  color: var(--ink) !important;
+}
+
+:root[data-theme="dark"] p,
+:root[data-theme="dark"] .uni-muted,
+:root[data-theme="dark"] .field-hint,
+:root[data-theme="dark"] .task-meta,
+:root[data-theme="dark"] .task-notes,
+:root[data-theme="dark"] .empty,
+:root[data-theme="dark"] .greeting p,
+:root[data-theme="dark"] .quote-author,
+:root[data-theme="dark"] .review-summary-grid span,
+:root[data-theme="dark"] .time-pill span,
+:root[data-theme="dark"] .uni-subject-row p,
+:root[data-theme="dark"] .reminder-row span {
+  color: var(--ink-soft) !important;
+}
+
+:root[data-theme="dark"] .nav,
+:root[data-theme="dark"] .planner-tabs,
+:root[data-theme="dark"] .chip,
+:root[data-theme="dark"] .planner-tabs button,
+:root[data-theme="dark"] .btn-ghost,
+:root[data-theme="dark"] .theme-pill,
+:root[data-theme="dark"] .tab-switch,
+:root[data-theme="dark"] .quick-date-row button,
+:root[data-theme="dark"] .date-month-head button,
+:root[data-theme="dark"] .cal-nav button,
+:root[data-theme="dark"] .mobile-menu button[data-view] {
+  background: rgba(255,255,255,0.055) !important;
+  border: 1px solid rgba(255,255,255,0.075) !important;
+  color: var(--ink-soft) !important;
+  box-shadow: none !important;
+}
+
+:root[data-theme="dark"] .nav button,
+:root[data-theme="dark"] .planner-tabs button,
+:root[data-theme="dark"] .mobile-menu button[data-view] {
+  color: var(--ink-soft) !important;
+  background: transparent !important;
+  border-color: transparent !important;
+}
+
+:root[data-theme="dark"] .nav button.active,
+:root[data-theme="dark"] .planner-tabs button.active,
+:root[data-theme="dark"] .mobile-menu button[data-view].active,
+:root[data-theme="dark"] .theme-pill.active,
+:root[data-theme="dark"] .tab-switch button.active {
+  background: linear-gradient(135deg, var(--primary), color-mix(in srgb, var(--primary) 72%, #ffffff 18%)) !important;
+  color: #ffffff !important;
+  border-color: rgba(255,255,255,0.12) !important;
+  box-shadow: 0 14px 30px color-mix(in srgb, var(--primary) 28%, transparent) !important;
+}
+
+:root[data-theme="dark"] .nav button:not(.active):hover,
+:root[data-theme="dark"] .planner-tabs button:not(.active):hover,
+:root[data-theme="dark"] .mobile-menu button[data-view]:not(.active):hover,
+:root[data-theme="dark"] .chip:not(.active):hover,
+:root[data-theme="dark"] .btn-ghost:hover,
+:root[data-theme="dark"] .theme-pill:not(.active):hover {
+  background: rgba(255,255,255,0.095) !important;
+  color: var(--ink) !important;
+}
+
+:root[data-theme="dark"] .chip.active {
+  background: rgba(255,255,255,0.095) !important;
+  color: var(--ink) !important;
+  border-color: color-mix(in srgb, var(--primary) 45%, rgba(255,255,255,0.18)) !important;
+}
+
+:root[data-theme="dark"] .input-shell,
+:root[data-theme="dark"] input,
+:root[data-theme="dark"] select,
+:root[data-theme="dark"] textarea,
+:root[data-theme="dark"] .date-shell,
+:root[data-theme="dark"] .custom-select-trigger {
+  background: rgba(255,255,255,0.055) !important;
+  border-color: rgba(255,255,255,0.08) !important;
+  color: var(--ink) !important;
+}
+
+:root[data-theme="dark"] input::placeholder,
+:root[data-theme="dark"] textarea::placeholder { color: rgba(182,189,216,0.72) !important; }
+
+:root[data-theme="dark"] .task,
+:root[data-theme="dark"] .uni-subject-row,
+:root[data-theme="dark"] .uni-assessment,
+:root[data-theme="dark"] .assessment-card,
+:root[data-theme="dark"] .assessment-block,
+:root[data-theme="dark"] .uni-mini-card,
+:root[data-theme="dark"] .break-step,
+:root[data-theme="dark"] .uni-step,
+:root[data-theme="dark"] .reminder-row,
+:root[data-theme="dark"] .review-next,
+:root[data-theme="dark"] .phase4-panel,
+:root[data-theme="dark"] .achievement.locked,
+:root[data-theme="dark"] .review-summary-grid div {
+  background: rgba(255,255,255,0.045) !important;
+  border: 1px solid rgba(255,255,255,0.07) !important;
+  box-shadow: 0 10px 26px rgba(0,0,0,0.16) !important;
+  color: var(--ink) !important;
+}
+
+:root[data-theme="dark"] .task:hover,
+:root[data-theme="dark"] .uni-step:hover,
+:root[data-theme="dark"] .uni-subject-row:hover,
+:root[data-theme="dark"] .uni-mini-card:hover {
+  background: rgba(255,255,255,0.07) !important;
+  box-shadow: var(--shadow-lift) !important;
+}
+
+:root[data-theme="dark"] .timetable-card,
+:root[data-theme="dark"] .timetable-card.lecture,
+:root[data-theme="dark"] .timetable-card.tutorial,
+:root[data-theme="dark"] .timetable-card.lab,
+:root[data-theme="dark"] .timetable-card.workshop {
+  background: linear-gradient(135deg, color-mix(in srgb, var(--subject-color, var(--primary)) 18%, #20253b), #191d30) !important;
+  border-color: color-mix(in srgb, var(--subject-color, var(--primary)) 24%, rgba(255,255,255,0.06)) !important;
+}
+:root[data-theme="dark"] .timetable-card.lecture { --subject-color: #6f8cff; }
+:root[data-theme="dark"] .timetable-card.tutorial { --subject-color: #55d68d; }
+:root[data-theme="dark"] .timetable-card.lab { --subject-color: #b18cff; }
+:root[data-theme="dark"] .timetable-card.workshop { --subject-color: #ffd166; }
+
+:root[data-theme="dark"] .time-pill,
+:root[data-theme="dark"] .class-type-badge,
+:root[data-theme="dark"] .room-badge,
+:root[data-theme="dark"] .pill {
+  background: rgba(255,255,255,0.07) !important;
+  border: 1px solid rgba(255,255,255,0.08) !important;
+  color: var(--ink-soft) !important;
+  box-shadow: none !important;
+}
+:root[data-theme="dark"] .time-pill strong,
+:root[data-theme="dark"] .class-type-badge { color: var(--ink) !important; }
+:root[data-theme="dark"] .time-pill small { color: color-mix(in srgb, var(--subject-color, var(--primary)) 70%, #ffffff 20%) !important; }
+
+:root[data-theme="dark"] .due-badge,
+:root[data-theme="dark"] .due-badge.none {
+  background: rgba(255,255,255,0.055) !important;
+  border-color: rgba(255,255,255,0.075) !important;
+  color: var(--ink-soft) !important;
+  box-shadow: none !important;
+}
+:root[data-theme="dark"] .due-badge.urgent,
+:root[data-theme="dark"] .due-badge.late { background: rgba(240,69,90,0.14) !important; border-color: rgba(240,69,90,0.22) !important; }
+:root[data-theme="dark"] .due-badge.soon { background: rgba(245,166,35,0.13) !important; border-color: rgba(245,166,35,0.20) !important; }
+:root[data-theme="dark"] .due-badge.later { background: rgba(47,191,113,0.12) !important; border-color: rgba(47,191,113,0.18) !important; }
+:root[data-theme="dark"] .due-badge span { color: var(--ink) !important; }
+:root[data-theme="dark"] .due-badge.urgent span,
+:root[data-theme="dark"] .due-badge.late span { color: #ff9aaa !important; }
+:root[data-theme="dark"] .due-badge.soon span { color: #ffd08a !important; }
+:root[data-theme="dark"] .due-badge.later span { color: #8ff0b9 !important; }
+
+:root[data-theme="dark"] .cal-day {
+  background: rgba(255,255,255,0.045) !important;
+  color: var(--ink-soft) !important;
+  border-color: rgba(255,255,255,0.055) !important;
+}
+:root[data-theme="dark"] .cal-day.today,
+:root[data-theme="dark"] .cal-day.selected {
+  background: color-mix(in srgb, var(--primary) 24%, transparent) !important;
+  color: var(--ink) !important;
+  border-color: color-mix(in srgb, var(--primary) 45%, transparent) !important;
+}
+
+:root[data-theme="dark"] .check,
+:root[data-theme="dark"] .soft-check,
+:root[data-theme="dark"] .custom-check {
+  background: rgba(255,255,255,0.055) !important;
+  border-color: rgba(255,255,255,0.12) !important;
+}
+
+:root[data-theme="dark"] .fab,
+:root[data-theme="dark"] .btn-primary {
+  background: linear-gradient(135deg, var(--primary), color-mix(in srgb, var(--primary) 76%, white 18%)) !important;
+  color: #fff !important;
+  box-shadow: 0 18px 42px color-mix(in srgb, var(--primary) 32%, transparent) !important;
+}
+
+:root[data-theme="dark"] .app-logo,
+:root[data-theme="dark"] .brand-corner {
+  color: var(--ink) !important;
+}
+
+:root[data-theme="dark"] .modal-kicker {
+  color: var(--ink-soft) !important;
+  letter-spacing: .08em;
+}
+
+:root[data-theme="dark"] .assessment-card.urgent,
+:root[data-theme="dark"] .assessment-card.late,
+:root[data-theme="dark"] .assessment-block.urgent,
+:root[data-theme="dark"] .assessment-block.late,
+:root[data-theme="dark"] .assessment-card.soon,
+:root[data-theme="dark"] .assessment-block.soon {
+  background: rgba(255,255,255,0.045) !important;
+}
