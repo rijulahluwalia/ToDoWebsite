@@ -501,8 +501,98 @@ async function savePassword() {
   toast("Password changed 🔒");
 }
 
+
+
+// ---------- polished shell: mobile menu, logo home, pull refresh ----------
+function wirePolishedShell() {
+  const logo = $("homeLogoBtn");
+  const menuBtn = $("menuBtn");
+  const backdrop = $("menuBackdrop");
+  const closeBtn = $("menuClose");
+  const pull = $("pullRefresh");
+  const pullText = $("pullRefreshText");
+
+  if (logo && !logo.dataset.wired) {
+    logo.dataset.wired = "1";
+    const goHome = () => switchView("home");
+    logo.addEventListener("click", goHome);
+    logo.addEventListener("keydown", (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); goHome(); } });
+  }
+
+  const openMenu = () => {
+    if (!backdrop || !menuBtn) return;
+    backdrop.classList.add("open");
+    menuBtn.classList.add("open");
+    menuBtn.setAttribute("aria-expanded", "true");
+    document.body.classList.add("menu-open");
+  };
+  const closeMenu = () => {
+    if (!backdrop || !menuBtn) return;
+    backdrop.classList.remove("open");
+    menuBtn.classList.remove("open");
+    menuBtn.setAttribute("aria-expanded", "false");
+    document.body.classList.remove("menu-open");
+  };
+  if (menuBtn && !menuBtn.dataset.wired) {
+    menuBtn.dataset.wired = "1";
+    menuBtn.addEventListener("click", () => backdrop?.classList.contains("open") ? closeMenu() : openMenu());
+  }
+  if (closeBtn && !closeBtn.dataset.wired) {
+    closeBtn.dataset.wired = "1";
+    closeBtn.addEventListener("click", closeMenu);
+  }
+  if (backdrop && !backdrop.dataset.wired) {
+    backdrop.dataset.wired = "1";
+    backdrop.addEventListener("click", (e) => { if (e.target === backdrop) closeMenu(); });
+    backdrop.querySelectorAll("[data-view]").forEach((b) => b.addEventListener("click", () => closeMenu()));
+  }
+
+  if (pull && !pull.dataset.wired) {
+    pull.dataset.wired = "1";
+    let startY = 0;
+    let pulling = false;
+    let distance = 0;
+    window.addEventListener("touchstart", (e) => {
+      if (window.scrollY > 0) return;
+      startY = e.touches[0].clientY;
+      pulling = true;
+      distance = 0;
+    }, { passive: true });
+    window.addEventListener("touchmove", (e) => {
+      if (!pulling || window.scrollY > 0) return;
+      distance = Math.max(0, e.touches[0].clientY - startY);
+      if (distance > 18) {
+        pull.classList.add("visible");
+        pull.style.transform = `translate(-50%, ${Math.min(distance * 0.35 - 40, 18)}px) scale(${Math.min(1, 0.9 + distance / 700)})`;
+        if (distance > 90) {
+          pull.classList.add("ready");
+          if (pullText) pullText.textContent = "Release to refresh";
+        } else {
+          pull.classList.remove("ready");
+          if (pullText) pullText.textContent = "Pull to refresh";
+        }
+      }
+    }, { passive: true });
+    window.addEventListener("touchend", () => {
+      if (!pulling) return;
+      pulling = false;
+      pull.style.transform = "";
+      if (distance > 90) {
+        pull.classList.remove("ready");
+        pull.classList.add("refreshing", "visible");
+        if (pullText) pullText.textContent = "Refreshing…";
+        setTimeout(() => window.location.reload(), 450);
+      } else {
+        pull.classList.remove("visible", "ready", "refreshing");
+        if (pullText) pullText.textContent = "Pull to refresh";
+      }
+    }, { passive: true });
+  }
+}
+
 // ---------- events ----------
 function wireEvents() {
+  wirePolishedShell();
   document.addEventListener("click", (e) => {
     const menu = $("filterMenu");
     if (filterMenuOpen && menu && !menu.contains(e.target)) {
