@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Prio · My tasks</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Sora:wght@600;700&family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+  <div class="blob blob-1"></div>
+  <div class="blob blob-2"></div>
+
+  <div class="app">
+    <!-- Top bar -->
+    <header class="topbar fade-up">
+      <div class="greeting">
+        <h1 id="greetName">Hello!</h1>
+        <p id="greetDate"></p>
+      </div>
+      <button class="avatar" id="avatarBtn" title="Profile">?</button>
+    </header>
+
+    <!-- Desktop nav -->
+    <nav class="nav fade-up d1">
+      <button data-view="tasks" class="active">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M9 6h11M9 12h11M9 18h11M4 6l1 1 2-2M4 12l1 1 2-2M4 18l1 1 2-2"/></svg>
+        Tasks
+      </button>
+      <button data-view="calendar">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="5" width="18" height="16" rx="3"/><path d="M8 3v4M16 3v4M3 10h18"/></svg>
+        Calendar
+      </button>
+      <button data-view="colors">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><circle cx="9" cy="9" r="1.2" fill="currentColor"/><circle cx="15" cy="9" r="1.2" fill="currentColor"/><circle cx="9" cy="15" r="1.2" fill="currentColor"/><path d="M12 21a9 9 0 0 0 0-18"/></svg>
+        Colours
+      </button>
+      <button data-view="profile">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="8" r="4"/><path d="M4 21c1.5-4 5-6 8-6s6.5 2 8 6"/></svg>
+        Profile
+      </button>
+    </nav>
+
+    <!-- ================= TASKS VIEW ================= -->
+    <section class="view active" id="view-tasks">
+      <div class="chip-row fade-up d2" id="filterChips"></div>
+      <div class="task-list" id="taskList"></div>
+    </section>
+
+    <!-- ================= CALENDAR VIEW ================= -->
+    <section class="view" id="view-calendar">
+      <div class="card">
+        <div class="cal-head">
+          <h2 id="calTitle"></h2>
+          <div class="cal-nav">
+            <button id="calPrev" aria-label="Previous month">‹</button>
+            <button id="calToday" style="width:auto;padding:0 14px;font-size:0.8rem" aria-label="Jump to today">Today</button>
+            <button id="calNext" aria-label="Next month">›</button>
+          </div>
+        </div>
+        <div class="cal-grid" id="calGrid"></div>
+      </div>
+      <div class="day-panel" id="dayPanel"></div>
+    </section>
+
+    <!-- ================= COLOUR LAB VIEW ================= -->
+    <section class="view" id="view-colors">
+      <div class="section-head">
+        <h2>Your colour lab</h2>
+      </div>
+      <p style="color:var(--ink-soft);margin-bottom:16px;font-size:0.92rem">
+        Tap a swatch to change its colour, rename a label, or create your own. Every task wears its priority colour.
+      </p>
+      <div class="prio-list" id="prioList"></div>
+      <button class="btn-ghost" id="addPrioBtn">+ New priority</button>
+    </section>
+
+    <!-- ================= PROFILE VIEW ================= -->
+    <section class="view" id="view-profile">
+      <div class="profile-grid">
+        <div class="card">
+          <h3>Display name</h3>
+          <div class="field">
+            <div class="input-shell"><input type="text" id="profileName" placeholder="Your name" /></div>
+          </div>
+          <button class="btn-primary" id="saveNameBtn">Save name</button>
+        </div>
+
+        <div class="card">
+          <h3>Email</h3>
+          <div class="field">
+            <div class="input-shell"><input type="email" id="profileEmail" placeholder="you@email.com" /></div>
+          </div>
+          <button class="btn-primary" id="saveEmailBtn">Update email</button>
+          <p style="font-size:0.78rem;color:var(--ink-soft);margin-top:10px">You'll get a confirmation link at both addresses.</p>
+        </div>
+
+        <div class="card">
+          <h3>New password</h3>
+          <div class="field">
+            <div class="input-shell">
+              <input type="password" id="profilePassword" placeholder="At least 6 characters" autocomplete="new-password" />
+              <button type="button" class="eye-btn" id="profileTogglePw">SHOW</button>
+            </div>
+          </div>
+          <button class="btn-primary" id="savePasswordBtn">Change password</button>
+        </div>
+
+        <div class="card">
+          <h3>Session</h3>
+          <p style="font-size:0.88rem;color:var(--ink-soft);margin-bottom:14px">Log out of Prio on this device.</p>
+          <button class="btn-danger-ghost" id="logoutBtn">Log out</button>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <!-- Floating add button -->
+  <button class="fab" id="fabBtn" aria-label="Add task">+</button>
+
+  <!-- Mobile bottom nav -->
+  <nav class="bottom-nav">
+    <button data-view="tasks" class="active">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M9 6h11M9 12h11M9 18h11M4 6l1 1 2-2M4 12l1 1 2-2M4 18l1 1 2-2"/></svg>
+      Tasks
+    </button>
+    <button data-view="calendar">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="5" width="18" height="16" rx="3"/><path d="M8 3v4M16 3v4M3 10h18"/></svg>
+      Calendar
+    </button>
+    <button data-view="colors">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><circle cx="9" cy="9" r="1.2" fill="currentColor"/><circle cx="15" cy="9" r="1.2" fill="currentColor"/><circle cx="9" cy="15" r="1.2" fill="currentColor"/><path d="M12 21a9 9 0 0 0 0-18"/></svg>
+      Colours
+    </button>
+    <button data-view="profile">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="8" r="4"/><path d="M4 21c1.5-4 5-6 8-6s6.5 2 8 6"/></svg>
+      Profile
+    </button>
+  </nav>
+
+  <!-- Task modal -->
+  <div class="modal-backdrop" id="taskModal">
+    <div class="modal">
+      <h2 id="modalTitle">New task</h2>
+      <div class="field">
+        <label for="taskTitle">What needs doing?</label>
+        <div class="input-shell"><input type="text" id="taskTitle" placeholder="e.g. Prep Anvita's lesson" /></div>
+      </div>
+      <div class="field">
+        <label for="taskNotes">Notes (optional)</label>
+        <textarea id="taskNotes" placeholder="Any details…"></textarea>
+      </div>
+      <div class="field">
+        <label>Priority</label>
+        <div class="prio-pick" id="prioPick"></div>
+      </div>
+      <div class="field">
+        <label for="taskDate">Due date (optional)</label>
+        <input type="date" id="taskDate" />
+      </div>
+      <div class="modal-actions">
+        <button class="btn-cancel" id="modalCancel">Cancel</button>
+        <button class="btn-primary" id="modalSave">Save task</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="js/config.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>

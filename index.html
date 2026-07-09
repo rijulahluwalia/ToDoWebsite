@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Prio · your day, in colour</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Sora:wght@600;700&family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+  <div class="blob blob-1"></div>
+  <div class="blob blob-2"></div>
+
+  <main class="auth-wrap">
+    <div class="auth-card fade-up" id="authCard">
+      <span class="logo"><span class="logo-dot"></span>Prio</span>
+      <h1 class="auth-title" id="authTitle">Welcome back</h1>
+      <p class="auth-sub" id="authSub">Log in to pick up where you left off.</p>
+
+      <div class="tab-switch" id="tabSwitch">
+        <div class="tab-thumb"></div>
+        <button type="button" id="tabLogin" class="active">Log in</button>
+        <button type="button" id="tabSignup">Sign up</button>
+      </div>
+
+      <div class="field" id="nameField" style="display:none">
+        <label for="displayName">Your name</label>
+        <div class="input-shell">
+          <input type="text" id="displayName" placeholder="e.g. Ramya" autocomplete="name" />
+        </div>
+      </div>
+
+      <div class="field">
+        <label for="email">Email</label>
+        <div class="input-shell">
+          <input type="email" id="email" placeholder="you@email.com" autocomplete="email" />
+        </div>
+      </div>
+
+      <div class="field">
+        <label for="password">Password</label>
+        <div class="input-shell">
+          <input type="password" id="password" placeholder="At least 6 characters" autocomplete="current-password" />
+          <button type="button" class="eye-btn" id="togglePw">SHOW</button>
+        </div>
+      </div>
+
+      <button type="button" class="btn-primary" id="submitBtn">Log in</button>
+      <div class="auth-msg" id="authMsg"></div>
+    </div>
+  </main>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="js/config.js"></script>
+  <script src="js/auth.js"></script>
+</body>
+</html>
