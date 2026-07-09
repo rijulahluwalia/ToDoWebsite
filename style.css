@@ -3211,3 +3211,27 @@ input, select, textarea { font-family: inherit; font-size: 1rem; color: var(--in
     gap: 10px;
   }
 }
+
+
+/* ============================================
+   PRIO · Mobile menu/filter collision fix
+   Keeps the planner filter from floating above the mobile menu.
+   ============================================ */
+html.menu-open .prio-filter {
+  pointer-events: none !important;
+}
+html.menu-open .prio-filter-panel {
+  opacity: 0 !important;
+  transform: translateY(-8px) scale(0.96) !important;
+  pointer-events: none !important;
+}
+html.menu-open .prio-filter.open .prio-filter-panel {
+  opacity: 0 !important;
+  pointer-events: none !important;
+}
+.mobile-menu-backdrop {
+  z-index: 9990 !important;
+}
+.mobile-menu {
+  z-index: 9991 !important;
+}

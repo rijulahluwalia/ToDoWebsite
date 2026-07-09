@@ -171,12 +171,24 @@ function toast(msg) {
   t._timer = setTimeout(() => t.classList.remove("show"), 2400);
 }
 
+function closePlannerFilter() {
+  document.querySelectorAll(".prio-filter.open").forEach((m) => {
+    m.classList.remove("open");
+    const btn = m.querySelector(".prio-filter-btn");
+    if (btn) btn.setAttribute("aria-expanded", "false");
+  });
+}
+
 function setMenu(open) {
   const backdrop = $("menuBackdrop");
   const trigger = $("menuBtn");
   if (!backdrop || !trigger) return;
+  // The planner filter is part of the page, not the menu. Close it before
+  // opening the mobile nav so it can never float over the menu overlay.
+  closePlannerFilter();
   backdrop.classList.toggle("open", open);
   trigger.classList.toggle("open", open);
+  document.documentElement.classList.toggle("menu-open", open);
   trigger.setAttribute("aria-expanded", String(open));
   backdrop.setAttribute("aria-hidden", String(!open));
 }
@@ -376,6 +388,11 @@ function renderFilterChips() {
 
   trigger.addEventListener("click", (e) => {
     e.stopPropagation();
+    // Don't allow the page-level filter to open while the mobile menu is active.
+    if (document.documentElement.classList.contains("menu-open")) {
+      closePlannerFilter();
+      return;
+    }
     const open = menu.classList.toggle("open");
     trigger.setAttribute("aria-expanded", String(open));
   });
