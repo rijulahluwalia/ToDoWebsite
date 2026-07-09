@@ -11,6 +11,11 @@ let editingTaskId = null;
 let modalPriorityId = null;
 let selectedDate = null;       // "YYYY-MM-DD" chosen in calendar
 let calCursor = new Date();    // month shown in calendar
+let habits = [];
+let habitChecks = new Set();   // "habitId|YYYY-MM-DD"
+let activeScope = "daily";     // planner tab
+let editingHabitId = null;
+let habitIcon = "⭐";
 
 const $ = (id) => document.getElementById(id);
 const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) =>
@@ -46,11 +51,15 @@ async function init() {
   await loadProfile();
   await loadPriorities();
   await loadTasks();
+  await loadHabits();
 
   renderGreeting();
+  renderQuote();
   renderAll();
   wireEvents();
+  wireRootedEvents();
   loadWeather();
+  loadDump();
 }
 
 async function loadProfile() {
@@ -111,7 +120,7 @@ function renderAll() {
   renderCalendar();
   renderPriorities();
   renderProfileForm();
-  renderHero();
+  renderDashboard();
 }
 
 // ---------- navigation ----------
@@ -120,7 +129,7 @@ function switchView(name) {
   $("view-" + name).classList.add("active");
   document.querySelectorAll("[data-view]").forEach((b) =>
     b.classList.toggle("active", b.dataset.view === name));
-  $("fabBtn").style.display = (name === "tasks" || name === "calendar") ? "grid" : "none";
+  $("fabBtn").style.display = (name === "home" || name === "tasks" || name === "calendar") ? "grid" : "none";
 }
 
 // ---------- filter chips ----------
@@ -169,12 +178,21 @@ function taskHTML(t, i) {
     </div>`;
 }
 
+function scopeTasks() {
+  const today = todayStr();
+  if (activeScope === "daily")
+    return tasks.filter((t) => (t.scope || "daily") === "daily")
+      .filter((t) => t.due_date === today || (!t.completed && t.due_date && t.due_date < today) || !t.due_date);
+  return tasks.filter((t) => t.scope === activeScope);
+}
+
 function renderTasks() {
   const list = $("taskList");
-  let shown = tasks;
-  if (activeFilter === "done") shown = tasks.filter((t) => t.completed);
-  else if (activeFilter !== "all") shown = tasks.filter((t) => t.priority_id === activeFilter && !t.completed);
-  else shown = tasks.filter((t) => !t.completed);
+  const pool = scopeTasks();
+  let shown = pool;
+  if (activeFilter === "done") shown = pool.filter((t) => t.completed);
+  else if (activeFilter !== "all") shown = pool.filter((t) => t.priority_id === activeFilter && !t.completed);
+  else shown = pool.filter((t) => !t.completed);
 
   if (shown.length === 0) {
     const msg = activeFilter === "done"
@@ -203,10 +221,11 @@ async function toggleTask(id, el) {
   const t = tasks.find((x) => x.id === id);
   t.completed = !t.completed;
   el.classList.toggle("done", t.completed);
-  const { error } = await db.from("tasks").update({ completed: t.completed }).eq("id", id);
+  t.completed_at = t.completed ? new Date().toISOString() : null;
+  const { error } = await db.from("tasks").update({ completed: t.completed, completed_at: t.completed_at }).eq("id", id);
   if (error) { t.completed = !t.completed; el.classList.toggle("done"); return toast("Couldn't save — try again"); }
   if (t.completed) toast("Nice one ✓");
-  setTimeout(() => { renderTasks(); renderCalendar(); renderHero(); }, 500);
+  setTimeout(() => { renderTasks(); renderCalendar(); renderDashboard(); }, 500);
 }
 
 async function removeTask(id, el) {
@@ -214,7 +233,7 @@ async function removeTask(id, el) {
   const { error } = await db.from("tasks").delete().eq("id", id);
   if (error) { el.classList.remove("leaving"); return toast("Couldn't delete — try again"); }
   tasks = tasks.filter((t) => t.id !== id);
-  setTimeout(() => { renderTasks(); renderCalendar(); renderHero(); }, 350);
+  setTimeout(() => { renderTasks(); renderCalendar(); renderDashboard(); }, 350);
   toast("Task removed");
 }
 
@@ -244,12 +263,14 @@ function renderPrioPick() {
 async function saveTask() {
   const title = $("taskTitle").value.trim();
   if (!title) return toast("Give your task a name first");
+  const existing = editingTaskId ? tasks.find((x) => x.id === editingTaskId) : null;
   const payload = {
     title,
     notes: $("taskNotes").value.trim() || null,
     priority_id: modalPriorityId,
     due_date: $("taskDate").value || null,
     user_id: user.id,
+    scope: existing ? existing.scope || "daily" : (activeScope === "dump" ? "daily" : activeScope),
   };
   const btn = $("modalSave");
   btn.disabled = true;
@@ -265,7 +286,7 @@ async function saveTask() {
   await loadTasks();
   renderTasks();
   renderCalendar();
-  renderHero();
+  renderDashboard();
   closeModal();
   toast(wasEditing ? "Task updated" : "Task added ✨");
 }
@@ -505,30 +526,6 @@ async function fetchWeather(lat, lon) {
 }
 
 // ============================================
-// V2 · Hero focus strip
-// ============================================
-function renderHero() {
-  const today = todayStr();
-  const dueToday = tasks.filter((t) => t.due_date === today);
-  const doneToday = dueToday.filter((t) => t.completed).length;
-  const active = tasks.filter((t) => !t.completed).length;
-
-  let pct, sub;
-  if (dueToday.length > 0) {
-    pct = Math.round((doneToday / dueToday.length) * 100);
-    sub = `${doneToday} of ${dueToday.length} done · ${active} open in total`;
-    $("focusNum").textContent = `${dueToday.length - doneToday} task${dueToday.length - doneToday === 1 ? "" : "s"} due today`;
-  } else {
-    const done = tasks.filter((t) => t.completed).length;
-    pct = tasks.length ? Math.round((done / tasks.length) * 100) : 0;
-    sub = tasks.length ? `${done} of ${tasks.length} tasks completed overall` : "Add your first task to get rolling";
-    $("focusNum").textContent = "Nothing due today 🎈";
-  }
-  $("focusSub").textContent = sub;
-  requestAnimationFrame(() => { $("progressFill").style.width = pct + "%"; });
-}
-
-// ============================================
 // V2 · Google Calendar (Google sends the reminders)
 // ============================================
 function openGoogleCalendar(taskId) {
@@ -546,4 +543,319 @@ function openGoogleCalendar(taskId) {
     `&details=${encodeURIComponent(details)}`;
   window.open(url, "_blank");
   toast("Opening Google Calendar 📅");
+}
+
+// ============================================
+// ROOTED · Quote of the day
+// ============================================
+const QUOTES = [
+  ["We suffer more often in imagination than in reality.", "Seneca"],
+  ["You have power over your mind, not outside events.", "Marcus Aurelius"],
+  ["It is not that we have a short time to live, but that we waste much of it.", "Seneca"],
+  ["We are what we repeatedly do. Excellence, then, is a habit.", "Will Durant"],
+  ["Knowing yourself is the beginning of all wisdom.", "Aristotle"],
+  ["The unexamined life is not worth living.", "Socrates"],
+  ["It does not matter how slowly you go as long as you do not stop.", "Confucius"],
+  ["A journey of a thousand miles begins with a single step.", "Lao Tzu"],
+  ["He who conquers himself is the mightiest warrior.", "Confucius"],
+  ["First say to yourself what you would be; then do what you have to do.", "Epictetus"],
+  ["No man is free who is not master of himself.", "Epictetus"],
+  ["Whether you think you can, or you think you can't — you're right.", "Henry Ford"],
+  ["The best way to predict the future is to create it.", "Peter Drucker"],
+  ["What gets measured gets managed.", "Peter Drucker"],
+  ["Well done is better than well said.", "Benjamin Franklin"],
+  ["An investment in knowledge pays the best interest.", "Benjamin Franklin"],
+  ["Discipline is choosing between what you want now and what you want most.", "Abraham Lincoln (attributed)"],
+  ["Do the hard jobs first. The easy jobs will take care of themselves.", "Dale Carnegie"],
+  ["Action is the foundational key to all success.", "Pablo Picasso"],
+  ["The mind is everything. What you think you become.", "Buddha (attributed)"],
+  ["Between stimulus and response there is a space. In that space is our power to choose.", "Viktor Frankl (attributed)"],
+  ["He who has a why to live can bear almost any how.", "Friedrich Nietzsche"],
+  ["The greatest weapon against stress is our ability to choose one thought over another.", "William James"],
+  ["Act as if what you do makes a difference. It does.", "William James"],
+  ["Everything can be taken from a man but the last of the human freedoms.", "Viktor Frankl"],
+  ["A leader is one who knows the way, goes the way, and shows the way.", "John C. Maxwell"],
+  ["Leadership is the capacity to translate vision into reality.", "Warren Bennis"],
+  ["Example is not the main thing in influencing others. It is the only thing.", "Albert Schweitzer"],
+  ["Nothing in life is to be feared, it is only to be understood.", "Marie Curie"],
+  ["I have not failed. I've just found 10,000 ways that won't work.", "Thomas Edison"],
+  ["Somewhere, something incredible is waiting to be known.", "Carl Sagan"],
+  ["It is not the strongest that survives, but the most adaptable.", "Charles Darwin (paraphrased)"],
+  ["Imagination is more important than knowledge.", "Albert Einstein"],
+  ["In the middle of difficulty lies opportunity.", "Albert Einstein"],
+  ["The obstacle is the way.", "Marcus Aurelius (paraphrased)"],
+  ["Waste no more time arguing what a good person should be. Be one.", "Marcus Aurelius"],
+  ["How long are you going to wait before you demand the best for yourself?", "Epictetus"],
+  ["Small daily improvements are the key to staggering long-term results.", "Robin Sharma"],
+  ["Motivation gets you going, but discipline keeps you growing.", "John C. Maxwell"],
+  ["The successful warrior is the average person with laser-like focus.", "Bruce Lee"],
+  ["Knowledge speaks, but wisdom listens.", "Jimi Hendrix (attributed)"],
+  ["Turn your wounds into wisdom.", "Oprah Winfrey"],
+];
+
+function renderQuote() {
+  const daysSinceEpoch = Math.floor(Date.now() / 86400000);
+  const [text, author] = QUOTES[daysSinceEpoch % QUOTES.length];
+  $("quoteText").textContent = "\u201C" + text + "\u201D";
+  $("quoteAuthor").textContent = "— " + author;
+}
+
+// ============================================
+// ROOTED · Priority tiers (red / yellow / green)
+// Highest-position priority = red tier, second = yellow, rest = green.
+// With the defaults (Low, Medium, High) that maps exactly to 🔴🟡🟢.
+// ============================================
+function tierOf(task) {
+  if (!priorities.length) return "green";
+  const sorted = [...priorities].sort((a, b) => (b.position ?? 0) - (a.position ?? 0));
+  if (task.priority_id === sorted[0]?.id) return "red";
+  if (task.priority_id === sorted[1]?.id) return "yellow";
+  return "green";
+}
+
+function todaysTasks() {
+  const today = todayStr();
+  return tasks.filter((t) => (t.scope || "daily") === "daily" && t.due_date === today);
+}
+
+// ============================================
+// ROOTED · Dashboard renders
+// ============================================
+function renderDashboard() {
+  renderPriorityStats();
+  renderScore();
+  renderWins();
+  renderHabits();
+}
+
+function renderPriorityStats() {
+  const today = todaysTasks();
+  const red = today.filter((t) => tierOf(t) === "red" && !t.completed).length;
+  const yellow = today.filter((t) => tierOf(t) === "yellow" && !t.completed).length;
+  $("priorityStats").innerHTML = `
+    <div class="stat red" data-go="planner"><div class="num">${red}</div><div class="lbl">🔴 Red left</div></div>
+    <div class="stat yellow" data-go="planner"><div class="num">${yellow}</div><div class="lbl">🟡 Yellow left</div></div>`;
+  $("priorityStats").querySelectorAll(".stat").forEach((el) =>
+    el.addEventListener("click", () => { activeScope = "daily"; syncPlannerTabs(); switchView("tasks"); }));
+}
+
+function renderScore() {
+  const today = todaysTasks();
+  const ry = today.filter((t) => tierOf(t) !== "green");
+  const ryDone = ry.filter((t) => t.completed).length;
+  const greensDone = today.filter((t) => tierOf(t) === "green" && t.completed).length;
+
+  let base;
+  if (ry.length > 0) base = Math.round((ryDone / ry.length) * 100);
+  else base = today.some((t) => t.completed) ? 100 : 0;
+
+  const bonus = base >= 100 ? greensDone * 5 : 0;
+  const score = base + bonus;
+
+  $("scoreNum").textContent = score + "%";
+  const circumference = 251.3;
+  const shown = Math.min(score, 100) / 100;
+  requestAnimationFrame(() => {
+    $("scoreArc").style.strokeDashoffset = circumference * (1 - shown);
+  });
+
+  let sub;
+  if (ry.length === 0 && today.length === 0) sub = "No tasks due today yet — plan your day in the Planner.";
+  else if (bonus > 0) sub = `Priorities done! <span class="score-bonus">+${bonus}% bonus</span> for ${greensDone} green task${greensDone === 1 ? "" : "s"} 💪`;
+  else sub = `<strong>${ryDone} of ${ry.length}</strong> red & yellow tasks completed today.`;
+  $("scoreSub").innerHTML = sub;
+}
+
+function renderWins() {
+  const today = todayStr();
+  const wins = tasks.filter((t) => t.completed && (t.completed_at || "").slice(0, 10) === today);
+  if (!wins.length) {
+    $("winsList").innerHTML = `<div class="empty" style="padding:20px"><span class="emoji">🌅</span>Your first win of the day is waiting.</div>`;
+    return;
+  }
+  $("winsList").innerHTML = wins.map((t, i) =>
+    `<div class="win-row" style="animation-delay:${i * 0.05}s"><span class="tick">✓</span>${esc(t.title)}</div>`).join("");
+}
+
+// ============================================
+// ROOTED · Habits & streaks
+// ============================================
+const HABIT_EMOJIS = ["⭐", "😴", "🌅", "📖", "🏋️", "💧", "🧘", "🙏", "☀️", "📵", "🥗", "🏃", "✍️", "🎯", "💊", "🦷"];
+
+async function loadHabits() {
+  const [{ data: h }, { data: c }] = await Promise.all([
+    db.from("habits").select("*").eq("user_id", user.id).order("position"),
+    db.from("habit_checks").select("habit_id,date").eq("user_id", user.id),
+  ]);
+  habits = h || [];
+  habitChecks = new Set((c || []).map((x) => x.habit_id + "|" + x.date));
+}
+
+function streakOf(habitId) {
+  const day = new Date();
+  const fmt = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  let streak = 0;
+  // today counts if checked; otherwise streak continues from yesterday
+  if (!habitChecks.has(habitId + "|" + fmt(day))) day.setDate(day.getDate() - 1);
+  while (habitChecks.has(habitId + "|" + fmt(day))) {
+    streak++;
+    day.setDate(day.getDate() - 1);
+  }
+  return streak;
+}
+
+function renderHabits() {
+  const wrap = $("habitList");
+  if (!habits.length) {
+    wrap.innerHTML = `<div class="empty" style="padding:20px"><span class="emoji">🔥</span>Add a habit to start your first streak.</div>`;
+    return;
+  }
+  const today = todayStr();
+  wrap.innerHTML = habits.map((h, i) => {
+    const done = habitChecks.has(h.id + "|" + today);
+    const streak = streakOf(h.id);
+    return `
+    <div class="habit-row" data-id="${h.id}" style="animation-delay:${i * 0.05}s">
+      <span class="habit-icon">${esc(h.icon || "⭐")}</span>
+      <span class="habit-name">${esc(h.name)}</span>
+      <span class="habit-streak ${streak >= 3 ? "hot" : ""}">🔥 ${streak}</span>
+      <div class="habit-tools">
+        <button class="icon-btn move up" title="Move up" ${i === 0 ? "disabled style='opacity:0.3'" : ""}><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 19V5M5 12l7-7 7 7"/></svg></button>
+        <button class="icon-btn move down" title="Move down" ${i === habits.length - 1 ? "disabled style='opacity:0.3'" : ""}><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12l7 7 7-7"/></svg></button>
+        <button class="icon-btn edit" title="Edit"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 20l4-1L20 7l-3-3L5 16l-1 4z"/></svg></button>
+        <button class="icon-btn del" title="Delete"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 7h16M9 7V5a1 1 0 011-1h4a1 1 0 011 1v2m-9 0l1 13h8l1-13"/></svg></button>
+      </div>
+      <button class="habit-check ${done ? "done" : ""}" aria-label="Mark done today">✓</button>
+    </div>`;
+  }).join("");
+
+  wrap.querySelectorAll(".habit-row").forEach((row) => {
+    const id = row.dataset.id;
+    row.querySelector(".habit-check").addEventListener("click", () => toggleHabit(id));
+    row.querySelector(".edit").addEventListener("click", () => openHabitModal(id));
+    row.querySelector(".del").addEventListener("click", () => deleteHabit(id));
+    row.querySelector(".up").addEventListener("click", () => moveHabit(id, -1));
+    row.querySelector(".down").addEventListener("click", () => moveHabit(id, 1));
+  });
+}
+
+async function toggleHabit(id) {
+  const today = todayStr();
+  const key = id + "|" + today;
+  if (habitChecks.has(key)) {
+    habitChecks.delete(key);
+    renderHabits();
+    await db.from("habit_checks").delete().eq("habit_id", id).eq("date", today);
+  } else {
+    habitChecks.add(key);
+    renderHabits();
+    const { error } = await db.from("habit_checks").insert({ habit_id: id, user_id: user.id, date: today });
+    if (error) { habitChecks.delete(key); renderHabits(); return toast("Couldn't save — try again"); }
+    const s = streakOf(id);
+    if (s > 0 && s % 7 === 0) toast(`${s}-day streak! Unstoppable 🔥`);
+  }
+}
+
+async function moveHabit(id, dir) {
+  const i = habits.findIndex((h) => h.id === id);
+  const j = i + dir;
+  if (j < 0 || j >= habits.length) return;
+  [habits[i], habits[j]] = [habits[j], habits[i]];
+  habits.forEach((h, idx) => (h.position = idx));
+  renderHabits();
+  await Promise.all(habits.map((h) => db.from("habits").update({ position: h.position }).eq("id", h.id)));
+}
+
+async function deleteHabit(id) {
+  const h = habits.find((x) => x.id === id);
+  if (!confirm(`Delete "${h.name}" and its streak history?`)) return;
+  await db.from("habits").delete().eq("id", id);
+  habits = habits.filter((x) => x.id !== id);
+  renderHabits();
+  toast("Habit deleted");
+}
+
+function openHabitModal(id = null) {
+  editingHabitId = id;
+  const h = id ? habits.find((x) => x.id === id) : null;
+  $("habitModalTitle").textContent = h ? "Edit habit" : "New habit";
+  $("habitName").value = h ? h.name : "";
+  habitIcon = h ? h.icon || "⭐" : "⭐";
+  $("emojiRow").innerHTML = HABIT_EMOJIS.map((e) =>
+    `<button type="button" class="${e === habitIcon ? "active" : ""}" data-e="${e}">${e}</button>`).join("");
+  $("emojiRow").querySelectorAll("button").forEach((b) =>
+    b.addEventListener("click", () => {
+      habitIcon = b.dataset.e;
+      $("emojiRow").querySelectorAll("button").forEach((x) => x.classList.toggle("active", x === b));
+    }));
+  $("habitModal").classList.add("open");
+  setTimeout(() => $("habitName").focus(), 250);
+}
+
+async function saveHabit() {
+  const name = $("habitName").value.trim();
+  if (!name) return toast("Give your habit a name");
+  if (editingHabitId) {
+    await db.from("habits").update({ name, icon: habitIcon }).eq("id", editingHabitId);
+    const h = habits.find((x) => x.id === editingHabitId);
+    h.name = name; h.icon = habitIcon;
+  } else {
+    const { data, error } = await db.from("habits")
+      .insert({ user_id: user.id, name, icon: habitIcon, position: habits.length }).select().single();
+    if (error) return toast("Couldn't save — try again");
+    habits.push(data);
+  }
+  $("habitModal").classList.remove("open");
+  renderHabits();
+  toast(editingHabitId ? "Habit updated" : "Habit added 🔥");
+  editingHabitId = null;
+}
+
+// ============================================
+// ROOTED · Brain dump (autosave)
+// ============================================
+let dumpTimer = null;
+
+async function loadDump() {
+  const { data } = await db.from("brain_dump").select("content").eq("user_id", user.id).maybeSingle();
+  if (data) $("dumpArea").value = data.content || "";
+}
+
+function queueDumpSave() {
+  $("dumpHint").textContent = "Saving…";
+  clearTimeout(dumpTimer);
+  dumpTimer = setTimeout(async () => {
+    const { error } = await db.from("brain_dump")
+      .upsert({ user_id: user.id, content: $("dumpArea").value, updated_at: new Date().toISOString() });
+    $("dumpHint").textContent = error ? "Couldn't save — check connection" : "Saved ✓";
+  }, 800);
+}
+
+// ============================================
+// ROOTED · Planner tabs + dashboard events
+// ============================================
+function syncPlannerTabs() {
+  $("plannerTabs").querySelectorAll("button").forEach((b) =>
+    b.classList.toggle("active", b.dataset.scope === activeScope));
+  const isDump = activeScope === "dump";
+  $("plannerBody").style.display = isDump ? "none" : "block";
+  $("dumpBody").style.display = isDump ? "block" : "none";
+  $("fabBtn").style.display = isDump ? "none" : "grid";
+}
+
+function wireRootedEvents() {
+  $("plannerTabs").querySelectorAll("button").forEach((b) =>
+    b.addEventListener("click", () => {
+      activeScope = b.dataset.scope;
+      syncPlannerTabs();
+      if (activeScope !== "dump") { renderFilterChips(); renderTasks(); }
+    }));
+
+  $("dumpArea").addEventListener("input", queueDumpSave);
+
+  $("addHabitBtn").addEventListener("click", () => openHabitModal());
+  $("habitCancel").addEventListener("click", () => $("habitModal").classList.remove("open"));
+  $("habitSave").addEventListener("click", saveHabit);
+  $("habitModal").addEventListener("click", (e) => { if (e.target.id === "habitModal") $("habitModal").classList.remove("open"); });
+  $("habitName").addEventListener("keydown", (e) => { if (e.key === "Enter") saveHabit(); });
 }
