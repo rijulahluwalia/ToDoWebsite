@@ -2216,3 +2216,82 @@ input, select, textarea { font-family: inherit; font-size: 1rem; color: var(--in
   .achievement-row { grid-template-columns: repeat(2, 1fr); }
   .reminder-row { align-items: flex-start; flex-direction: column; }
 }
+
+/* ============================================
+   DARK MODE VISIBILITY FIX · buttons + controls
+   ============================================ */
+:root[data-theme="dark"] .nav,
+:root[data-theme="dark"] .planner-tabs button,
+:root[data-theme="dark"] .chip,
+:root[data-theme="dark"] .btn-ghost,
+:root[data-theme="dark"] .theme-pill,
+:root[data-theme="dark"] .mobile-menu button[data-view] {
+  background: rgba(255,255,255,0.075);
+  border: 1px solid rgba(255,255,255,0.10);
+  color: #d7dcf5;
+  box-shadow: 0 10px 28px rgba(0,0,0,0.22);
+}
+
+:root[data-theme="dark"] .nav button {
+  color: #c7cdea;
+}
+
+:root[data-theme="dark"] .nav button svg,
+:root[data-theme="dark"] .mobile-menu button[data-view] svg {
+  opacity: 0.95;
+}
+
+:root[data-theme="dark"] .nav button.active,
+:root[data-theme="dark"] .planner-tabs button.active,
+:root[data-theme="dark"] .mobile-menu button[data-view].active,
+:root[data-theme="dark"] .theme-pill.active {
+  background: linear-gradient(135deg, var(--primary), #8a63ff);
+  color: #ffffff;
+  border-color: rgba(255,255,255,0.18);
+  box-shadow: 0 12px 28px rgba(67,83,255,0.35);
+}
+
+:root[data-theme="dark"] .nav button:not(.active):hover,
+:root[data-theme="dark"] .planner-tabs button:not(.active):hover,
+:root[data-theme="dark"] .mobile-menu button[data-view]:not(.active):hover,
+:root[data-theme="dark"] .chip:not(.active):hover,
+:root[data-theme="dark"] .theme-pill:not(.active):hover {
+  background: rgba(255,255,255,0.13);
+  color: #ffffff;
+}
+
+:root[data-theme="dark"] .chip.active {
+  background: rgba(255,255,255,0.14);
+  color: #ffffff;
+  border-color: rgba(255,255,255,0.72);
+  box-shadow: 0 10px 26px rgba(0,0,0,0.26);
+}
+
+:root[data-theme="dark"] .btn-ghost {
+  color: #f4f6ff;
+  background: rgba(255,255,255,0.10);
+}
+
+:root[data-theme="dark"] .btn-ghost:hover {
+  background: linear-gradient(135deg, var(--primary), #8a63ff);
+  color: #ffffff;
+}
+
+:root[data-theme="dark"] .fab {
+  background: linear-gradient(135deg, var(--primary), #8a63ff);
+  color: #ffffff;
+  box-shadow: 0 16px 38px rgba(67,83,255,0.42);
+}
+
+:root[data-theme="dark"] .icon-btn {
+  color: #cfd5f2;
+}
+
+:root[data-theme="dark"] .avatar {
+  color: #ffffff;
+  box-shadow: 0 12px 30px rgba(0,0,0,0.28);
+}
+
+:root[data-theme="dark"] .accent-dot.active {
+  border-color: #ffffff;
+}
