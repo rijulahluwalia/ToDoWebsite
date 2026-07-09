@@ -353,19 +353,19 @@ function renderFilterChips() {
   const label = current.id === "all" ? "Filter" : `Filter: ${current.label.replace(" ✓", "")}`;
 
   wrap.innerHTML = `
-    <div class="filter-menu" id="plannerFilterMenu">
-      <button type="button" class="filter-trigger" id="filterTrigger" aria-expanded="false">
-        <span class="filter-icon">☰</span>
-        <span>${esc(label)}</span>
-        ${current.color ? `<span class="swatch" style="background:${current.color}"></span>` : ""}
-        <span class="filter-chevron">⌄</span>
+    <div class="prio-filter" id="plannerFilterMenu">
+      <button type="button" class="prio-filter-btn" id="filterTrigger" aria-expanded="false">
+        <span class="prio-filter-icon">☰</span>
+        <span class="prio-filter-label">${esc(label)}</span>
+        ${current.color ? `<span class="prio-filter-dot" style="background:${current.color}"></span>` : ""}
+        <span class="prio-filter-chevron">⌄</span>
       </button>
-      <div class="filter-popover" id="filterPopover">
+      <div class="prio-filter-panel" id="filterPopover">
         ${chips.map((c, i) => `
-          <button type="button" class="filter-option ${activeFilter === c.id ? "active" : ""}" data-filter="${c.id}" style="--i:${i}">
-            ${c.color ? `<span class="swatch" style="background:${c.color}"></span>` : `<span class="swatch empty"></span>`}
-            <span>${esc(c.label)}</span>
-            ${activeFilter === c.id ? `<span class="filter-tick">✓</span>` : ""}
+          <button type="button" class="prio-filter-item ${activeFilter === c.id ? "active" : ""}" data-filter="${c.id}" style="--i:${i}">
+            ${c.color ? `<span class="prio-filter-dot" style="background:${c.color}"></span>` : `<span class="prio-filter-spacer"></span>`}
+            <span class="prio-filter-text">${esc(c.label)}</span>
+            ${activeFilter === c.id ? `<span class="prio-filter-tick">✓</span>` : ""}
           </button>`).join("")}
       </div>
     </div>`;
@@ -373,31 +373,29 @@ function renderFilterChips() {
   const menu = $("plannerFilterMenu");
   const trigger = $("filterTrigger");
   const popover = $("filterPopover");
-  const close = () => {
-    menu.classList.remove("open");
-    trigger.setAttribute("aria-expanded", "false");
-  };
 
   trigger.addEventListener("click", (e) => {
     e.stopPropagation();
-    const open = !menu.classList.contains("open");
-    document.querySelectorAll(".filter-menu.open").forEach((m) => m.classList.remove("open"));
-    menu.classList.toggle("open", open);
+    const open = menu.classList.toggle("open");
     trigger.setAttribute("aria-expanded", String(open));
   });
+  document.addEventListener("click", () => {
+    document.querySelectorAll(".prio-filter.open").forEach((m) => {
+      m.classList.remove("open");
+      const btn = m.querySelector(".prio-filter-btn");
+      if (btn) btn.setAttribute("aria-expanded", "false");
+    });
+  }, { once: true });
+  menu.addEventListener("click", (e) => e.stopPropagation());
 
-  popover.querySelectorAll(".filter-option").forEach((b) => {
-    b.addEventListener("click", (e) => {
-      e.stopPropagation();
+  popover.querySelectorAll(".prio-filter-item").forEach((b) => {
+    b.addEventListener("click", () => {
       activeFilter = b.dataset.filter;
-      close();
-      setTimeout(() => { renderFilterChips(); renderTasks(); }, 120);
+      menu.classList.remove("open");
+      renderFilterChips();
+      renderTasks();
     });
   });
-
-  setTimeout(() => {
-    document.addEventListener("click", close, { once: true });
-  }, 0);
 }
 
 // ---------- tasks ----------

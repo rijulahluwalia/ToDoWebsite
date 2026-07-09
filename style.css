@@ -2725,3 +2725,286 @@ input, select, textarea { font-family: inherit; font-size: 1rem; color: var(--in
   .planner-tabs button { padding: 9px 15px; }
   .filter-popover { min-width: min(240px, calc(100vw - 40px)); }
 }
+
+/* ============================================
+   PRIO · Stable micro-fix: date picker + filter polish
+   Fixes dark-mode contrast and prevents filter swatches/badges overflowing.
+   ============================================ */
+#datePickerModal .date-picker-modal {
+  width: min(420px, calc(100vw - 32px));
+  max-height: min(82dvh, 650px);
+  overflow: auto;
+  overscroll-behavior: contain;
+}
+#datePickerModal .date-picker-grid {
+  gap: 8px;
+}
+#datePickerModal .date-cell {
+  aspect-ratio: 1 / 1;
+  min-height: 0 !important;
+  display: grid;
+  place-items: center;
+  border: 1px solid transparent;
+  color: var(--ink);
+}
+#datePickerModal .date-cell.selected {
+  background: linear-gradient(135deg, var(--primary), color-mix(in srgb, var(--primary) 68%, #ffffff 16%)) !important;
+  color: #ffffff !important;
+  box-shadow: 0 12px 26px color-mix(in srgb, var(--primary) 26%, transparent) !important;
+}
+#datePickerModal .date-cell.today:not(.selected) {
+  background: var(--surface) !important;
+  color: var(--primary) !important;
+  box-shadow: inset 0 0 0 2px var(--primary) !important;
+}
+#datePickerModal .date-cell.blank {
+  background: transparent !important;
+  border-color: transparent !important;
+  box-shadow: none !important;
+}
+:root[data-theme="dark"] #datePickerModal .modal,
+:root[data-theme="dark"] #datePickerModal .date-picker-modal {
+  background: #20253b !important;
+  border: 1px solid rgba(255,255,255,0.08) !important;
+}
+:root[data-theme="dark"] #datePickerModal .quick-date-row button,
+:root[data-theme="dark"] #datePickerModal .date-month-head button,
+:root[data-theme="dark"] #datePickerModal .date-cell {
+  background: rgba(255,255,255,0.055) !important;
+  border: 1px solid rgba(255,255,255,0.075) !important;
+  color: #f5f7ff !important;
+  box-shadow: none !important;
+}
+:root[data-theme="dark"] #datePickerModal .quick-date-row button:hover,
+:root[data-theme="dark"] #datePickerModal .date-month-head button:hover,
+:root[data-theme="dark"] #datePickerModal .date-cell:not(.blank):hover {
+  background: color-mix(in srgb, var(--primary) 18%, rgba(255,255,255,0.08)) !important;
+  border-color: color-mix(in srgb, var(--primary) 38%, rgba(255,255,255,0.12)) !important;
+  color: #ffffff !important;
+}
+:root[data-theme="dark"] #datePickerModal .date-cell.today:not(.selected) {
+  background: rgba(255,255,255,0.075) !important;
+  color: #ffffff !important;
+  box-shadow: inset 0 0 0 2px var(--primary) !important;
+}
+:root[data-theme="dark"] #datePickerModal .date-cell.selected {
+  background: linear-gradient(135deg, var(--primary), color-mix(in srgb, var(--primary) 62%, #ffffff 20%)) !important;
+  color: #ffffff !important;
+  border-color: transparent !important;
+  box-shadow: 0 12px 26px color-mix(in srgb, var(--primary) 32%, transparent) !important;
+}
+:root[data-theme="dark"] #datePickerModal .date-cell.blank {
+  background: transparent !important;
+  border-color: transparent !important;
+}
+
+.filter-popover {
+  overflow: hidden;
+}
+.filter-option {
+  position: relative;
+  overflow: hidden;
+  isolation: isolate;
+}
+.filter-option::before,
+.filter-option::after,
+.filter-option .swatch::before,
+.filter-option .swatch::after {
+  content: none !important;
+  display: none !important;
+}
+.filter-option .swatch,
+.filter-option .swatch.empty {
+  width: 10px !important;
+  height: 10px !important;
+  min-width: 10px !important;
+  max-width: 10px !important;
+  min-height: 10px !important;
+  max-height: 10px !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  border-radius: 999px !important;
+  opacity: 1 !important;
+  transform: none !important;
+  box-shadow: none !important;
+  flex: 0 0 10px !important;
+}
+.filter-option .swatch.empty {
+  background: var(--line) !important;
+}
+.filter-option.active {
+  background: color-mix(in srgb, var(--primary) 14%, transparent) !important;
+  color: var(--ink) !important;
+}
+:root[data-theme="dark"] .filter-option.active {
+  background: color-mix(in srgb, var(--primary) 18%, rgba(255,255,255,0.045)) !important;
+  color: #ffffff !important;
+}
+:root[data-theme="dark"] .filter-option .swatch.empty {
+  background: rgba(255,255,255,0.18) !important;
+}
+@media (max-width: 520px) {
+  #datePickerModal .date-picker-modal {
+    width: min(420px, calc(100vw - 20px));
+    max-height: 86dvh;
+  }
+  #datePickerModal .date-picker-grid { gap: 6px; }
+}
+
+
+/* ============================================
+   PRIO · Stable micro-fix: filter dropdown dots
+   Removes the ghost oval caused by the old empty swatch elements.
+   ============================================ */
+.filter-trigger .filter-dot,
+.filter-option .filter-dot {
+  width: 10px !important;
+  height: 10px !important;
+  min-width: 10px !important;
+  max-width: 10px !important;
+  min-height: 10px !important;
+  max-height: 10px !important;
+  flex: 0 0 10px !important;
+  display: inline-block !important;
+  border-radius: 999px !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  opacity: 1 !important;
+  transform: none !important;
+  box-shadow: none !important;
+}
+.filter-option {
+  gap: 12px !important;
+}
+.filter-option.active {
+  background: color-mix(in srgb, var(--primary) 12%, var(--surface)) !important;
+}
+:root[data-theme="dark"] .filter-option.active {
+  background: rgba(255,255,255,0.075) !important;
+  color: var(--ink) !important;
+}
+.filter-option::before,
+.filter-option::after,
+.filter-trigger::before,
+.filter-trigger::after {
+  content: none !important;
+  display: none !important;
+}
+
+
+/* ============================================
+   PRIO · Filter dropdown hard reset
+   Uses new class names so old .empty/.swatch styles cannot create ghost ovals.
+   ============================================ */
+.planner-filter-wrap {
+  position: relative !important;
+  display: flex !important;
+  justify-content: flex-start !important;
+  margin: 2px 0 18px !important;
+  z-index: 80 !important;
+  background: transparent !important;
+  border: 0 !important;
+  box-shadow: none !important;
+}
+.prio-filter, .prio-filter * { box-sizing: border-box; }
+.prio-filter { position: relative; display: inline-block; background: transparent !important; border: 0 !important; box-shadow: none !important; }
+.prio-filter-btn {
+  min-height: 44px;
+  padding: 10px 16px;
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--ink);
+  font-weight: 850;
+  box-shadow: var(--shadow);
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  border: 1px solid rgba(23, 27, 54, 0.07);
+  transition: transform 0.28s var(--ease-spring), box-shadow 0.28s var(--ease-out), background 0.2s;
+}
+.prio-filter-btn:hover { transform: translateY(-2px); box-shadow: var(--shadow-lift); }
+.prio-filter-btn:active { transform: scale(0.98); }
+.prio-filter-icon { font-size: 0.9rem; opacity: 0.75; line-height: 1; }
+.prio-filter-label { line-height: 1; }
+.prio-filter-chevron { opacity: 0.65; transition: transform 0.34s var(--ease-spring); line-height: 1; }
+.prio-filter.open .prio-filter-chevron { transform: rotate(180deg); }
+.prio-filter-panel {
+  position: absolute;
+  top: calc(100% + 10px);
+  left: 0;
+  width: 230px;
+  max-width: calc(100vw - 40px);
+  padding: 8px;
+  border-radius: 20px;
+  background: color-mix(in srgb, var(--surface) 96%, white 4%);
+  box-shadow: var(--shadow-lift);
+  border: 1px solid rgba(23, 27, 54, 0.08);
+  transform-origin: top left;
+  transform: translateY(-8px) scale(0.96);
+  opacity: 0;
+  pointer-events: none;
+  transition: transform 0.36s var(--ease-spring), opacity 0.22s var(--ease-out);
+  z-index: 200;
+  overflow: hidden;
+}
+.prio-filter.open .prio-filter-panel { transform: translateY(0) scale(1); opacity: 1; pointer-events: auto; }
+.prio-filter-item {
+  width: 100%;
+  min-height: 42px;
+  padding: 11px 12px;
+  border-radius: 14px;
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  color: var(--ink-soft);
+  font-weight: 800;
+  text-align: left;
+  opacity: 0;
+  transform: translateY(-6px);
+  background: transparent;
+  border: 0;
+  box-shadow: none;
+  overflow: visible;
+  isolation: auto;
+  transition: background 0.2s var(--ease-out), color 0.2s var(--ease-out), transform 0.28s var(--ease-spring), opacity 0.22s var(--ease-out);
+}
+.prio-filter.open .prio-filter-item { opacity: 1; transform: translateY(0); transition-delay: calc(var(--i) * 35ms); }
+.prio-filter-item:hover { background: var(--bg); color: var(--ink); transform: translateX(3px); }
+.prio-filter-item.active { background: color-mix(in srgb, var(--primary) 13%, var(--surface)); color: var(--ink); }
+.prio-filter-dot {
+  width: 10px;
+  height: 10px;
+  flex: 0 0 10px;
+  border-radius: 999px;
+  display: inline-block;
+  padding: 0;
+  margin: 0;
+  opacity: 1;
+  transform: none;
+  box-shadow: none;
+}
+.prio-filter-spacer { width: 10px; height: 10px; flex: 0 0 10px; display: inline-block; }
+.prio-filter-text { flex: 1; min-width: 0; }
+.prio-filter-tick { margin-left: auto; font-weight: 950; }
+.prio-filter-item::before,
+.prio-filter-item::after,
+.prio-filter-btn::before,
+.prio-filter-btn::after,
+.prio-filter-dot::before,
+.prio-filter-dot::after,
+.prio-filter-spacer::before,
+.prio-filter-spacer::after { content: none !important; display: none !important; }
+:root[data-theme="dark"] .prio-filter-btn {
+  background: rgba(255,255,255,0.075) !important;
+  border: 1px solid rgba(255,255,255,0.09) !important;
+  color: var(--ink) !important;
+  box-shadow: 0 12px 28px rgba(0,0,0,0.20) !important;
+}
+:root[data-theme="dark"] .prio-filter-panel {
+  background: #20253b !important;
+  border: 1px solid rgba(255,255,255,0.08) !important;
+  box-shadow: 0 22px 46px rgba(0,0,0,0.34) !important;
+}
+:root[data-theme="dark"] .prio-filter-item { color: var(--ink-soft) !important; }
+:root[data-theme="dark"] .prio-filter-item:hover { background: rgba(255,255,255,0.07) !important; color: var(--ink) !important; }
+:root[data-theme="dark"] .prio-filter-item.active { background: rgba(255,255,255,0.085) !important; color: #fff !important; }
