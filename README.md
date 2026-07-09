@@ -1,10 +1,13 @@
-# Prio · your day, in colour
+# Rooted · grow a well-rooted life
 
-An animated, mobile-friendly to-do app with accounts, custom colour priorities, and a calendar. Built with plain HTML/CSS/JavaScript + Supabase, ready to deploy on Vercel.
+An animated, mobile-friendly life management app with accounts, a dashboard, planner, projects, routines, and a calendar. Built with plain HTML/CSS/JavaScript + Supabase, ready to deploy on Vercel.
 
 ## What's inside
 
-- **Sign up / log in** with email + password, including a SHOW/HIDE password button
+- **Dashboard** — quote of the day, habit streaks, today's red/yellow priorities, productivity score (with green-task bonus above 100%), today's wins, weather
+- **Planner** — Daily / Weekly / Monthly / Half-Yearly / Yearly tabs + an autosaving Brain Dump
+- **Projects (Phase 2)** — unlimited projects, each with autosaving notes, nested sections, and items with links, notes, and deadlines. Progress % updates live; the nearest deadline shows on each project card
+- **Routines (Phase 2)** — build master routines (steps with optional times) scheduled on chosen weekdays. On their days they auto-populate the Daily planner as a fresh per-day copy — check off, rename, add, or remove steps for *today only*; the master never changes
 - **Tasks** with title, notes, priority, and due date — add, edit, tick off, delete
 - **Colour lab** — the classic green/yellow/red comes built in, but you can rename any label, change its colour with a colour picker, or create brand-new ones
 - **Calendar** — every task with a due date shows as a coloured dot; tap a day to see or add tasks
@@ -16,7 +19,7 @@ An animated, mobile-friendly to-do app with accounts, custom colour priorities, 
 ### 1. Supabase
 
 1. Go to [supabase.com](https://supabase.com) → New project (free tier is fine).
-2. Once it's created, open **SQL Editor → New query**, paste the whole contents of `supabase/schema.sql`, and hit **Run**. This creates the `profiles`, `priorities`, and `tasks` tables with Row Level Security so each user only ever sees their own data.
+2. Once it's created, open **SQL Editor → New query** and run these three files in order (each once): `schema.sql`, then `schema-update.sql`, then `schema-update-2.sql`. Together they create the `profiles`, `priorities`, `tasks`, `habits`, `brain_dump`, `projects`, and `routines` tables (and friends), all with Row Level Security so each user only ever sees their own data. If your project already has the first two from earlier phases, just run `schema-update-2.sql`.
 3. Go to **Settings → API** and copy:
    - Project URL
    - `anon` `public` key
@@ -47,19 +50,20 @@ git push -u origin main
 ## File map
 
 ```
-prio/
-├── index.html          ← login / sign up page
-├── app.html            ← the app (tasks, calendar, colours, profile)
-├── css/style.css       ← all styling + animations
-├── js/config.js        ← paste your Supabase keys here
-├── js/auth.js          ← auth page logic
-├── js/app.js           ← app logic
-└── supabase/schema.sql ← run once in Supabase SQL Editor
+rooted/
+├── index.html            ← login / sign up page
+├── app.html              ← the app (dashboard, planner, projects, routines, calendar, colours, profile)
+├── style.css             ← all styling + animations
+├── config.js             ← paste your Supabase keys here
+├── auth.js               ← auth page logic
+├── app.js                ← app logic
+├── schema.sql            ← run once (base tables)
+├── schema-update.sql     ← run once (Phase 1: habits, brain dump, task scopes)
+└── schema-update-2.sql   ← run once (Phase 2: projects + routines)
 ```
 
-## Ideas for v2
+## Roadmap
 
-- Drag-and-drop reordering
-- Recurring tasks
-- Dark mode
-- Push/email reminders (Supabase Edge Functions)
+- **Phase 3:** University (notes + results/WAM) + Knowledge (nested folders)
+- **Phase 4:** Achievements & trophies, theme customisation + dark mode, reminders, Sunday review
+- Also on the list: drag-and-drop reordering, workout of the day, cycle tracker

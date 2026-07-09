@@ -46,6 +46,14 @@
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="5" width="18" height="16" rx="3"/><path d="M8 3v4M16 3v4M3 10h18"/></svg>
         Calendar
       </button>
+      <button data-view="projects">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 7a2 2 0 012-2h4l2 2h8a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V7z"/></svg>
+        Projects
+      </button>
+      <button data-view="routines">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 12a8 8 0 0113.7-5.6M20 12a8 8 0 01-13.7 5.6"/><path d="M17 3v4h4M7 21v-4H3"/></svg>
+        Routines
+      </button>
       <button data-view="colors">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><circle cx="9" cy="9" r="1.2" fill="currentColor"/><circle cx="15" cy="9" r="1.2" fill="currentColor"/><circle cx="9" cy="15" r="1.2" fill="currentColor"/><path d="M12 21a9 9 0 0 0 0-18"/></svg>
         Colours
@@ -123,6 +131,7 @@
         <button data-scope="dump">🧠 Brain Dump</button>
       </div>
       <div id="plannerBody">
+        <div id="routineToday"></div>
         <div class="chip-row fade-up d2" id="filterChips"></div>
         <div class="task-list" id="taskList"></div>
       </div>
@@ -146,6 +155,16 @@
         <div class="cal-grid" id="calGrid"></div>
       </div>
       <div class="day-panel" id="dayPanel"></div>
+    </section>
+
+    <!-- ================= PROJECTS VIEW ================= -->
+    <section class="view" id="view-projects">
+      <div id="projectsRoot"></div>
+    </section>
+
+    <!-- ================= ROUTINES VIEW ================= -->
+    <section class="view" id="view-routines">
+      <div id="routinesRoot"></div>
     </section>
 
     <!-- ================= COLOUR LAB VIEW ================= -->
@@ -217,6 +236,14 @@
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="5" width="18" height="16" rx="3"/><path d="M8 3v4M16 3v4M3 10h18"/></svg>
       Calendar
     </button>
+    <button data-view="projects">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 7a2 2 0 012-2h4l2 2h8a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V7z"/></svg>
+      Projects
+    </button>
+    <button data-view="routines">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 12a8 8 0 0113.7-5.6M20 12a8 8 0 01-13.7 5.6"/><path d="M17 3v4h4M7 21v-4H3"/></svg>
+      Routines
+    </button>
     <button data-view="colors">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><circle cx="9" cy="9" r="1.2" fill="currentColor"/><circle cx="15" cy="9" r="1.2" fill="currentColor"/><circle cx="9" cy="15" r="1.2" fill="currentColor"/><path d="M12 21a9 9 0 0 0 0-18"/></svg>
       Colours
@@ -269,6 +296,76 @@
       <div class="modal-actions">
         <button class="btn-cancel" id="habitCancel">Cancel</button>
         <button class="btn-primary" id="habitSave">Save habit</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Project modal (new / rename) -->
+  <div class="modal-backdrop" id="projectModal">
+    <div class="modal">
+      <h2 id="projectModalTitle">New project</h2>
+      <div class="field">
+        <label for="projectName">Project name</label>
+        <div class="input-shell"><input type="text" id="projectName" placeholder="e.g. Room Revamp" maxlength="60" /></div>
+      </div>
+      <div class="field">
+        <label>Icon</label>
+        <div class="emoji-row" id="projectEmojiRow"></div>
+      </div>
+      <div class="modal-actions">
+        <button class="btn-cancel" id="projectCancel">Cancel</button>
+        <button class="btn-primary" id="projectSave">Save project</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Project item modal -->
+  <div class="modal-backdrop" id="pitemModal">
+    <div class="modal">
+      <h2 id="pitemModalTitle">New item</h2>
+      <div class="field">
+        <label for="pitemTitle">What needs doing?</label>
+        <div class="input-shell"><input type="text" id="pitemTitle" placeholder="e.g. Get paint samples" /></div>
+      </div>
+      <div class="field">
+        <label for="pitemNotes">Notes (optional)</label>
+        <textarea id="pitemNotes" placeholder="Any details…"></textarea>
+      </div>
+      <div class="field">
+        <label for="pitemLink">Link (optional)</label>
+        <div class="input-shell"><input type="url" id="pitemLink" placeholder="https://…" /></div>
+      </div>
+      <div class="field">
+        <label for="pitemDate">Deadline (optional)</label>
+        <input type="date" id="pitemDate" />
+      </div>
+      <div class="modal-actions">
+        <button class="btn-cancel" id="pitemCancel">Cancel</button>
+        <button class="btn-primary" id="pitemSave">Save item</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Routine modal (new / edit name, icon, days) -->
+  <div class="modal-backdrop" id="routineModal">
+    <div class="modal">
+      <h2 id="routineModalTitle">New routine</h2>
+      <div class="field">
+        <label for="routineName">Routine name</label>
+        <div class="input-shell"><input type="text" id="routineName" placeholder="e.g. Morning Routine" maxlength="60" /></div>
+      </div>
+      <div class="field">
+        <label>Icon</label>
+        <div class="emoji-row" id="routineEmojiRow"></div>
+      </div>
+      <div class="field">
+        <label>Runs on</label>
+        <div class="day-toggle" id="routineDays"></div>
+        <p class="field-hint">The routine appears in your Daily planner on these days.</p>
+      </div>
+      <div class="modal-actions">
+        <button class="btn-cancel" id="routineCancel">Cancel</button>
+        <button class="btn-primary" id="routineSave">Save routine</button>
       </div>
     </div>
   </div>

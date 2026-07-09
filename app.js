@@ -17,6 +17,25 @@ let activeScope = "daily";     // planner tab
 let editingHabitId = null;
 let habitIcon = "⭐";
 
+// Phase 2 · Projects
+let projects = [];
+let projectSections = [];
+let projectItems = [];
+let openProjectId = null;      // null = grid, uuid = detail view
+let editingProjectId = null;   // project modal
+let projectIcon = "📂";
+let pitemCtx = null;           // { projectId, sectionId, itemId } for item modal
+
+// Phase 2 · Routines
+let routines = [];
+let routineSteps = [];         // master steps
+let dayRoutineSteps = [];      // today's editable copies
+let routineDayState = new Set(); // "routineId|YYYY-MM-DD"
+let openRoutineId = null;      // null = list, uuid = step editor
+let editingRoutineId = null;   // routine modal
+let routineIcon = "🔁";
+let routineDaysPick = "0123456";
+
 const $ = (id) => document.getElementById(id);
 const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) =>
   ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
@@ -52,12 +71,16 @@ async function init() {
   await loadPriorities();
   await loadTasks();
   await loadHabits();
+  await loadProjects();
+  await loadRoutines();
+  await ensureTodayRoutines();
 
   renderGreeting();
   renderQuote();
   renderAll();
   wireEvents();
   wireRootedEvents();
+  wirePhase2Events();
   loadWeather();
   loadDump();
 }
@@ -121,6 +144,9 @@ function renderAll() {
   renderPriorities();
   renderProfileForm();
   renderDashboard();
+  renderProjects();
+  renderRoutines();
+  renderTodayRoutines();
 }
 
 // ---------- navigation ----------
@@ -841,6 +867,7 @@ function syncPlannerTabs() {
   $("plannerBody").style.display = isDump ? "none" : "block";
   $("dumpBody").style.display = isDump ? "block" : "none";
   $("fabBtn").style.display = isDump ? "none" : "grid";
+  $("routineToday").style.display = activeScope === "daily" ? "block" : "none";
 }
 
 function wireRootedEvents() {
@@ -858,4 +885,734 @@ function wireRootedEvents() {
   $("habitSave").addEventListener("click", saveHabit);
   $("habitModal").addEventListener("click", (e) => { if (e.target.id === "habitModal") $("habitModal").classList.remove("open"); });
   $("habitName").addEventListener("keydown", (e) => { if (e.key === "Enter") saveHabit(); });
+}
+
+// ============================================
+// PHASE 2 · PROJECTS
+// ============================================
+const PROJECT_EMOJIS = ["📂", "🏠", "💼", "💍", "🕉️", "🏗️", "👶", "✈️", "💰", "🎨", "📚", "🌱", "🚗", "🎓", "🧳", "❤️"];
+
+async function loadProjects() {
+  const [{ data: p }, { data: s }, { data: it }] = await Promise.all([
+    db.from("projects").select("*").eq("user_id", user.id).order("position"),
+    db.from("project_sections").select("*").eq("user_id", user.id).order("position"),
+    db.from("project_items").select("*").eq("user_id", user.id).order("position").order("created_at"),
+  ]);
+  projects = p || [];
+  projectSections = s || [];
+  projectItems = it || [];
+}
+
+function projectProgress(pid) {
+  const items = projectItems.filter((i) => i.project_id === pid);
+  if (!items.length) return { pct: 0, done: 0, total: 0 };
+  const done = items.filter((i) => i.completed).length;
+  return { pct: Math.round((done / items.length) * 100), done, total: items.length };
+}
+
+function projectNextDeadline(pid) {
+  const today = todayStr();
+  const dates = projectItems
+    .filter((i) => i.project_id === pid && !i.completed && i.due_date && i.due_date >= today)
+    .map((i) => i.due_date).sort();
+  return dates[0] || null;
+}
+
+function renderProjects() {
+  const root = $("projectsRoot");
+  if (openProjectId && !projects.find((p) => p.id === openProjectId)) openProjectId = null;
+  if (openProjectId) return renderProjectDetail(root);
+
+  const cards = projects.map((p, i) => {
+    const prog = projectProgress(p.id);
+    const dl = projectNextDeadline(p.id);
+    return `
+    <div class="project-card fade-up" data-id="${p.id}" style="animation-delay:${Math.min(i * 0.06, 0.4)}s">
+      <div class="project-card-head">
+        <span class="project-icon">${esc(p.icon || "📂")}</span>
+        <span class="project-name">${esc(p.name)}</span>
+      </div>
+      <div class="progress"><div class="progress-fill" style="width:${prog.pct}%"></div></div>
+      <div class="project-meta">
+        <span><strong>${prog.pct}%</strong> · ${prog.done} of ${prog.total} done</span>
+        ${dl ? `<span class="project-deadline">⏰ ${niceDate(dl)}</span>` : ""}
+      </div>
+    </div>`;
+  }).join("");
+
+  root.innerHTML = `
+    <div class="section-head fade-up">
+      <h2>📂 Projects</h2>
+      <button class="btn-ghost" id="addProjectBtn">+ New project</button>
+    </div>
+    ${projects.length
+      ? `<div class="project-grid">${cards}</div>`
+      : `<div class="empty fade-up"><span class="emoji">📂</span>Big dreams live here. Create your first project.</div>`}`;
+
+  $("addProjectBtn").addEventListener("click", () => openProjectModal());
+  root.querySelectorAll(".project-card").forEach((el) =>
+    el.addEventListener("click", () => { openProjectId = el.dataset.id; renderProjects(); }));
+}
+
+function pitemHTML(it) {
+  const safeLink = it.link && /^https?:\/\//i.test(it.link) ? it.link : null;
+  return `
+    <div class="pitem ${it.completed ? "done" : ""}" data-id="${it.id}">
+      <button class="check" aria-label="Toggle done">
+        <svg viewBox="0 0 24 24"><path d="M5 13l4 4L19 7"/></svg>
+      </button>
+      <div class="pitem-body">
+        <div class="pitem-title">${esc(it.title)}</div>
+        <div class="task-meta">
+          ${it.due_date ? `<span>⏰ ${niceDate(it.due_date)}</span>` : ""}
+          ${safeLink ? `<a class="pitem-link" href="${esc(safeLink)}" target="_blank" rel="noopener">🔗 link</a>` : ""}
+        </div>
+        ${it.notes ? `<div class="task-notes">${esc(it.notes)}</div>` : ""}
+      </div>
+      <button class="icon-btn edit" aria-label="Edit item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 20l4-1L20 7l-3-3L5 16l-1 4z"/></svg></button>
+      <button class="icon-btn del" aria-label="Delete item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 7h16M9 7V5a1 1 0 011-1h4a1 1 0 011 1v2m-9 0l1 13h8l1-13"/></svg></button>
+    </div>`;
+}
+
+function sectionHTML(sec, depth) {
+  const items = projectItems.filter((i) => i.section_id === sec.id);
+  const children = projectSections.filter((s) => s.parent_id === sec.id);
+  return `
+  <div class="psection" data-id="${sec.id}" style="margin-left:${Math.min(depth, 4) * 18}px">
+    <div class="psection-head">
+      <span class="psection-name" data-id="${sec.id}" title="Click to rename">${esc(sec.name)}</span>
+      <div class="psection-tools">
+        <button class="btn-mini add-item" data-sec="${sec.id}">+ Item</button>
+        <button class="btn-mini add-sub" data-sec="${sec.id}">+ Section</button>
+        <button class="icon-btn del-sec" data-sec="${sec.id}" aria-label="Delete section"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 7h16M9 7V5a1 1 0 011-1h4a1 1 0 011 1v2m-9 0l1 13h8l1-13"/></svg></button>
+      </div>
+    </div>
+    ${items.length ? `<div class="pitem-list">${items.map(pitemHTML).join("")}</div>` : ""}
+    ${children.map((c) => sectionHTML(c, depth + 1)).join("")}
+  </div>`;
+}
+
+function renderProjectDetail(root) {
+  const p = projects.find((x) => x.id === openProjectId);
+  const prog = projectProgress(p.id);
+  const rootItems = projectItems.filter((i) => i.project_id === p.id && !i.section_id);
+  const rootSections = projectSections.filter((s) => s.project_id === p.id && !s.parent_id);
+
+  root.innerHTML = `
+    <div class="project-detail fade-up">
+      <div class="project-detail-top">
+        <button class="btn-back" id="projBack">‹ Projects</button>
+        <div class="project-detail-tools">
+          <button class="btn-mini" id="projRename">✏️ Edit</button>
+          <button class="btn-mini danger" id="projDelete">Delete</button>
+        </div>
+      </div>
+      <div class="project-detail-head">
+        <span class="project-icon big">${esc(p.icon || "📂")}</span>
+        <div style="flex:1;min-width:0">
+          <h2 class="project-detail-name">${esc(p.name)}</h2>
+          <div class="progress" style="margin-top:8px"><div class="progress-fill" style="width:${prog.pct}%"></div></div>
+          <div class="project-meta" style="margin-top:6px"><span><strong>${prog.pct}%</strong> complete · ${prog.done} of ${prog.total} items</span></div>
+        </div>
+      </div>
+
+      <div class="card" style="margin-top:16px">
+        <h3 style="margin-bottom:10px">📝 Notes & links</h3>
+        <textarea class="project-notes" id="projNotes" placeholder="Ideas, links, measurements, anything…">${esc(p.notes || "")}</textarea>
+        <div class="dump-hint" id="projNotesHint">Saves automatically</div>
+      </div>
+
+      <div class="card" style="margin-top:16px">
+        <div class="section-head" style="margin-bottom:12px">
+          <h3>✅ Tasks</h3>
+          <div style="display:flex;gap:8px">
+            <button class="btn-mini" id="projAddItem">+ Item</button>
+            <button class="btn-mini" id="projAddSection">+ Section</button>
+          </div>
+        </div>
+        ${rootItems.length ? `<div class="pitem-list">${rootItems.map(pitemHTML).join("")}</div>` : ""}
+        ${rootSections.map((s) => sectionHTML(s, 0)).join("")}
+        ${!rootItems.length && !rootSections.length
+          ? `<div class="empty" style="padding:20px"><span class="emoji">🌱</span>Add a first item or a section to structure this project.</div>` : ""}
+      </div>
+    </div>`;
+
+  $("projBack").addEventListener("click", () => { openProjectId = null; renderProjects(); });
+  $("projRename").addEventListener("click", () => openProjectModal(p.id));
+  $("projDelete").addEventListener("click", () => deleteProject(p.id));
+  $("projAddItem").addEventListener("click", () => openPitemModal(p.id, null));
+  $("projAddSection").addEventListener("click", () => addSection(p.id, null));
+
+  // notes autosave
+  let notesTimer = null;
+  $("projNotes").addEventListener("input", () => {
+    $("projNotesHint").textContent = "Saving…";
+    clearTimeout(notesTimer);
+    notesTimer = setTimeout(async () => {
+      const val = $("projNotes").value;
+      const { error } = await db.from("projects").update({ notes: val }).eq("id", p.id);
+      if (!error) p.notes = val;
+      $("projNotesHint").textContent = error ? "Couldn't save — check connection" : "Saved ✓";
+    }, 800);
+  });
+
+  // sections
+  root.querySelectorAll(".psection-name").forEach((el) =>
+    el.addEventListener("click", () => renameSection(el.dataset.id)));
+  root.querySelectorAll(".add-item").forEach((b) =>
+    b.addEventListener("click", () => openPitemModal(p.id, b.dataset.sec)));
+  root.querySelectorAll(".add-sub").forEach((b) =>
+    b.addEventListener("click", () => addSection(p.id, b.dataset.sec)));
+  root.querySelectorAll(".del-sec").forEach((b) =>
+    b.addEventListener("click", () => deleteSection(b.dataset.sec)));
+
+  // items
+  root.querySelectorAll(".pitem").forEach((el) => {
+    const id = el.dataset.id;
+    el.querySelector(".check").addEventListener("click", () => togglePitem(id));
+    el.querySelector(".edit").addEventListener("click", () => {
+      const it = projectItems.find((x) => x.id === id);
+      openPitemModal(it.project_id, it.section_id, id);
+    });
+    el.querySelector(".del").addEventListener("click", () => deletePitem(id));
+  });
+}
+
+// ---------- project CRUD ----------
+function openProjectModal(id = null) {
+  editingProjectId = id;
+  const p = id ? projects.find((x) => x.id === id) : null;
+  $("projectModalTitle").textContent = p ? "Edit project" : "New project";
+  $("projectName").value = p ? p.name : "";
+  projectIcon = p ? p.icon || "📂" : "📂";
+  $("projectEmojiRow").innerHTML = PROJECT_EMOJIS.map((e) =>
+    `<button type="button" class="${e === projectIcon ? "active" : ""}" data-e="${e}">${e}</button>`).join("");
+  $("projectEmojiRow").querySelectorAll("button").forEach((b) =>
+    b.addEventListener("click", () => {
+      projectIcon = b.dataset.e;
+      $("projectEmojiRow").querySelectorAll("button").forEach((x) => x.classList.toggle("active", x === b));
+    }));
+  $("projectModal").classList.add("open");
+  setTimeout(() => $("projectName").focus(), 250);
+}
+
+async function saveProject() {
+  const name = $("projectName").value.trim();
+  if (!name) return toast("Give your project a name");
+  if (editingProjectId) {
+    const { error } = await db.from("projects").update({ name, icon: projectIcon }).eq("id", editingProjectId);
+    if (error) return toast("Couldn't save — try again");
+    const p = projects.find((x) => x.id === editingProjectId);
+    p.name = name; p.icon = projectIcon;
+  } else {
+    const { data, error } = await db.from("projects")
+      .insert({ user_id: user.id, name, icon: projectIcon, position: projects.length }).select().single();
+    if (error) return toast("Couldn't save — try again");
+    projects.push(data);
+    openProjectId = data.id; // jump straight in
+  }
+  $("projectModal").classList.remove("open");
+  toast(editingProjectId ? "Project updated" : "Project created 📂");
+  editingProjectId = null;
+  renderProjects();
+}
+
+async function deleteProject(id) {
+  const p = projects.find((x) => x.id === id);
+  const count = projectItems.filter((i) => i.project_id === id).length;
+  if (!confirm(`Delete "${p.name}"${count ? ` and its ${count} item(s)` : ""}? This can't be undone.`)) return;
+  const { error } = await db.from("projects").delete().eq("id", id);
+  if (error) return toast("Couldn't delete — try again");
+  projects = projects.filter((x) => x.id !== id);
+  projectSections = projectSections.filter((s) => s.project_id !== id);
+  projectItems = projectItems.filter((i) => i.project_id !== id);
+  openProjectId = null;
+  renderProjects();
+  toast("Project deleted");
+}
+
+// ---------- sections ----------
+async function addSection(projectId, parentId) {
+  const name = (prompt("Section name:") || "").trim();
+  if (!name) return;
+  const siblings = projectSections.filter((s) => s.project_id === projectId && s.parent_id === (parentId || null));
+  const { data, error } = await db.from("project_sections")
+    .insert({ project_id: projectId, parent_id: parentId || null, user_id: user.id, name, position: siblings.length })
+    .select().single();
+  if (error) return toast("Couldn't create section — try again");
+  projectSections.push(data);
+  renderProjects();
+}
+
+async function renameSection(id) {
+  const s = projectSections.find((x) => x.id === id);
+  const name = (prompt("Rename section:", s.name) || "").trim();
+  if (!name || name === s.name) return;
+  const { error } = await db.from("project_sections").update({ name }).eq("id", id);
+  if (error) return toast("Couldn't rename — try again");
+  s.name = name;
+  renderProjects();
+}
+
+function descendantSections(id) {
+  const kids = projectSections.filter((s) => s.parent_id === id);
+  return kids.reduce((acc, k) => acc.concat(k.id, descendantSections(k.id)), []);
+}
+
+async function deleteSection(id) {
+  const s = projectSections.find((x) => x.id === id);
+  const ids = [id, ...descendantSections(id)];
+  const count = projectItems.filter((i) => ids.includes(i.section_id)).length;
+  if (!confirm(`Delete section "${s.name}"${count ? ` and its ${count} item(s)` : ""}?`)) return;
+  const { error } = await db.from("project_sections").delete().eq("id", id);
+  if (error) return toast("Couldn't delete — try again");
+  projectSections = projectSections.filter((x) => !ids.includes(x.id));
+  projectItems = projectItems.filter((i) => !ids.includes(i.section_id));
+  renderProjects();
+}
+
+// ---------- project items ----------
+function openPitemModal(projectId, sectionId, itemId = null) {
+  pitemCtx = { projectId, sectionId: sectionId || null, itemId };
+  const it = itemId ? projectItems.find((x) => x.id === itemId) : null;
+  $("pitemModalTitle").textContent = it ? "Edit item" : "New item";
+  $("pitemTitle").value = it ? it.title : "";
+  $("pitemNotes").value = it ? it.notes || "" : "";
+  $("pitemLink").value = it ? it.link || "" : "";
+  $("pitemDate").value = it ? it.due_date || "" : "";
+  $("pitemModal").classList.add("open");
+  setTimeout(() => $("pitemTitle").focus(), 250);
+}
+
+async function savePitem() {
+  const title = $("pitemTitle").value.trim();
+  if (!title) return toast("Give the item a name first");
+  let link = $("pitemLink").value.trim();
+  if (link && !/^https?:\/\//i.test(link)) link = "https://" + link;
+  const payload = {
+    title,
+    notes: $("pitemNotes").value.trim() || null,
+    link: link || null,
+    due_date: $("pitemDate").value || null,
+  };
+  const btn = $("pitemSave");
+  btn.disabled = true;
+  let error, data;
+  if (pitemCtx.itemId) {
+    ({ error } = await db.from("project_items").update(payload).eq("id", pitemCtx.itemId));
+  } else {
+    const siblings = projectItems.filter((i) => i.project_id === pitemCtx.projectId && i.section_id === pitemCtx.sectionId);
+    ({ data, error } = await db.from("project_items")
+      .insert({ ...payload, project_id: pitemCtx.projectId, section_id: pitemCtx.sectionId, user_id: user.id, position: siblings.length })
+      .select().single());
+  }
+  btn.disabled = false;
+  if (error) return toast("Couldn't save — try again");
+  if (pitemCtx.itemId) {
+    const it = projectItems.find((x) => x.id === pitemCtx.itemId);
+    Object.assign(it, payload);
+  } else {
+    projectItems.push(data);
+  }
+  $("pitemModal").classList.remove("open");
+  toast(pitemCtx.itemId ? "Item updated" : "Item added ✨");
+  pitemCtx = null;
+  renderProjects();
+}
+
+async function togglePitem(id) {
+  const it = projectItems.find((x) => x.id === id);
+  it.completed = !it.completed;
+  it.completed_at = it.completed ? new Date().toISOString() : null;
+  renderProjects();
+  const { error } = await db.from("project_items")
+    .update({ completed: it.completed, completed_at: it.completed_at }).eq("id", id);
+  if (error) {
+    it.completed = !it.completed;
+    renderProjects();
+    return toast("Couldn't save — try again");
+  }
+  if (it.completed) toast("Nice one ✓");
+}
+
+async function deletePitem(id) {
+  const { error } = await db.from("project_items").delete().eq("id", id);
+  if (error) return toast("Couldn't delete — try again");
+  projectItems = projectItems.filter((x) => x.id !== id);
+  renderProjects();
+  toast("Item removed");
+}
+
+// ============================================
+// PHASE 2 · ROUTINES (master vs today's copy)
+// ============================================
+const ROUTINE_EMOJIS = ["🔁", "🌅", "🌙", "🏋️", "🧘", "🧖", "🚿", "🧴", "🧹", "📅", "☕", "📖", "🙏", "💆", "🥗", "🛏️"];
+const DOW_LABELS = ["S", "M", "T", "W", "T", "F", "S"];
+
+async function loadRoutines() {
+  const today = todayStr();
+  const [{ data: r }, { data: s }, { data: d }, { data: st }] = await Promise.all([
+    db.from("routines").select("*").eq("user_id", user.id).order("position"),
+    db.from("routine_steps").select("*").eq("user_id", user.id).order("position"),
+    db.from("routine_day_steps").select("*").eq("user_id", user.id).eq("date", today).order("position"),
+    db.from("routine_day_state").select("routine_id,date").eq("user_id", user.id).eq("date", today),
+  ]);
+  routines = r || [];
+  routineSteps = s || [];
+  dayRoutineSteps = d || [];
+  routineDayState = new Set((st || []).map((x) => x.routine_id + "|" + x.date));
+}
+
+function routinesDueToday() {
+  const dow = String(new Date().getDay());
+  return routines.filter((r) => (r.days || "0123456").includes(dow));
+}
+
+// Copy master steps into today's editable rows — once per routine per day.
+async function ensureTodayRoutines() {
+  const today = todayStr();
+  for (const r of routinesDueToday()) {
+    if (routineDayState.has(r.id + "|" + today)) continue;
+    const steps = routineSteps.filter((s) => s.routine_id === r.id);
+    // A routine with no master steps yet isn't frozen for today — steps the
+    // user is still adding will flow into today's copy on the next visit.
+    if (!steps.length) continue;
+    const copies = steps.map((s, i) => ({
+      routine_id: r.id, user_id: user.id, date: today,
+      title: s.title, time_hint: s.time_hint, position: i,
+    }));
+    const { data } = await db.from("routine_day_steps").insert(copies).select();
+    if (data) dayRoutineSteps.push(...data);
+    await db.from("routine_day_state").insert({ routine_id: r.id, user_id: user.id, date: today });
+    routineDayState.add(r.id + "|" + today);
+  }
+}
+
+function fmtTime(hhmm) {
+  if (!hhmm) return "";
+  const [h, m] = hhmm.split(":").map(Number);
+  if (isNaN(h)) return esc(hhmm);
+  const ampm = h >= 12 ? "pm" : "am";
+  const hr = h % 12 || 12;
+  return `${hr}:${String(m || 0).padStart(2, "0")} ${ampm}`;
+}
+
+// ---------- today's routines in the Daily planner ----------
+function renderTodayRoutines() {
+  const wrap = $("routineToday");
+  const due = routinesDueToday();
+  if (!due.length) { wrap.innerHTML = ""; return; }
+
+  wrap.innerHTML = due.map((r) => {
+    const steps = dayRoutineSteps.filter((s) => s.routine_id === r.id).sort((a, b) => a.position - b.position);
+    const done = steps.filter((s) => s.done).length;
+    return `
+    <div class="routine-block fade-up" data-id="${r.id}">
+      <div class="routine-block-head">
+        <span class="routine-block-title">${esc(r.icon || "🔁")} ${esc(r.name)}</span>
+        <span class="routine-block-count">${done}/${steps.length}</span>
+      </div>
+      ${steps.length ? steps.map((s) => `
+        <div class="rstep ${s.done ? "done" : ""}" data-id="${s.id}">
+          <button class="rstep-check" aria-label="Toggle step">✓</button>
+          ${s.time_hint ? `<span class="rstep-time">${fmtTime(s.time_hint)}</span>` : ""}
+          <span class="rstep-title" title="Click to rename (today only)">${esc(s.title)}</span>
+          <button class="rstep-del" title="Remove for today only" aria-label="Remove step today">×</button>
+        </div>`).join("")
+      : `<div class="rstep-empty">No steps for today.</div>`}
+      <button class="btn-mini rstep-add" data-r="${r.id}">+ Step (today only)</button>
+    </div>`;
+  }).join("") + `<div class="routine-note">Changes here only affect today — your master routines stay untouched. Edit them in the Routines tab.</div>`;
+
+  wrap.querySelectorAll(".rstep").forEach((el) => {
+    const id = el.dataset.id;
+    el.querySelector(".rstep-check").addEventListener("click", () => toggleDayStep(id));
+    el.querySelector(".rstep-title").addEventListener("click", () => renameDayStep(id));
+    el.querySelector(".rstep-del").addEventListener("click", () => removeDayStep(id));
+  });
+  wrap.querySelectorAll(".rstep-add").forEach((b) =>
+    b.addEventListener("click", () => addDayStep(b.dataset.r)));
+}
+
+async function toggleDayStep(id) {
+  const s = dayRoutineSteps.find((x) => x.id === id);
+  s.done = !s.done;
+  renderTodayRoutines();
+  const { error } = await db.from("routine_day_steps").update({ done: s.done }).eq("id", id);
+  if (error) { s.done = !s.done; renderTodayRoutines(); return toast("Couldn't save — try again"); }
+  const r = routines.find((x) => x.id === s.routine_id);
+  const steps = dayRoutineSteps.filter((x) => x.routine_id === s.routine_id);
+  if (s.done && steps.length && steps.every((x) => x.done)) toast(`${r ? r.name : "Routine"} complete! 🌟`);
+}
+
+async function renameDayStep(id) {
+  const s = dayRoutineSteps.find((x) => x.id === id);
+  const title = (prompt("Rename step (today only):", s.title) || "").trim();
+  if (!title || title === s.title) return;
+  const { error } = await db.from("routine_day_steps").update({ title }).eq("id", id);
+  if (error) return toast("Couldn't save — try again");
+  s.title = title;
+  renderTodayRoutines();
+}
+
+async function removeDayStep(id) {
+  const { error } = await db.from("routine_day_steps").delete().eq("id", id);
+  if (error) return toast("Couldn't remove — try again");
+  dayRoutineSteps = dayRoutineSteps.filter((x) => x.id !== id);
+  renderTodayRoutines();
+  toast("Removed for today");
+}
+
+async function addDayStep(routineId) {
+  const title = (prompt("Step to add (today only):") || "").trim();
+  if (!title) return;
+  const siblings = dayRoutineSteps.filter((x) => x.routine_id === routineId);
+  const today = todayStr();
+  const { data, error } = await db.from("routine_day_steps")
+    .insert({ routine_id: routineId, user_id: user.id, date: today, title, position: siblings.length })
+    .select().single();
+  if (error) return toast("Couldn't add — try again");
+  dayRoutineSteps.push(data);
+  // Adding a today-only step freezes today's copy so master steps don't pile on top later
+  if (!routineDayState.has(routineId + "|" + today)) {
+    await db.from("routine_day_state").insert({ routine_id: routineId, user_id: user.id, date: today });
+    routineDayState.add(routineId + "|" + today);
+  }
+  renderTodayRoutines();
+}
+
+// ---------- routines management view ----------
+function renderRoutines() {
+  const root = $("routinesRoot");
+  if (openRoutineId && !routines.find((r) => r.id === openRoutineId)) openRoutineId = null;
+  if (openRoutineId) return renderRoutineEditor(root);
+
+  const cards = routines.map((r, i) => {
+    const steps = routineSteps.filter((s) => s.routine_id === r.id).length;
+    const days = (r.days || "0123456");
+    const chips = DOW_LABELS.map((l, d) =>
+      `<span class="dow-chip ${days.includes(String(d)) ? "on" : ""}">${l}</span>`).join("");
+    return `
+    <div class="routine-card fade-up" data-id="${r.id}" style="animation-delay:${Math.min(i * 0.06, 0.4)}s">
+      <span class="project-icon">${esc(r.icon || "🔁")}</span>
+      <div style="flex:1;min-width:0">
+        <div class="project-name">${esc(r.name)}</div>
+        <div class="routine-card-sub">${steps} step${steps === 1 ? "" : "s"}</div>
+      </div>
+      <div class="dow-row">${chips}</div>
+    </div>`;
+  }).join("");
+
+  root.innerHTML = `
+    <div class="section-head fade-up">
+      <h2>🔁 Routines</h2>
+      <button class="btn-ghost" id="addRoutineBtn">+ New routine</button>
+    </div>
+    <p style="color:var(--ink-soft);margin-bottom:16px;font-size:0.92rem">
+      Build your master routines here. On their scheduled days they appear in the Daily planner as a fresh copy — edit that copy freely, the master never changes.
+    </p>
+    ${routines.length
+      ? `<div class="routine-list">${cards}</div>`
+      : `<div class="empty fade-up"><span class="emoji">🔁</span>Create a routine — mornings are a good place to start.</div>`}`;
+
+  $("addRoutineBtn").addEventListener("click", () => openRoutineModal());
+  root.querySelectorAll(".routine-card").forEach((el) =>
+    el.addEventListener("click", () => { openRoutineId = el.dataset.id; renderRoutines(); }));
+}
+
+function renderRoutineEditor(root) {
+  const r = routines.find((x) => x.id === openRoutineId);
+  const steps = routineSteps.filter((s) => s.routine_id === r.id).sort((a, b) => a.position - b.position);
+  const days = (r.days || "0123456");
+  const chips = DOW_LABELS.map((l, d) =>
+    `<span class="dow-chip ${days.includes(String(d)) ? "on" : ""}">${l}</span>`).join("");
+
+  root.innerHTML = `
+    <div class="fade-up">
+      <div class="project-detail-top">
+        <button class="btn-back" id="routBack">‹ Routines</button>
+        <div class="project-detail-tools">
+          <button class="btn-mini" id="routEdit">✏️ Edit</button>
+          <button class="btn-mini danger" id="routDelete">Delete</button>
+        </div>
+      </div>
+      <div class="project-detail-head">
+        <span class="project-icon big">${esc(r.icon || "🔁")}</span>
+        <div>
+          <h2 class="project-detail-name">${esc(r.name)}</h2>
+          <div class="dow-row" style="margin-top:6px">${chips}</div>
+        </div>
+      </div>
+      <div class="card" style="margin-top:16px">
+        <div class="section-head" style="margin-bottom:12px">
+          <h3>Master steps</h3>
+          <button class="btn-mini" id="routAddStep">+ Step</button>
+        </div>
+        <p style="font-size:0.8rem;color:var(--ink-soft);margin-bottom:12px">These are the template. Tomorrow's planner copy comes from here — today's copy (if already created) stays as it is.</p>
+        <div id="routStepList">
+          ${steps.length ? steps.map((s, i) => `
+            <div class="rstep-edit" data-id="${s.id}">
+              <input type="time" class="rstep-time-input" value="${esc(s.time_hint || "")}" aria-label="Step time" />
+              <input type="text" class="rstep-title-input" value="${esc(s.title)}" maxlength="120" aria-label="Step title" />
+              <button class="icon-btn move up" title="Move up" ${i === 0 ? "disabled style='opacity:0.3'" : ""}><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 19V5M5 12l7-7 7 7"/></svg></button>
+              <button class="icon-btn move down" title="Move down" ${i === steps.length - 1 ? "disabled style='opacity:0.3'" : ""}><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12l7 7 7-7"/></svg></button>
+              <button class="icon-btn del" title="Delete step"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 7h16M9 7V5a1 1 0 011-1h4a1 1 0 011 1v2m-9 0l1 13h8l1-13"/></svg></button>
+            </div>`).join("")
+          : `<div class="empty" style="padding:20px"><span class="emoji">📝</span>Add the first step of this routine.</div>`}
+        </div>
+      </div>
+    </div>`;
+
+  $("routBack").addEventListener("click", () => { openRoutineId = null; renderRoutines(); });
+  $("routEdit").addEventListener("click", () => openRoutineModal(r.id));
+  $("routDelete").addEventListener("click", () => deleteRoutine(r.id));
+  $("routAddStep").addEventListener("click", () => addRoutineStep(r.id));
+
+  root.querySelectorAll(".rstep-edit").forEach((row) => {
+    const id = row.dataset.id;
+    row.querySelector(".rstep-title-input").addEventListener("change", async (e) => {
+      const title = e.target.value.trim();
+      const s = routineSteps.find((x) => x.id === id);
+      if (!title) { e.target.value = s.title; return; }
+      const { error } = await db.from("routine_steps").update({ title }).eq("id", id);
+      if (error) return toast("Couldn't save — try again");
+      s.title = title;
+    });
+    row.querySelector(".rstep-time-input").addEventListener("change", async (e) => {
+      const time_hint = e.target.value || null;
+      const { error } = await db.from("routine_steps").update({ time_hint }).eq("id", id);
+      if (error) return toast("Couldn't save — try again");
+      routineSteps.find((x) => x.id === id).time_hint = time_hint;
+    });
+    row.querySelector(".up").addEventListener("click", () => moveRoutineStep(r.id, id, -1));
+    row.querySelector(".down").addEventListener("click", () => moveRoutineStep(r.id, id, 1));
+    row.querySelector(".del").addEventListener("click", () => deleteRoutineStep(id));
+  });
+}
+
+async function addRoutineStep(routineId) {
+  const title = (prompt("Step:") || "").trim();
+  if (!title) return;
+  const siblings = routineSteps.filter((s) => s.routine_id === routineId);
+  const { data, error } = await db.from("routine_steps")
+    .insert({ routine_id: routineId, user_id: user.id, title, position: siblings.length })
+    .select().single();
+  if (error) return toast("Couldn't add — try again");
+  routineSteps.push(data);
+  renderRoutines();
+}
+
+async function moveRoutineStep(routineId, id, dir) {
+  const list = routineSteps.filter((s) => s.routine_id === routineId).sort((a, b) => a.position - b.position);
+  const i = list.findIndex((s) => s.id === id);
+  const j = i + dir;
+  if (j < 0 || j >= list.length) return;
+  [list[i], list[j]] = [list[j], list[i]];
+  list.forEach((s, idx) => (s.position = idx));
+  renderRoutines();
+  await Promise.all(list.map((s) => db.from("routine_steps").update({ position: s.position }).eq("id", s.id)));
+}
+
+async function deleteRoutineStep(id) {
+  const { error } = await db.from("routine_steps").delete().eq("id", id);
+  if (error) return toast("Couldn't delete — try again");
+  routineSteps = routineSteps.filter((x) => x.id !== id);
+  renderRoutines();
+}
+
+// ---------- routine CRUD ----------
+function openRoutineModal(id = null) {
+  editingRoutineId = id;
+  const r = id ? routines.find((x) => x.id === id) : null;
+  $("routineModalTitle").textContent = r ? "Edit routine" : "New routine";
+  $("routineName").value = r ? r.name : "";
+  routineIcon = r ? r.icon || "🔁" : "🔁";
+  routineDaysPick = r ? (r.days || "0123456") : "0123456";
+  $("routineEmojiRow").innerHTML = ROUTINE_EMOJIS.map((e) =>
+    `<button type="button" class="${e === routineIcon ? "active" : ""}" data-e="${e}">${e}</button>`).join("");
+  $("routineEmojiRow").querySelectorAll("button").forEach((b) =>
+    b.addEventListener("click", () => {
+      routineIcon = b.dataset.e;
+      $("routineEmojiRow").querySelectorAll("button").forEach((x) => x.classList.toggle("active", x === b));
+    }));
+  renderRoutineDayPick();
+  $("routineModal").classList.add("open");
+  setTimeout(() => $("routineName").focus(), 250);
+}
+
+function renderRoutineDayPick() {
+  $("routineDays").innerHTML = DOW_LABELS.map((l, d) =>
+    `<button type="button" class="dow-btn ${routineDaysPick.includes(String(d)) ? "on" : ""}" data-d="${d}">${l}</button>`).join("");
+  $("routineDays").querySelectorAll(".dow-btn").forEach((b) =>
+    b.addEventListener("click", () => {
+      const d = b.dataset.d;
+      routineDaysPick = routineDaysPick.includes(d)
+        ? routineDaysPick.replace(d, "")
+        : (routineDaysPick + d).split("").sort().join("");
+      renderRoutineDayPick();
+    }));
+}
+
+async function saveRoutine() {
+  const name = $("routineName").value.trim();
+  if (!name) return toast("Give your routine a name");
+  if (!routineDaysPick) return toast("Pick at least one day");
+  if (editingRoutineId) {
+    const { error } = await db.from("routines")
+      .update({ name, icon: routineIcon, days: routineDaysPick }).eq("id", editingRoutineId);
+    if (error) return toast("Couldn't save — try again");
+    const r = routines.find((x) => x.id === editingRoutineId);
+    r.name = name; r.icon = routineIcon; r.days = routineDaysPick;
+  } else {
+    const { data, error } = await db.from("routines")
+      .insert({ user_id: user.id, name, icon: routineIcon, days: routineDaysPick, position: routines.length })
+      .select().single();
+    if (error) return toast("Couldn't save — try again");
+    routines.push(data);
+    openRoutineId = data.id; // jump straight into the step editor
+  }
+  $("routineModal").classList.remove("open");
+  toast(editingRoutineId ? "Routine updated" : "Routine created 🔁");
+  editingRoutineId = null;
+  await ensureTodayRoutines(); // if it runs today, it shows up today
+  renderRoutines();
+  renderTodayRoutines();
+}
+
+async function deleteRoutine(id) {
+  const r = routines.find((x) => x.id === id);
+  if (!confirm(`Delete "${r.name}" and all its history?`)) return;
+  const { error } = await db.from("routines").delete().eq("id", id);
+  if (error) return toast("Couldn't delete — try again");
+  routines = routines.filter((x) => x.id !== id);
+  routineSteps = routineSteps.filter((s) => s.routine_id !== id);
+  dayRoutineSteps = dayRoutineSteps.filter((s) => s.routine_id !== id);
+  openRoutineId = null;
+  renderRoutines();
+  renderTodayRoutines();
+  toast("Routine deleted");
+}
+
+// ---------- phase 2 wiring ----------
+function wirePhase2Events() {
+  // opening the Daily tab picks up any routines created/edited this session
+  $("plannerTabs").querySelectorAll("button").forEach((b) =>
+    b.addEventListener("click", async () => {
+      if (b.dataset.scope === "daily") { await ensureTodayRoutines(); renderTodayRoutines(); }
+    }));
+
+  $("projectCancel").addEventListener("click", () => $("projectModal").classList.remove("open"));
+  $("projectSave").addEventListener("click", saveProject);
+  $("projectModal").addEventListener("click", (e) => { if (e.target.id === "projectModal") $("projectModal").classList.remove("open"); });
+  $("projectName").addEventListener("keydown", (e) => { if (e.key === "Enter") saveProject(); });
+
+  $("pitemCancel").addEventListener("click", () => $("pitemModal").classList.remove("open"));
+  $("pitemSave").addEventListener("click", savePitem);
+  $("pitemModal").addEventListener("click", (e) => { if (e.target.id === "pitemModal") $("pitemModal").classList.remove("open"); });
+  $("pitemTitle").addEventListener("keydown", (e) => { if (e.key === "Enter") savePitem(); });
+
+  $("routineCancel").addEventListener("click", () => $("routineModal").classList.remove("open"));
+  $("routineSave").addEventListener("click", saveRoutine);
+  $("routineModal").addEventListener("click", (e) => { if (e.target.id === "routineModal") $("routineModal").classList.remove("open"); });
+  $("routineName").addEventListener("keydown", (e) => { if (e.key === "Enter") saveRoutine(); });
 }
