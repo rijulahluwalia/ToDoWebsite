@@ -7,6 +7,7 @@ let profile = null;
 let priorities = [];
 let tasks = [];
 let activeFilter = "all";      // "all" | priority id | "done"
+let filterMenuOpen = false;
 let editingTaskId = null;
 let modalPriorityId = null;
 let selectedDate = null;       // "YYYY-MM-DD" chosen in calendar
@@ -36,14 +37,6 @@ let editingRoutineId = null;   // routine modal
 let routineIcon = "🔁";
 let routineDaysPick = "0123456";
 
-// Phase 3 · University starter
-let uniSubjects = [];
-let uniClasses = [];
-let uniAssessments = [];
-let assessmentSteps = [];
-let openUniSubjectId = null;
-let openAssessmentId = null;
-
 const $ = (id) => document.getElementById(id);
 const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) =>
   ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
@@ -54,47 +47,6 @@ const DEFAULT_PRIORITIES = [
   { name: "High", color: "#f0455a", position: 2 },
 ];
 const PRESET_COLORS = ["#2fbf71", "#f5a623", "#f0455a", "#4353ff", "#8a63ff", "#ff6fae", "#18c2c2", "#171b36"];
-
-// Phase 4 · Theme studio + review
-const THEME_ACCENTS = [
-  { name: "Prio Blue", color: "#4353ff" },
-  { name: "Lavender", color: "#8a63ff" },
-  { name: "Rose", color: "#ff6fae" },
-  { name: "Mint", color: "#18c2c2" },
-  { name: "Sunset", color: "#ff8a3d" },
-];
-const defaultTheme = { mode: "light", accent: "#4353ff" };
-function getTheme() {
-  try { return { ...defaultTheme, ...(JSON.parse(localStorage.getItem("prioTheme") || "{}")) }; }
-  catch { return defaultTheme; }
-}
-function setTheme(next) {
-  const theme = { ...getTheme(), ...next };
-  localStorage.setItem("prioTheme", JSON.stringify(theme));
-  applyTheme();
-  renderThemeStudio?.();
-}
-function applyTheme() {
-  const theme = getTheme();
-  document.documentElement.dataset.theme = theme.mode;
-  document.documentElement.style.setProperty("--primary", theme.accent);
-  document.documentElement.style.setProperty("--primary-deep", shadeHex(theme.accent, -18));
-  document.documentElement.style.setProperty("--primary-soft", softHex(theme.accent));
-}
-function shadeHex(hex, pct) {
-  const n = parseInt(hex.replace("#", ""), 16);
-  const amt = Math.round(2.55 * pct);
-  const r = Math.max(0, Math.min(255, (n >> 16) + amt));
-  const g = Math.max(0, Math.min(255, ((n >> 8) & 255) + amt));
-  const b = Math.max(0, Math.min(255, (n & 255) + amt));
-  return `#${(1 << 24 | r << 16 | g << 8 | b).toString(16).slice(1)}`;
-}
-function softHex(hex) {
-  const n = parseInt(hex.replace("#", ""), 16);
-  const r = n >> 16, g = (n >> 8) & 255, b = n & 255;
-  return `rgba(${r}, ${g}, ${b}, 0.14)`;
-}
-applyTheme();
 
 // ---------- boot ----------
 runSplash();
@@ -122,18 +74,14 @@ async function init() {
   await loadHabits();
   await loadProjects();
   await loadRoutines();
-  await loadUni();
   await ensureTodayRoutines();
 
   renderGreeting();
   renderQuote();
   renderAll();
   wireEvents();
-  wirePrioEvents();
+  wireRootedEvents();
   wirePhase2Events();
-  wireDatePickerEvents();
-  wireUniEvents();
-  initPullToRefresh();
   loadWeather();
   loadDump();
 }
@@ -170,133 +118,6 @@ function toast(msg) {
   clearTimeout(t._timer);
   t._timer = setTimeout(() => t.classList.remove("show"), 2400);
 }
-
-function setMenu(open) {
-  const backdrop = $("menuBackdrop");
-  const trigger = $("menuBtn");
-  if (!backdrop || !trigger) return;
-  backdrop.classList.toggle("open", open);
-  trigger.classList.toggle("open", open);
-  trigger.setAttribute("aria-expanded", String(open));
-  backdrop.setAttribute("aria-hidden", String(!open));
-}
-
-
-function initPullToRefresh() {
-  const indicator = $("pullRefresh");
-  const text = $("pullRefreshText");
-  if (!indicator || !text || indicator.dataset.ready === "1") return;
-  indicator.dataset.ready = "1";
-
-  let startY = 0;
-  let pulling = false;
-  let distance = 0;
-  const threshold = 92;
-
-  const setPull = (y) => {
-    const eased = Math.min(118, Math.pow(y, 0.86) * 1.55);
-    indicator.classList.add("visible");
-    indicator.style.transform = `translate(-50%, ${eased - 86}px) scale(${Math.min(1, 0.9 + eased / 520)})`;
-    const ready = y > threshold;
-    indicator.classList.toggle("ready", ready);
-    text.textContent = ready ? "Release to refresh" : "Pull to refresh";
-  };
-
-  window.addEventListener("touchstart", (e) => {
-    if (window.scrollY > 0 || document.body.classList.contains("modal-open")) return;
-    startY = e.touches[0].clientY;
-    pulling = true;
-    distance = 0;
-  }, { passive: true });
-
-  window.addEventListener("touchmove", (e) => {
-    if (!pulling || window.scrollY > 0) return;
-    const currentY = e.touches[0].clientY;
-    distance = Math.max(0, currentY - startY);
-    if (distance < 8) return;
-    setPull(distance);
-  }, { passive: true });
-
-  window.addEventListener("touchend", () => {
-    if (!pulling) return;
-    pulling = false;
-    if (distance > threshold) {
-      indicator.classList.add("visible", "refreshing");
-      indicator.classList.remove("ready");
-      indicator.style.transform = "translate(-50%, 18px) scale(1)";
-      text.textContent = "Refreshing Prio…";
-      setTimeout(() => window.location.reload(), 520);
-      return;
-    }
-    indicator.classList.remove("visible", "ready", "refreshing");
-    indicator.style.transform = "translate(-50%, -90px) scale(0.92)";
-    text.textContent = "Pull to refresh";
-    distance = 0;
-  }, { passive: true });
-}
-
-function promptDialog({ title = "Add details", message = "", value = "", placeholder = "Type here…", saveText = "Save" } = {}) {
-  const modal = $("textPromptModal");
-  const input = $("textPromptInput");
-  const sub = $("textPromptSub");
-  $("textPromptTitle").textContent = title;
-  sub.textContent = message;
-  sub.style.display = message ? "block" : "none";
-  input.value = value || "";
-  input.placeholder = placeholder;
-  $("textPromptSave").textContent = saveText;
-  modal.classList.add("open");
-  setTimeout(() => { input.focus(); input.select(); }, 200);
-
-  return new Promise((resolve) => {
-    const cleanup = (answer) => {
-      modal.classList.remove("open");
-      $("textPromptCancel").removeEventListener("click", onCancel);
-      $("textPromptSave").removeEventListener("click", onSave);
-      input.removeEventListener("keydown", onKey);
-      modal.removeEventListener("click", onBackdrop);
-      resolve(answer);
-    };
-    const onCancel = () => cleanup(null);
-    const onSave = () => cleanup(input.value.trim());
-    const onKey = (e) => {
-      if (e.key === "Enter") onSave();
-      if (e.key === "Escape") onCancel();
-    };
-    const onBackdrop = (e) => { if (e.target === modal) onCancel(); };
-    $("textPromptCancel").addEventListener("click", onCancel);
-    $("textPromptSave").addEventListener("click", onSave);
-    input.addEventListener("keydown", onKey);
-    modal.addEventListener("click", onBackdrop);
-  });
-}
-
-function confirmDialog({ title = "Are you sure?", message = "", okText = "Delete" } = {}) {
-  const modal = $("confirmModal");
-  $("confirmTitle").textContent = title;
-  $("confirmMessage").textContent = message;
-  $("confirmOk").textContent = okText;
-  modal.classList.add("open");
-
-  return new Promise((resolve) => {
-    const cleanup = (answer) => {
-      modal.classList.remove("open");
-      $("confirmCancel").removeEventListener("click", onCancel);
-      $("confirmOk").removeEventListener("click", onOk);
-      modal.removeEventListener("click", onBackdrop);
-      document.removeEventListener("keydown", onKey);
-      resolve(answer);
-    };
-    const onCancel = () => cleanup(false);
-    const onOk = () => cleanup(true);
-    const onBackdrop = (e) => { if (e.target === modal) onCancel(); };
-    const onKey = (e) => { if (e.key === "Escape") onCancel(); };
-    $("confirmCancel").addEventListener("click", onCancel);
-    $("confirmOk").addEventListener("click", onOk);
-    modal.addEventListener("click", onBackdrop);
-    document.addEventListener("keydown", onKey);
-  });
-}
 function todayStr() {
   const d = new Date();
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
@@ -326,10 +147,7 @@ function renderAll() {
   renderDashboard();
   renderProjects();
   renderRoutines();
-  renderUni();
   renderTodayRoutines();
-  renderPhase4();
-  renderThemeStudio();
 }
 
 // ---------- navigation ----------
@@ -344,17 +162,51 @@ function switchView(name) {
 // ---------- filter chips ----------
 function renderFilterChips() {
   const wrap = $("filterChips");
+  if (!wrap) return;
   const chips = [
-    { id: "all", label: "All", color: null },
-    ...priorities.map((p) => ({ id: p.id, label: p.name, color: p.color })),
-    { id: "done", label: "Done ✓", color: null },
+    { id: "all", label: "All", color: null, icon: "✨" },
+    ...priorities.map((p) => ({ id: p.id, label: p.name, color: p.color, icon: "" })),
+    { id: "done", label: "Done", color: null, icon: "✓" },
   ];
-  wrap.innerHTML = chips.map((c) => `
-    <button class="chip ${activeFilter === c.id ? "active" : ""}" data-filter="${c.id}">
-      ${c.color ? `<span class="swatch" style="background:${c.color}"></span>` : ""}${esc(c.label)}
-    </button>`).join("");
-  wrap.querySelectorAll(".chip").forEach((b) =>
-    b.addEventListener("click", () => { activeFilter = b.dataset.filter; renderFilterChips(); renderTasks(); }));
+  const active = chips.find((c) => c.id === activeFilter) || chips[0];
+  const activeDot = active.color ? `<span class="swatch" style="background:${active.color}"></span>` : `<span class="filter-icon">${active.icon || "✨"}</span>`;
+
+  wrap.innerHTML = `
+    <div class="filter-menu ${filterMenuOpen ? "open" : ""}" id="filterMenu">
+      <button class="filter-trigger" id="filterTrigger" type="button" aria-haspopup="true" aria-expanded="${filterMenuOpen}">
+        <span class="filter-trigger-left">
+          <span class="filter-funnel">☰</span>
+          <span>Filter</span>
+        </span>
+        <span class="filter-current">${activeDot}${esc(active.label)}</span>
+        <span class="filter-chevron">⌄</span>
+      </button>
+      <div class="filter-options" role="menu">
+        ${chips.map((c, i) => `
+          <button class="filter-option ${activeFilter === c.id ? "active" : ""}" type="button" data-filter="${c.id}" role="menuitem" style="--i:${i}">
+            ${c.color ? `<span class="swatch" style="background:${c.color}"></span>` : `<span class="filter-icon">${c.icon || "•"}</span>`}
+            <span>${esc(c.label)}</span>
+            ${activeFilter === c.id ? `<span class="filter-tick">✓</span>` : ""}
+          </button>`).join("")}
+      </div>
+    </div>`;
+
+  const menu = wrap.querySelector(".filter-menu");
+  const trigger = wrap.querySelector("#filterTrigger");
+  trigger.addEventListener("click", (e) => {
+    e.stopPropagation();
+    filterMenuOpen = !filterMenuOpen;
+    menu.classList.toggle("open", filterMenuOpen);
+    trigger.setAttribute("aria-expanded", String(filterMenuOpen));
+  });
+  wrap.querySelectorAll(".filter-option").forEach((b) =>
+    b.addEventListener("click", (e) => {
+      e.stopPropagation();
+      activeFilter = b.dataset.filter;
+      filterMenuOpen = false;
+      renderFilterChips();
+      renderTasks();
+    }));
 }
 
 // ---------- tasks ----------
@@ -387,57 +239,11 @@ function taskHTML(t, i) {
     </div>`;
 }
 
-function dateObj(iso) {
-  return iso ? new Date(iso + "T00:00") : null;
-}
-function weekRange(base = new Date()) {
-  const start = new Date(base.getFullYear(), base.getMonth(), base.getDate());
-  const day = (start.getDay() + 6) % 7; // Monday first
-  start.setDate(start.getDate() - day);
-  const end = new Date(start);
-  end.setDate(start.getDate() + 6);
-  return { start, end };
-}
-function inRange(iso, start, end) {
-  const d = dateObj(iso);
-  return !!d && d >= start && d <= end;
-}
 function scopeTasks() {
   const today = todayStr();
-  const now = new Date();
-
-  // Daily = today, overdue, and undated daily tasks.
-  if (activeScope === "daily") {
+  if (activeScope === "daily")
     return tasks.filter((t) => (t.scope || "daily") === "daily")
       .filter((t) => t.due_date === today || (!t.completed && t.due_date && t.due_date < today) || !t.due_date);
-  }
-
-  // Dated tasks should appear in the right planning view even if they were
-  // created from another tab. This keeps future Daily tasks visible in Weekly/Monthly.
-  if (activeScope === "weekly") {
-    const { start, end } = weekRange(now);
-    return tasks.filter((t) => t.scope === "weekly" || inRange(t.due_date, start, end));
-  }
-
-  if (activeScope === "monthly") {
-    const start = new Date(now.getFullYear(), now.getMonth(), 1);
-    const end = new Date(now.getFullYear(), now.getMonth() + 1, 0);
-    return tasks.filter((t) => t.scope === "monthly" || inRange(t.due_date, start, end));
-  }
-
-  if (activeScope === "half-yearly") {
-    const start = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-    const end = new Date(start);
-    end.setMonth(end.getMonth() + 6);
-    return tasks.filter((t) => t.scope === "half-yearly" || inRange(t.due_date, start, end));
-  }
-
-  if (activeScope === "yearly") {
-    const start = new Date(now.getFullYear(), 0, 1);
-    const end = new Date(now.getFullYear(), 11, 31);
-    return tasks.filter((t) => t.scope === "yearly" || inRange(t.due_date, start, end));
-  }
-
   return tasks.filter((t) => t.scope === activeScope);
 }
 
@@ -499,7 +305,7 @@ function openModal(taskId = null, presetDate = null) {
   $("modalTitle").textContent = t ? "Edit task" : "New task";
   $("taskTitle").value = t ? t.title : "";
   $("taskNotes").value = t ? t.notes || "" : "";
-  setDateInput("taskDate", t ? t.due_date || "" : (presetDate || ""));
+  $("taskDate").value = t ? t.due_date || "" : (presetDate || "");
   modalPriorityId = t ? t.priority_id : (priorities[0]?.id ?? null);
   renderPrioPick();
   $("taskModal").classList.add("open");
@@ -523,7 +329,7 @@ async function saveTask() {
     title,
     notes: $("taskNotes").value.trim() || null,
     priority_id: modalPriorityId,
-    due_date: $("taskDate").dataset.iso || $("taskDate").value || null,
+    due_date: $("taskDate").value || null,
     user_id: user.id,
     scope: existing ? existing.scope || "daily" : (activeScope === "dump" ? "daily" : activeScope),
   };
@@ -635,14 +441,7 @@ function renderPriorities() {
     row.querySelector(".del").addEventListener("click", async () => {
       if (priorities.length === 1) return toast("Keep at least one priority");
       const inUse = tasks.filter((t) => t.priority_id === id).length;
-      if (inUse) {
-        const ok = await confirmDialog({
-          title: "Delete priority?",
-          message: `${inUse} task(s) use this label. They'll become uncoloured.`,
-          okText: "Delete priority"
-        });
-        if (!ok) return;
-      }
+      if (inUse && !confirm(`${inUse} task(s) use this label. They'll become uncoloured. Delete anyway?`)) return;
       await db.from("priorities").delete().eq("id", id);
       priorities = priorities.filter((p) => p.id !== id);
       tasks.forEach((t) => { if (t.priority_id === id) t.priority_id = null; });
@@ -704,13 +503,18 @@ async function savePassword() {
 
 // ---------- events ----------
 function wireEvents() {
+  document.addEventListener("click", (e) => {
+    const menu = $("filterMenu");
+    if (filterMenuOpen && menu && !menu.contains(e.target)) {
+      filterMenuOpen = false;
+      menu.classList.remove("open");
+      const trigger = $("filterTrigger");
+      if (trigger) trigger.setAttribute("aria-expanded", "false");
+    }
+  });
   document.querySelectorAll("[data-view]").forEach((b) =>
-    b.addEventListener("click", () => { switchView(b.dataset.view); setMenu(false); }));
-  $("avatarBtn").addEventListener("click", () => { switchView("profile"); setMenu(false); });
-  if ($("homeLogoBtn")) $("homeLogoBtn").addEventListener("click", () => switchView("home"));
-  if ($("menuBtn")) $("menuBtn").addEventListener("click", () => setMenu(!$('menuBackdrop').classList.contains("open")));
-  if ($("menuClose")) $("menuClose").addEventListener("click", () => setMenu(false));
-  if ($("menuBackdrop")) $("menuBackdrop").addEventListener("click", (e) => { if (e.target.id === "menuBackdrop") setMenu(false); });
+    b.addEventListener("click", () => switchView(b.dataset.view)));
+  $("avatarBtn").addEventListener("click", () => switchView("profile"));
 
   $("fabBtn").addEventListener("click", () => {
     const inCalendar = $("view-calendar").classList.contains("active");
@@ -743,13 +547,6 @@ function wireEvents() {
     await db.auth.signOut();
     window.location.href = "index.html";
   });
-
-  $("sundayReviewBtn")?.addEventListener("click", openSundayReview);
-  $("reviewClose")?.addEventListener("click", closeSundayReview);
-  $("reviewCancel")?.addEventListener("click", closeSundayReview);
-  $("reviewSave")?.addEventListener("click", saveSundayReview);
-  $("reviewModal")?.addEventListener("click", (e) => { if (e.target.id === "reviewModal") closeSundayReview(); });
-  $("themeResetBtn")?.addEventListener("click", () => setTheme(defaultTheme));
 }
 
 // ============================================
@@ -819,7 +616,7 @@ function openGoogleCalendar(taskId) {
 }
 
 // ============================================
-// PRIO · Quote of the day
+// ROOTED · Quote of the day
 // ============================================
 const QUOTES = [
   ["We suffer more often in imagination than in reality.", "Seneca"],
@@ -874,7 +671,7 @@ function renderQuote() {
 }
 
 // ============================================
-// PRIO · Priority tiers (red / yellow / green)
+// ROOTED · Priority tiers (red / yellow / green)
 // Highest-position priority = red tier, second = yellow, rest = green.
 // With the defaults (Low, Medium, High) that maps exactly to 🔴🟡🟢.
 // ============================================
@@ -892,7 +689,7 @@ function todaysTasks() {
 }
 
 // ============================================
-// PRIO · Dashboard renders
+// ROOTED · Dashboard renders
 // ============================================
 function renderDashboard() {
   renderPriorityStats();
@@ -951,7 +748,7 @@ function renderWins() {
 }
 
 // ============================================
-// PRIO · Habits & streaks
+// ROOTED · Habits & streaks
 // ============================================
 const HABIT_EMOJIS = ["⭐", "😴", "🌅", "📖", "🏋️", "💧", "🧘", "🙏", "☀️", "📵", "🥗", "🏃", "✍️", "🎯", "💊", "🦷"];
 
@@ -1041,8 +838,7 @@ async function moveHabit(id, dir) {
 
 async function deleteHabit(id) {
   const h = habits.find((x) => x.id === id);
-  const ok = await confirmDialog({ title: "Delete habit?", message: `Delete "${h.name}" and its streak history?`, okText: "Delete habit" });
-  if (!ok) return;
+  if (!confirm(`Delete "${h.name}" and its streak history?`)) return;
   await db.from("habits").delete().eq("id", id);
   habits = habits.filter((x) => x.id !== id);
   renderHabits();
@@ -1086,7 +882,7 @@ async function saveHabit() {
 }
 
 // ============================================
-// PRIO · Brain dump (autosave)
+// ROOTED · Brain dump (autosave)
 // ============================================
 let dumpTimer = null;
 
@@ -1106,7 +902,7 @@ function queueDumpSave() {
 }
 
 // ============================================
-// PRIO · Planner tabs + dashboard events
+// ROOTED · Planner tabs + dashboard events
 // ============================================
 function syncPlannerTabs() {
   $("plannerTabs").querySelectorAll("button").forEach((b) =>
@@ -1115,10 +911,10 @@ function syncPlannerTabs() {
   $("plannerBody").style.display = isDump ? "none" : "block";
   $("dumpBody").style.display = isDump ? "block" : "none";
   $("fabBtn").style.display = isDump ? "none" : "grid";
-  $("routineToday").style.display = "none";
+  $("routineToday").style.display = activeScope === "daily" ? "block" : "none";
 }
 
-function wirePrioEvents() {
+function wireRootedEvents() {
   $("plannerTabs").querySelectorAll("button").forEach((b) =>
     b.addEventListener("click", () => {
       activeScope = b.dataset.scope;
@@ -1368,8 +1164,7 @@ async function saveProject() {
 async function deleteProject(id) {
   const p = projects.find((x) => x.id === id);
   const count = projectItems.filter((i) => i.project_id === id).length;
-  const ok = await confirmDialog({ title: "Delete project?", message: `Delete "${p.name}"${count ? ` and its ${count} item(s)` : ""}? This can't be undone.`, okText: "Delete project" });
-  if (!ok) return;
+  if (!confirm(`Delete "${p.name}"${count ? ` and its ${count} item(s)` : ""}? This can't be undone.`)) return;
   const { error } = await db.from("projects").delete().eq("id", id);
   if (error) return toast("Couldn't delete — try again");
   projects = projects.filter((x) => x.id !== id);
@@ -1382,7 +1177,7 @@ async function deleteProject(id) {
 
 // ---------- sections ----------
 async function addSection(projectId, parentId) {
-  const name = await promptDialog({ title: "New section", placeholder: "e.g. Assessments" });
+  const name = (prompt("Section name:") || "").trim();
   if (!name) return;
   const siblings = projectSections.filter((s) => s.project_id === projectId && s.parent_id === (parentId || null));
   const { data, error } = await db.from("project_sections")
@@ -1395,7 +1190,7 @@ async function addSection(projectId, parentId) {
 
 async function renameSection(id) {
   const s = projectSections.find((x) => x.id === id);
-  const name = await promptDialog({ title: "Rename section", value: s.name, placeholder: "Section name" });
+  const name = (prompt("Rename section:", s.name) || "").trim();
   if (!name || name === s.name) return;
   const { error } = await db.from("project_sections").update({ name }).eq("id", id);
   if (error) return toast("Couldn't rename — try again");
@@ -1412,8 +1207,7 @@ async function deleteSection(id) {
   const s = projectSections.find((x) => x.id === id);
   const ids = [id, ...descendantSections(id)];
   const count = projectItems.filter((i) => ids.includes(i.section_id)).length;
-  const ok = await confirmDialog({ title: "Delete section?", message: `Delete section "${s.name}"${count ? ` and its ${count} item(s)` : ""}?`, okText: "Delete section" });
-  if (!ok) return;
+  if (!confirm(`Delete section "${s.name}"${count ? ` and its ${count} item(s)` : ""}?`)) return;
   const { error } = await db.from("project_sections").delete().eq("id", id);
   if (error) return toast("Couldn't delete — try again");
   projectSections = projectSections.filter((x) => !ids.includes(x.id));
@@ -1429,7 +1223,7 @@ function openPitemModal(projectId, sectionId, itemId = null) {
   $("pitemTitle").value = it ? it.title : "";
   $("pitemNotes").value = it ? it.notes || "" : "";
   $("pitemLink").value = it ? it.link || "" : "";
-  setDateInput("pitemDate", it ? it.due_date || "" : "");
+  $("pitemDate").value = it ? it.due_date || "" : "";
   $("pitemModal").classList.add("open");
   setTimeout(() => $("pitemTitle").focus(), 250);
 }
@@ -1443,7 +1237,7 @@ async function savePitem() {
     title,
     notes: $("pitemNotes").value.trim() || null,
     link: link || null,
-    due_date: $("pitemDate").dataset.iso || $("pitemDate").value || null,
+    due_date: $("pitemDate").value || null,
   };
   const btn = $("pitemSave");
   btn.disabled = true;
@@ -1550,12 +1344,6 @@ function fmtTime(hhmm) {
 // ---------- today's routines in the Daily planner ----------
 function renderTodayRoutines() {
   const wrap = $("routineToday");
-  if (!wrap) return;
-  // Keep the Planner clean: routines live in the Routines tab, not above Daily tasks.
-  wrap.innerHTML = "";
-  wrap.style.display = "none";
-  return;
-
   const due = routinesDueToday();
   if (!due.length) { wrap.innerHTML = ""; return; }
 
@@ -1603,14 +1391,12 @@ async function toggleDayStep(id) {
 
 async function renameDayStep(id) {
   const s = dayRoutineSteps.find((x) => x.id === id);
-  const title = await promptDialog({ title: "Rename today's step", message: "This only changes today's copy.", value: s.title, placeholder: "Step name" });
+  const title = (prompt("Rename step (today only):", s.title) || "").trim();
   if (!title || title === s.title) return;
   const { error } = await db.from("routine_day_steps").update({ title }).eq("id", id);
   if (error) return toast("Couldn't save — try again");
   s.title = title;
   renderTodayRoutines();
-  renderPhase4();
-  renderThemeStudio();
 }
 
 async function removeDayStep(id) {
@@ -1622,7 +1408,7 @@ async function removeDayStep(id) {
 }
 
 async function addDayStep(routineId) {
-  const title = await promptDialog({ title: "Add today's step", message: "This only adds it for today.", placeholder: "e.g. Pack bag" });
+  const title = (prompt("Step to add (today only):") || "").trim();
   if (!title) return;
   const siblings = dayRoutineSteps.filter((x) => x.routine_id === routineId);
   const today = todayStr();
@@ -1637,8 +1423,6 @@ async function addDayStep(routineId) {
     routineDayState.add(routineId + "|" + today);
   }
   renderTodayRoutines();
-  renderPhase4();
-  renderThemeStudio();
 }
 
 // ---------- routines management view ----------
@@ -1751,7 +1535,7 @@ function renderRoutineEditor(root) {
 }
 
 async function addRoutineStep(routineId) {
-  const title = await promptDialog({ title: "Add routine step", placeholder: "e.g. Drink water" });
+  const title = (prompt("Step:") || "").trim();
   if (!title) return;
   const siblings = routineSteps.filter((s) => s.routine_id === routineId);
   const { data, error } = await db.from("routine_steps")
@@ -1836,16 +1620,12 @@ async function saveRoutine() {
   editingRoutineId = null;
   await ensureTodayRoutines(); // if it runs today, it shows up today
   renderRoutines();
-  renderUni();
   renderTodayRoutines();
-  renderPhase4();
-  renderThemeStudio();
 }
 
 async function deleteRoutine(id) {
   const r = routines.find((x) => x.id === id);
-  const ok = await confirmDialog({ title: "Delete routine?", message: `Delete "${r.name}" and all its history?`, okText: "Delete routine" });
-  if (!ok) return;
+  if (!confirm(`Delete "${r.name}" and all its history?`)) return;
   const { error } = await db.from("routines").delete().eq("id", id);
   if (error) return toast("Couldn't delete — try again");
   routines = routines.filter((x) => x.id !== id);
@@ -1853,7 +1633,6 @@ async function deleteRoutine(id) {
   dayRoutineSteps = dayRoutineSteps.filter((s) => s.routine_id !== id);
   openRoutineId = null;
   renderRoutines();
-  renderUni();
   renderTodayRoutines();
   toast("Routine deleted");
 }
@@ -1880,500 +1659,4 @@ function wirePhase2Events() {
   $("routineSave").addEventListener("click", saveRoutine);
   $("routineModal").addEventListener("click", (e) => { if (e.target.id === "routineModal") $("routineModal").classList.remove("open"); });
   $("routineName").addEventListener("keydown", (e) => { if (e.key === "Enter") saveRoutine(); });
-}
-
-// ============================================
-// Modern date picker
-// ============================================
-let datePickerTargetId = null;
-let datePickerCursor = new Date();
-
-function parseISODate(iso) {
-  if (!iso) return null;
-  const [y, m, d] = String(iso).split("-").map(Number);
-  if (!y || !m || !d) return null;
-  return new Date(y, m - 1, d);
-}
-function toISODate(d) {
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-}
-function prettyDateValue(iso) {
-  const d = parseISODate(iso);
-  return d ? d.toLocaleDateString("en-AU", { weekday: "short", day: "numeric", month: "short", year: "numeric" }) : "";
-}
-function setDateInput(id, iso) {
-  const el = $(id);
-  if (!el) return;
-  el.dataset.iso = iso || "";
-  el.value = prettyDateValue(iso);
-}
-function openDatePicker(targetId) {
-  datePickerTargetId = targetId;
-  const current = parseISODate($(targetId)?.dataset.iso || $(targetId)?.value);
-  datePickerCursor = current || new Date();
-  renderDatePicker();
-  $("datePickerModal").classList.add("open");
-}
-function closeDatePicker() { $("datePickerModal")?.classList.remove("open"); datePickerTargetId = null; }
-function chooseDate(iso) {
-  if (datePickerTargetId) setDateInput(datePickerTargetId, iso);
-  closeDatePicker();
-}
-function renderDatePicker() {
-  const y = datePickerCursor.getFullYear();
-  const m = datePickerCursor.getMonth();
-  $("dateMonthLabel").textContent = datePickerCursor.toLocaleDateString("en-AU", { month: "long", year: "numeric" });
-  const selected = datePickerTargetId ? ($(datePickerTargetId).dataset.iso || "") : "";
-  const today = todayStr();
-  const first = new Date(y, m, 1);
-  const firstDowMon = (first.getDay() + 6) % 7;
-  const daysInMonth = new Date(y, m + 1, 0).getDate();
-  let html = ["M", "T", "W", "T", "F", "S", "S"].map((d) => `<div class="date-dow">${d}</div>`).join("");
-  for (let i = 0; i < firstDowMon; i++) html += `<div class="date-cell blank"></div>`;
-  for (let d = 1; d <= daysInMonth; d++) {
-    const iso = `${y}-${String(m + 1).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
-    html += `<button type="button" class="date-cell ${iso === today ? "today" : ""} ${iso === selected ? "selected" : ""}" data-date="${iso}">${d}</button>`;
-  }
-  $("datePickerGrid").innerHTML = html;
-  $("datePickerGrid").querySelectorAll("[data-date]").forEach((b) => b.addEventListener("click", () => chooseDate(b.dataset.date)));
-}
-
-
-// ============================================
-// Friendly custom selects (keeps the real select for saving)
-// ============================================
-function closePrettySelects(except = null) {
-  document.querySelectorAll(".pretty-select.open").forEach((box) => {
-    if (box !== except) box.classList.remove("open");
-  });
-}
-function renderPrettySelect(id) {
-  const select = $(id);
-  if (!select) return;
-  const box = document.querySelector(`[data-pretty-for="${id}"]`);
-  if (!box) return initPrettySelect(id);
-  const trigger = box.querySelector(".pretty-select-trigger");
-  const menu = box.querySelector(".pretty-select-menu");
-  const selectedOption = select.options[select.selectedIndex];
-  trigger.textContent = selectedOption ? selectedOption.textContent : "Choose";
-  menu.innerHTML = Array.from(select.options).map((opt) => `
-    <button type="button" class="pretty-option ${opt.selected ? "selected" : ""}" data-value="${esc(opt.value)}">
-      ${esc(opt.textContent)}
-    </button>`).join("");
-  menu.querySelectorAll(".pretty-option").forEach((btn) => {
-    btn.addEventListener("click", () => {
-      select.value = btn.dataset.value;
-      select.dispatchEvent(new Event("change", { bubbles: true }));
-      renderPrettySelect(id);
-      box.classList.remove("open");
-    });
-  });
-}
-function initPrettySelect(id) {
-  const select = $(id);
-  if (!select || select.dataset.prettyReady) return renderPrettySelect(id);
-  select.dataset.prettyReady = "1";
-  select.classList.add("native-select-hidden");
-  const box = document.createElement("div");
-  box.className = "pretty-select";
-  box.dataset.prettyFor = id;
-  box.innerHTML = `<button type="button" class="pretty-select-trigger">Choose</button><div class="pretty-select-menu"></div>`;
-  select.insertAdjacentElement("afterend", box);
-  box.querySelector(".pretty-select-trigger").addEventListener("click", (e) => {
-    e.stopPropagation();
-    const opening = !box.classList.contains("open");
-    closePrettySelects(box);
-    box.classList.toggle("open", opening);
-  });
-  renderPrettySelect(id);
-}
-function initPrettySelects() {
-  ["uniClassSubject", "uniClassDay", "uniAssessmentSubject", "uniAssessmentType"].forEach(initPrettySelect);
-}
-document.addEventListener("click", () => closePrettySelects());
-
-function wireDatePickerEvents() {
-  ["taskDate", "pitemDate", "uniAssessmentDate"].forEach((id) => {
-    const el = $(id);
-    if (el) el.addEventListener("click", () => openDatePicker(id));
-  });
-  $("datePickerClose")?.addEventListener("click", closeDatePicker);
-  $("datePickerModal")?.addEventListener("click", (e) => { if (e.target.id === "datePickerModal") closeDatePicker(); });
-  $("datePrev")?.addEventListener("click", () => { datePickerCursor.setMonth(datePickerCursor.getMonth() - 1); renderDatePicker(); });
-  $("dateNext")?.addEventListener("click", () => { datePickerCursor.setMonth(datePickerCursor.getMonth() + 1); renderDatePicker(); });
-  document.querySelectorAll(".quick-date-row [data-quick]").forEach((b) => b.addEventListener("click", () => {
-    const now = new Date();
-    if (b.dataset.quick === "clear") return chooseDate("");
-    if (b.dataset.quick === "tomorrow") now.setDate(now.getDate() + 1);
-    if (b.dataset.quick === "weekend") {
-      const day = now.getDay();
-      const add = day === 6 ? 0 : (6 - day + 7) % 7;
-      now.setDate(now.getDate() + add);
-    }
-    chooseDate(toISODate(now));
-  }));
-}
-
-// ============================================
-// Phase 3 · University dashboard
-// ============================================
-let editingUniSubjectId = null;
-let editingUniClassId = null;
-let editingUniAssessmentId = null;
-let uniStepAssessmentId = null;
-let editingUniStepId = null;
-
-async function loadUni() {
-  try {
-    const [subjectsRes, classesRes, assessmentsRes, stepsRes] = await Promise.all([
-      db.from("uni_subjects").select("*").eq("user_id", user.id).order("position"),
-      db.from("uni_classes").select("*").eq("user_id", user.id),
-      db.from("uni_assessments").select("*").eq("user_id", user.id).order("position"),
-      db.from("uni_assessment_steps").select("*").eq("user_id", user.id).order("position"),
-    ]);
-    uniSubjects = subjectsRes.data || [];
-    uniClasses = classesRes.data || [];
-    uniAssessments = assessmentsRes.data || [];
-    assessmentSteps = stepsRes.data || [];
-  } catch (err) {
-    console.warn("Uni tables not ready yet:", err);
-    uniSubjects = []; uniClasses = []; uniAssessments = []; assessmentSteps = [];
-  }
-}
-function assessmentProgress(aid) {
-  const steps = assessmentSteps.filter((s) => s.assessment_id === aid);
-  if (!steps.length) return 0;
-  return Math.round((steps.filter((s) => s.done).length / steps.length) * 100);
-}
-function daysUntil(iso) {
-  if (!iso) return "No date";
-  const today = parseISODate(todayStr());
-  const d = parseISODate(iso);
-  const diff = Math.ceil((d - today) / 86400000);
-  if (diff === 0) return "Today";
-  if (diff === 1) return "Tomorrow";
-  if (diff < 0) return `${Math.abs(diff)} day(s) late`;
-  return `${diff} day(s)`;
-}
-function renderUni() {
-  const root = $("uniRoot");
-  if (!root) return;
-  const totalAssessments = uniAssessments.length;
-  const avgProgress = totalAssessments ? Math.round(uniAssessments.reduce((sum, a) => sum + assessmentProgress(a.id), 0) / totalAssessments) : 0;
-  const upcoming = [...uniAssessments].filter((a) => a.due_date).sort((a,b) => a.due_date.localeCompare(b.due_date)).slice(0, 5);
-  root.innerHTML = `
-    <div class="section-head"><h2>🎓 Uni Dashboard</h2><button class="btn-ghost" id="addUniSubjectBtn">+ Subject</button></div>
-    <div class="uni-hero card span2">
-      <div><p class="modal-kicker">Semester overview</p><h2>${totalAssessments ? `${avgProgress}% assessment progress` : "Set up your semester"}</h2><p class="uni-muted">Subjects, timetable, assessments and breakdown tasks in one clean view.</p></div>
-      <div class="uni-big-progress"><div style="width:${avgProgress}%"></div></div>
-    </div>
-    <div class="dash-grid uni-grid">
-      <div class="card span2"><div class="section-head"><h3>Subjects</h3><button class="btn-ghost" id="addUniClassBtn">+ Class</button></div>
-        ${uniSubjects.length ? uniSubjects.map((s) => {
-          const classes = uniClasses.filter((c) => c.subject_id === s.id).length;
-          const assessments = uniAssessments.filter((a) => a.subject_id === s.id).length;
-          return `<div class="uni-subject-row" style="--subject-color:${esc(s.color || '#4353ff')}"><div><strong>${esc(s.code ? `${s.code} · ${s.name}` : s.name)}</strong><p>${classes} class(es) · ${assessments} assessment(s)</p></div><div class="row-actions"><button class="icon-btn" data-edit-subject="${s.id}">✎</button><button class="icon-btn" data-delete-subject="${s.id}">×</button></div></div>`;
-        }).join("") : `<div class="empty"><span class="emoji">📚</span>Add your first subject to unlock the dashboard.</div>`}
-      </div>
-      <div class="card"><div class="section-head"><h3>Timetable</h3></div>${renderUniTimetable()}</div>
-      <div class="card"><div class="section-head"><h3>Upcoming</h3><button class="btn-ghost" id="addUniAssessmentBtn">+ Assessment</button></div>
-        ${upcoming.length ? upcoming.map((a) => renderAssessmentMini(a)).join("") : `<div class="empty"><span class="emoji">📝</span>Add assessments with due dates and weighting.</div>`}
-      </div>
-      <div class="card span2"><div class="section-head"><h3>Assessment breakdown</h3></div>${renderAssessmentBreakdowns()}</div>
-    </div>`;
-  wireUniDynamicEvents();
-}
-function renderUniTimetable() {
-  if (!uniClasses.length) return `<div class="empty"><span class="emoji">🗓️</span>Your weekly class times and rooms will show here.</div>`;
-  const days = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
-  return [...uniClasses].sort((a,b) => (a.day_of_week-b.day_of_week) || String(a.start_time||"").localeCompare(String(b.start_time||""))).map((c) => {
-    const s = uniSubjects.find((x) => x.id === c.subject_id);
-    const start = esc((c.start_time || '').slice(0,5) || 'TBA');
-    const end = c.end_time ? esc(c.end_time.slice(0,5)) : '';
-    const cls = String(c.class_type || 'Class').toLowerCase().includes('lab') ? 'lab' : String(c.class_type || '').toLowerCase().includes('tutorial') ? 'tutorial' : String(c.class_type || '').toLowerCase().includes('workshop') ? 'workshop' : 'lecture';
-    return `<div class="uni-mini-card timetable-card ${cls}" style="--subject-color:${esc(s?.color || '#4353ff')}">
-      <div class="time-pill"><small>${days[c.day_of_week] || ''}</small><strong>${start}</strong>${end ? `<span>to ${end}</span>` : `<span>Time TBA</span>`}</div>
-      <div class="timetable-main"><strong>${esc(s ? (s.code ? `${s.code} · ${s.name}` : s.name) : 'Subject')}</strong><p><span class="class-type-badge">${esc(c.class_type || 'Class')}</span><span class="room-badge">📍 ${esc(c.room || 'Room TBA')}</span></p></div>
-      <div class="row-actions"><button class="icon-btn" data-edit-class="${c.id}" title="Edit class">✎</button><button class="icon-btn" data-delete-class="${c.id}" title="Delete class">×</button></div>
-    </div>`;
-  }).join("");
-}
-function dueTone(iso) {
-  if (!iso) return "none";
-  const today = parseISODate(todayStr());
-  const d = parseISODate(iso);
-  const diff = Math.ceil((d - today) / 86400000);
-  if (diff < 0) return "late";
-  if (diff <= 2) return "urgent";
-  if (diff <= 7) return "soon";
-  return "later";
-}
-function renderDueBadge(iso) {
-  const tone = dueTone(iso);
-  const label = daysUntil(iso);
-  const date = iso ? niceDate(iso) : "No due date";
-  return `<div class="due-badge ${tone}"><span>${esc(label)}</span><small>${esc(date)}</small></div>`;
-}
-function renderAssessmentMini(a) {
-  const s = uniSubjects.find((x) => x.id === a.subject_id);
-  const progress = assessmentProgress(a.id);
-  return `<div class="uni-mini-card assessment-card ${dueTone(a.due_date)}" style="--subject-color:${esc(s?.color || '#4353ff')}">
-    <div class="assessment-top"><div><strong>${esc(a.title)}</strong><p>${esc(s?.name || 'Subject')} · ${Number(a.weight || 0)}% · ${esc(a.task_type || 'Individual')}</p></div>${renderDueBadge(a.due_date)}</div>
-    <div class="mini-progress"><div style="width:${progress}%"></div></div>
-    <div class="row-actions"><button class="btn-ghost" data-add-step="${a.id}">+ Step</button><button class="icon-btn" data-edit-assessment="${a.id}">✎</button><button class="icon-btn" data-delete-assessment="${a.id}">×</button></div>
-  </div>`;
-}
-function renderAssessmentBreakdowns() {
-  if (!uniAssessments.length) return `<div class="empty"><span class="emoji">🧩</span>Break assessments into smaller tasks and watch progress climb.</div>`;
-  return uniAssessments.map((a) => {
-    const s = uniSubjects.find((x) => x.id === a.subject_id);
-    const steps = assessmentSteps.filter((st) => st.assessment_id === a.id);
-    const progress = assessmentProgress(a.id);
-    return `<div class="assessment-block ${dueTone(a.due_date)}" style="--subject-color:${esc(s?.color || '#4353ff')}"><div class="section-head assessment-head"><div><h3>${esc(a.title)}</h3><p class="uni-muted">${esc(s?.name || '')} · ${Number(a.weight || 0)}% · ${esc(a.task_type || 'Individual')} · ${progress}% complete</p></div>${renderDueBadge(a.due_date)}<button class="btn-ghost" data-add-step="${a.id}">+ Step</button></div><div class="mini-progress big"><div style="width:${progress}%"></div></div>${steps.length ? `<div class="uni-step-list">${steps.map((st) => `<label class="uni-step ${st.done ? 'is-done' : ''}"><input type="checkbox" data-toggle-step="${st.id}" ${st.done ? 'checked' : ''}/><span>${esc(st.title)}</span><div class="step-actions"><button type="button" class="icon-btn edit" data-edit-step="${st.id}" title="Edit step">✎</button><button type="button" class="icon-btn del" data-delete-step="${st.id}" title="Delete step">×</button></div></label>`).join("")}</div>` : `<p class="uni-muted no-step-copy">No steps yet. Add a few smaller tasks.</p>`}</div>`;
-  }).join("");
-}
-function fillSubjectSelect(id, selected) {
-  const el = $(id);
-  if (!el) return;
-  el.innerHTML = uniSubjects.map((s) => `<option value="${s.id}" ${s.id === selected ? 'selected' : ''}>${esc(s.code ? `${s.code} · ${s.name}` : s.name)}</option>`).join("");
-  renderPrettySelect(id);
-}
-function openUniSubject(id = null) {
-  editingUniSubjectId = id;
-  const s = id ? uniSubjects.find((x) => x.id === id) : null;
-  $("uniSubjectModalTitle").textContent = s ? "Edit subject" : "New subject";
-  $("uniSubjectCode").value = s?.code || "";
-  $("uniSubjectName").value = s?.name || "";
-  $("uniSubjectColor").value = s?.color || "#4353ff";
-  $("uniSubjectModal").classList.add("open");
-}
-async function saveUniSubject() {
-  const name = $("uniSubjectName").value.trim();
-  if (!name) return toast("Subject needs a name");
-  const payload = { user_id: user.id, code: $("uniSubjectCode").value.trim() || null, name, color: $("uniSubjectColor").value || "#4353ff" };
-  let error;
-  if (editingUniSubjectId) ({ error } = await db.from("uni_subjects").update(payload).eq("id", editingUniSubjectId));
-  else ({ error } = await db.from("uni_subjects").insert({ ...payload, position: uniSubjects.length }));
-  if (error) return toast("Couldn't save subject");
-  $("uniSubjectModal").classList.remove("open");
-  await loadUni(); renderUni(); toast("Subject saved 🎓");
-}
-function openUniClass(id = null) {
-  if (!uniSubjects.length) return toast("Add a subject first");
-  editingUniClassId = id;
-  const c = id ? uniClasses.find((x) => x.id === id) : null;
-  fillSubjectSelect("uniClassSubject", c?.subject_id || uniSubjects[0]?.id);
-  $("uniClassType").value = c?.class_type || "";
-  $("uniClassDay").value = String(c?.day_of_week ?? 1);
-  renderPrettySelect("uniClassDay");
-  $("uniClassStart").value = (c?.start_time || "").slice(0,5);
-  $("uniClassEnd").value = (c?.end_time || "").slice(0,5);
-  $("uniClassRoom").value = c?.room || "";
-  $("uniClassModalTitle").textContent = c ? "Edit class" : "New class";
-  $("uniClassModal").classList.add("open");
-}
-async function saveUniClass() {
-  const payload = { user_id: user.id, subject_id: $("uniClassSubject").value, class_type: $("uniClassType").value.trim() || "Class", day_of_week: Number($("uniClassDay").value), start_time: $("uniClassStart").value || null, end_time: $("uniClassEnd").value || null, room: $("uniClassRoom").value.trim() || null };
-  let error;
-  if (editingUniClassId) ({ error } = await db.from("uni_classes").update(payload).eq("id", editingUniClassId));
-  else ({ error } = await db.from("uni_classes").insert(payload));
-  if (error) return toast("Couldn't save class");
-  $("uniClassModal").classList.remove("open"); await loadUni(); renderUni(); toast("Class saved 🗓️");
-}
-function openUniAssessment(id = null) {
-  if (!uniSubjects.length) return toast("Add a subject first");
-  editingUniAssessmentId = id;
-  const a = id ? uniAssessments.find((x) => x.id === id) : null;
-  fillSubjectSelect("uniAssessmentSubject", a?.subject_id || uniSubjects[0]?.id);
-  $("uniAssessmentTitle").value = a?.title || "";
-  setDateInput("uniAssessmentDate", a?.due_date || "");
-  $("uniAssessmentWeight").value = a?.weight ?? "";
-  $("uniAssessmentType").value = a?.task_type || "Individual";
-  renderPrettySelect("uniAssessmentType");
-  $("uniAssessmentNotes").value = a?.notes || "";
-  $("uniAssessmentModalTitle").textContent = a ? "Edit assessment" : "New assessment";
-  $("uniAssessmentModal").classList.add("open");
-}
-async function saveUniAssessment() {
-  const title = $("uniAssessmentTitle").value.trim();
-  if (!title) return toast("Assessment needs a title");
-  const payload = { user_id: user.id, subject_id: $("uniAssessmentSubject").value, title, due_date: $("uniAssessmentDate").dataset.iso || null, weight: Number($("uniAssessmentWeight").value || 0), task_type: $("uniAssessmentType").value, notes: $("uniAssessmentNotes").value.trim() || null };
-  let error;
-  if (editingUniAssessmentId) ({ error } = await db.from("uni_assessments").update(payload).eq("id", editingUniAssessmentId));
-  else ({ error } = await db.from("uni_assessments").insert({ ...payload, position: uniAssessments.length }));
-  if (error) return toast("Couldn't save assessment");
-  $("uniAssessmentModal").classList.remove("open"); await loadUni(); renderUni(); toast("Assessment saved 📝");
-}
-function openUniStep(aid, stepId = null) {
-  uniStepAssessmentId = aid;
-  editingUniStepId = stepId;
-  const st = stepId ? assessmentSteps.find((x) => x.id === stepId) : null;
-  const titleEl = $("uniStepModalTitle");
-  if (titleEl) titleEl.textContent = st ? "Edit breakdown task" : "Add breakdown task";
-  $("uniStepTitle").value = st?.title || "";
-  $("uniStepModal").classList.add("open");
-  setTimeout(() => $("uniStepTitle").focus(), 150);
-}
-async function saveUniStep() {
-  const title = $("uniStepTitle").value.trim();
-  if (!title) return toast("Step needs a title");
-  let error;
-  if (editingUniStepId) {
-    ({ error } = await db.from("uni_assessment_steps").update({ title }).eq("id", editingUniStepId));
-  } else {
-    const count = assessmentSteps.filter((s) => s.assessment_id === uniStepAssessmentId).length;
-    ({ error } = await db.from("uni_assessment_steps").insert({ user_id: user.id, assessment_id: uniStepAssessmentId, title, position: count }));
-  }
-  if (error) return toast("Couldn't save step");
-  $("uniStepModal").classList.remove("open");
-  await loadUni(); renderUni(); toast(editingUniStepId ? "Step updated ✓" : "Step added ✓");
-  editingUniStepId = null;
-}
-async function deleteRow(table, id, msg) {
-  const ok = await confirmDialog({ title: msg, message: "This can't be undone.", okText: "Delete" });
-  if (!ok) return;
-  const { error } = await db.from(table).delete().eq("id", id);
-  if (error) return toast("Couldn't delete");
-  await loadUni(); renderUni(); toast("Deleted");
-}
-function wireUniDynamicEvents() {
-  $("addUniSubjectBtn")?.addEventListener("click", () => openUniSubject());
-  $("addUniClassBtn")?.addEventListener("click", () => openUniClass());
-  $("addUniAssessmentBtn")?.addEventListener("click", () => openUniAssessment());
-  document.querySelectorAll("[data-edit-subject]").forEach((b) => b.addEventListener("click", () => openUniSubject(b.dataset.editSubject)));
-  document.querySelectorAll("[data-delete-subject]").forEach((b) => b.addEventListener("click", () => deleteRow("uni_subjects", b.dataset.deleteSubject, "Delete subject?")));
-  document.querySelectorAll("[data-edit-class]").forEach((b) => b.addEventListener("click", () => openUniClass(b.dataset.editClass)));
-  document.querySelectorAll("[data-delete-class]").forEach((b) => b.addEventListener("click", () => deleteRow("uni_classes", b.dataset.deleteClass, "Delete class?")));
-  document.querySelectorAll("[data-edit-assessment]").forEach((b) => b.addEventListener("click", () => openUniAssessment(b.dataset.editAssessment)));
-  document.querySelectorAll("[data-delete-assessment]").forEach((b) => b.addEventListener("click", () => deleteRow("uni_assessments", b.dataset.deleteAssessment, "Delete assessment?")));
-  document.querySelectorAll("[data-add-step]").forEach((b) => b.addEventListener("click", () => openUniStep(b.dataset.addStep)));
-  document.querySelectorAll("[data-edit-step]").forEach((b) => b.addEventListener("click", (e) => { e.preventDefault(); e.stopPropagation(); const st = assessmentSteps.find((x) => x.id === b.dataset.editStep); if (st) openUniStep(st.assessment_id, st.id); }));
-  document.querySelectorAll("[data-delete-step]").forEach((b) => b.addEventListener("click", (e) => { e.preventDefault(); e.stopPropagation(); deleteRow("uni_assessment_steps", b.dataset.deleteStep, "Delete step?"); }));
-  document.querySelectorAll("[data-toggle-step]").forEach((b) => b.addEventListener("change", async () => { await db.from("uni_assessment_steps").update({ done: b.checked }).eq("id", b.dataset.toggleStep); await loadUni(); renderUni(); }));
-}
-function wireUniEvents() {
-  initPrettySelects();
-  [["uniSubjectModal", "uniSubjectCancel"], ["uniClassModal", "uniClassCancel"], ["uniAssessmentModal", "uniAssessmentCancel"], ["uniStepModal", "uniStepCancel"]].forEach(([modal, cancel]) => {
-    $(cancel)?.addEventListener("click", () => { $(modal).classList.remove("open"); if (modal === "uniStepModal") editingUniStepId = null; });
-    $(modal)?.addEventListener("click", (e) => { if (e.target.id === modal) $(modal).classList.remove("open"); });
-  });
-  $("uniSubjectSave")?.addEventListener("click", saveUniSubject);
-  $("uniClassSave")?.addEventListener("click", saveUniClass);
-  $("uniAssessmentSave")?.addEventListener("click", saveUniAssessment);
-  $("uniStepSave")?.addEventListener("click", saveUniStep);
-  $("uniStepTitle")?.addEventListener("keydown", (e) => { if (e.key === "Enter") saveUniStep(); });
-}
-
-
-// ============================================
-// Phase 4 · Achievements, reminder hub, theme studio, Sunday review
-// ============================================
-function daysUntil(iso) {
-  if (!iso) return null;
-  const today = new Date(todayStr() + "T00:00");
-  const due = new Date(iso + "T00:00");
-  return Math.round((due - today) / 86400000);
-}
-function dueBadge(iso) {
-  const d = daysUntil(iso);
-  if (d === null) return { cls: "none", text: "⚪ No due date" };
-  if (d < 0) return { cls: "urgent", text: `🔴 ${Math.abs(d)}d overdue` };
-  if (d === 0) return { cls: "urgent", text: "🔴 Today" };
-  if (d === 1) return { cls: "urgent", text: "🔴 Tomorrow" };
-  if (d <= 4) return { cls: "soon", text: `🟠 ${d} days` };
-  return { cls: "later", text: `🟢 ${niceDate(iso)}` };
-}
-function getAchievements() {
-  const doneTasks = tasks.filter((t) => t.completed).length;
-  const doneSteps = assessmentSteps.filter((s) => s.done).length;
-  const hasUni = uniSubjects.length > 0;
-  const hasProject = projects.length > 0;
-  const checkedHabitsToday = habits.filter((h) => habitChecks.has(`${h.id}|${todayStr()}`)).length;
-  return [
-    { icon: "🌱", name: "First step", desc: "Complete 1 task", earned: doneTasks >= 1 },
-    { icon: "🔥", name: "Ten wins", desc: "Complete 10 tasks", earned: doneTasks >= 10 },
-    { icon: "🎓", name: "Uni ready", desc: "Add your first subject", earned: hasUni },
-    { icon: "📂", name: "Project mode", desc: "Create a project", earned: hasProject },
-    { icon: "✅", name: "Breakdown boss", desc: "Tick 5 assessment steps", earned: doneSteps >= 5 },
-    { icon: "☀️", name: "Routine energy", desc: "Tick a habit today", earned: checkedHabitsToday >= 1 },
-  ];
-}
-function getUpcomingReminders() {
-  const taskReminders = tasks
-    .filter((t) => !t.completed && t.due_date)
-    .map((t) => ({ type: "Task", title: t.title, date: t.due_date, meta: prioById(t.priority_id)?.name || "Planner" }));
-  const uniReminders = uniAssessments
-    .filter((a) => a.due_date)
-    .map((a) => ({ type: "Uni", title: a.title, date: a.due_date, meta: uniSubjects.find((s) => s.id === a.subject_id)?.code || "Assessment" }));
-  return [...taskReminders, ...uniReminders]
-    .sort((a, b) => (a.date || "9999").localeCompare(b.date || "9999"))
-    .slice(0, 5);
-}
-function renderPhase4() {
-  const root = $("phase4Root");
-  if (!root) return;
-  const earned = getAchievements();
-  const reminders = getUpcomingReminders();
-  const earnedCount = earned.filter((a) => a.earned).length;
-  root.innerHTML = `
-    <div class="phase4-grid">
-      <div class="phase4-panel">
-        <div class="phase4-mini-head"><span>🏆 Achievements</span><strong>${earnedCount}/${earned.length}</strong></div>
-        <div class="achievement-row">
-          ${earned.map((a) => `<div class="achievement ${a.earned ? "earned" : "locked"}" title="${esc(a.desc)}"><b>${a.icon}</b><span>${esc(a.name)}</span></div>`).join("")}
-        </div>
-      </div>
-      <div class="phase4-panel">
-        <div class="phase4-mini-head"><span>🔔 Reminder hub</span><strong>${reminders.length}</strong></div>
-        <div class="reminder-list">
-          ${reminders.length ? reminders.map((r) => { const badge = dueBadge(r.date); return `<div class="reminder-row"><div><b>${esc(r.title)}</b><span>${esc(r.type)} · ${esc(r.meta)}</span></div><em class="due-badge ${badge.cls}">${badge.text}</em></div>`; }).join("") : `<div class="empty slim"><span class="emoji">✨</span>No upcoming due dates.</div>`}
-        </div>
-      </div>
-    </div>`;
-}
-function renderThemeStudio() {
-  const grid = $("themeGrid");
-  if (!grid) return;
-  const theme = getTheme();
-  grid.innerHTML = `
-    <div class="theme-modes">
-      <button class="theme-pill ${theme.mode === "light" ? "active" : ""}" data-theme-mode="light">☀️ Light</button>
-      <button class="theme-pill ${theme.mode === "dark" ? "active" : ""}" data-theme-mode="dark">🌙 Dark</button>
-    </div>
-    <div class="accent-row">
-      ${THEME_ACCENTS.map((a) => `<button class="accent-dot ${theme.accent.toLowerCase() === a.color.toLowerCase() ? "active" : ""}" data-accent="${a.color}" style="--accent-choice:${a.color}" aria-label="${esc(a.name)}"></button>`).join("")}
-    </div>`;
-  grid.querySelectorAll("[data-theme-mode]").forEach((b) => b.addEventListener("click", () => setTheme({ mode: b.dataset.themeMode })));
-  grid.querySelectorAll("[data-accent]").forEach((b) => b.addEventListener("click", () => setTheme({ accent: b.dataset.accent })));
-}
-function weeklyCompletedCount() {
-  const now = new Date();
-  const start = new Date(now);
-  start.setDate(now.getDate() - 6);
-  start.setHours(0, 0, 0, 0);
-  return tasks.filter((t) => t.completed_at && new Date(t.completed_at) >= start).length;
-}
-function openSundayReview() {
-  const modal = $("reviewModal");
-  if (!modal) return;
-  const upcoming = getUpcomingReminders().slice(0, 3);
-  const achievements = getAchievements().filter((a) => a.earned).length;
-  $("reviewSummary").innerHTML = `
-    <div class="review-summary-grid">
-      <div><strong>${weeklyCompletedCount()}</strong><span>tasks completed this week</span></div>
-      <div><strong>${achievements}</strong><span>achievements unlocked</span></div>
-      <div><strong>${upcoming.length}</strong><span>priority due dates ahead</span></div>
-    </div>
-    <div class="review-next">
-      <h3>Next things to watch</h3>
-      ${upcoming.length ? upcoming.map((r) => { const b = dueBadge(r.date); return `<p><span>${esc(r.title)}</span><em class="due-badge ${b.cls}">${b.text}</em></p>`; }).join("") : `<p><span>Your week is clear.</span><em class="due-badge later">Plan gently</em></p>`}
-    </div>`;
-  $("reviewNotes").value = localStorage.getItem("prioSundayReview") || "";
-  modal.classList.add("open");
-}
-function closeSundayReview() { $("reviewModal")?.classList.remove("open"); }
-function saveSundayReview() {
-  localStorage.setItem("prioSundayReview", $("reviewNotes").value.trim());
-  closeSundayReview();
-  toast("Sunday review saved ✨");
 }

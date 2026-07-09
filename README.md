@@ -64,12 +64,8 @@ prio/
 schema-update-3.sql   ← run once (Phase 3 starter: university)
 ```
 
-## Polish & personalisation
-
-This version adds the Prio command centre: earned achievement badges, an upcoming reminder hub, a Sunday review modal, and a theme studio with light/dark mode plus accent colours.
-
 ## Roadmap
 
 - **Phase 3:** University starter is included; next expansion is notes, results/WAM, and Knowledge nested folders
-- **Polish & personalisation:** Achievements & trophies, theme customisation + dark mode, reminder hub, Sunday review
+- **Phase 4:** Achievements & trophies, theme customisation + dark mode, reminders, Sunday review
 - Also on the list: drag-and-drop reordering, workout of the day, cycle tracker
