@@ -3008,3 +3008,206 @@ input, select, textarea { font-family: inherit; font-size: 1rem; color: var(--in
 :root[data-theme="dark"] .prio-filter-item { color: var(--ink-soft) !important; }
 :root[data-theme="dark"] .prio-filter-item:hover { background: rgba(255,255,255,0.07) !important; color: var(--ink) !important; }
 :root[data-theme="dark"] .prio-filter-item.active { background: rgba(255,255,255,0.085) !important; color: #fff !important; }
+
+/* ============================================
+   PRIO · dark mode dropdown + emoji polish fix
+   Keeps custom select menus and emoji pickers dark instead of browser-white
+   ============================================ */
+:root[data-theme="dark"] .pretty-select-menu {
+  background: rgba(31, 35, 56, 0.98) !important;
+  border: 1px solid rgba(255, 255, 255, 0.10) !important;
+  box-shadow: 0 22px 60px rgba(0, 0, 0, 0.36) !important;
+  scrollbar-color: rgba(255,255,255,0.28) transparent;
+}
+
+:root[data-theme="dark"] .pretty-option {
+  color: var(--ink) !important;
+  background: transparent !important;
+}
+
+:root[data-theme="dark"] .pretty-option:hover {
+  background: rgba(255,255,255,0.08) !important;
+  color: #ffffff !important;
+  transform: translateX(2px);
+}
+
+:root[data-theme="dark"] .pretty-option.selected {
+  background: color-mix(in srgb, var(--primary) 26%, rgba(255,255,255,0.07)) !important;
+  color: #ffffff !important;
+}
+
+:root[data-theme="dark"] .pretty-select-trigger {
+  color: var(--ink) !important;
+}
+
+:root[data-theme="dark"] .pretty-select.open .pretty-select-trigger {
+  background: rgba(255,255,255,0.045) !important;
+}
+
+:root[data-theme="dark"] .emoji-row button {
+  background: rgba(255,255,255,0.055) !important;
+  border: 1px solid rgba(255,255,255,0.09) !important;
+  box-shadow: none !important;
+}
+
+:root[data-theme="dark"] .emoji-row button:hover {
+  background: rgba(255,255,255,0.10) !important;
+}
+
+:root[data-theme="dark"] .emoji-row button.active {
+  background: color-mix(in srgb, var(--primary) 26%, rgba(255,255,255,0.06)) !important;
+  border-color: color-mix(in srgb, var(--primary) 60%, rgba(255,255,255,0.18)) !important;
+  box-shadow: 0 10px 25px color-mix(in srgb, var(--primary) 18%, transparent) !important;
+}
+
+:root[data-theme="dark"] input[type="time"] {
+  color-scheme: dark;
+}
+
+:root[data-theme="dark"] select option {
+  background: #1f2338;
+  color: #f5f7ff;
+}
+
+
+/* ============================================
+   PRIO v1.0 stability polish
+   Keeps Uni date badges, dark mode surfaces and planner controls consistent.
+   ============================================ */
+.uni-due-badge {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: fit-content;
+  max-width: 100%;
+  min-width: 0;
+  white-space: nowrap;
+  border-radius: 999px;
+  padding: 9px 14px;
+  border: 1px solid var(--line);
+  background: var(--bg);
+  color: var(--ink-soft);
+  font-size: 0.78rem;
+  font-weight: 900;
+  font-style: normal;
+  line-height: 1;
+  box-shadow: none;
+}
+.uni-due-badge.urgent,
+.uni-due-badge.late {
+  background: #ffe9ec;
+  border-color: rgba(240, 69, 90, .22);
+  color: var(--danger);
+}
+.uni-due-badge.soon {
+  background: #fff4da;
+  border-color: rgba(245, 166, 35, .25);
+  color: #a86600;
+}
+.uni-due-badge.later {
+  background: var(--primary-soft);
+  border-color: rgba(67, 83, 255, .18);
+  color: var(--primary);
+}
+.uni-due-badge.none {
+  background: var(--bg);
+  color: var(--ink-soft);
+}
+:root[data-theme="dark"] .uni-due-badge {
+  background: rgba(255,255,255,0.055) !important;
+  border-color: rgba(255,255,255,0.075) !important;
+  color: var(--ink-soft) !important;
+  box-shadow: none !important;
+}
+:root[data-theme="dark"] .uni-due-badge.urgent,
+:root[data-theme="dark"] .uni-due-badge.late {
+  background: rgba(240,69,90,0.14) !important;
+  border-color: rgba(240,69,90,0.22) !important;
+  color: #ff9aaa !important;
+}
+:root[data-theme="dark"] .uni-due-badge.soon {
+  background: rgba(245,166,35,0.13) !important;
+  border-color: rgba(245,166,35,0.20) !important;
+  color: #ffd08a !important;
+}
+:root[data-theme="dark"] .uni-due-badge.later {
+  background: rgba(67,83,255,0.14) !important;
+  border-color: rgba(67,83,255,0.22) !important;
+  color: #aeb7ff !important;
+}
+.assessment-top .uni-due-badge,
+.assessment-head .uni-due-badge { margin-left: auto; }
+
+.no-step-copy {
+  background: rgba(255,255,255,0.62) !important;
+  border: 1px dashed var(--line) !important;
+  color: var(--ink-soft) !important;
+}
+:root[data-theme="dark"] .no-step-copy {
+  background: rgba(255,255,255,0.045) !important;
+  border-color: rgba(255,255,255,0.075) !important;
+  color: var(--ink-soft) !important;
+}
+
+/* Prevent native white leaks inside modals in dark mode */
+:root[data-theme="dark"] .modal-card select,
+:root[data-theme="dark"] .modal-card input,
+:root[data-theme="dark"] .modal-card textarea,
+:root[data-theme="dark"] .custom-select-trigger,
+:root[data-theme="dark"] .date-shell,
+:root[data-theme="dark"] .time-input {
+  background: rgba(255,255,255,0.065) !important;
+  border-color: rgba(255,255,255,0.105) !important;
+  color: var(--ink) !important;
+}
+:root[data-theme="dark"] .custom-select-menu,
+:root[data-theme="dark"] .custom-select-options,
+:root[data-theme="dark"] .emoji-picker,
+:root[data-theme="dark"] .emoji-popover {
+  background: #20253b !important;
+  border-color: rgba(255,255,255,0.09) !important;
+  color: var(--ink) !important;
+  box-shadow: 0 22px 46px rgba(0,0,0,0.34) !important;
+}
+:root[data-theme="dark"] .custom-select-option,
+:root[data-theme="dark"] .emoji-picker button,
+:root[data-theme="dark"] .emoji-popover button {
+  background: transparent !important;
+  color: var(--ink-soft) !important;
+}
+:root[data-theme="dark"] .custom-select-option:hover,
+:root[data-theme="dark"] .custom-select-option.active,
+:root[data-theme="dark"] .emoji-picker button:hover,
+:root[data-theme="dark"] .emoji-popover button:hover {
+  background: rgba(255,255,255,0.075) !important;
+  color: var(--ink) !important;
+}
+
+/* Keep reminder/weekly-review due badges compact so they cannot overflow cards */
+.review-next p,
+.reminder-row { min-width: 0; }
+.review-next .due-badge,
+.reminder-row .due-badge {
+  flex: 0 1 auto;
+  max-width: 58%;
+  min-width: 0 !important;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+@media (max-width: 640px) {
+  .assessment-top .uni-due-badge,
+  .assessment-head .uni-due-badge {
+    margin-left: 0;
+    align-self: flex-start;
+  }
+  .uni-due-badge {
+    width: auto;
+    max-width: 100%;
+  }
+  .assessment-head {
+    gap: 10px;
+  }
+}

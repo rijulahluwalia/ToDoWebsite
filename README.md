@@ -73,3 +73,8 @@ This version adds the Prio command centre: earned achievement badges, an upcomin
 - **Phase 3:** University starter is included; next expansion is notes, results/WAM, and Knowledge nested folders
 - **Polish & personalisation:** Achievements & trophies, theme customisation + dark mode, reminder hub, Sunday review
 - Also on the list: drag-and-drop reordering, workout of the day, cycle tracker
+
+
+## Prio v1.0 Stability Update
+
+This build uses the last stable Prio base and applies a consistency pass only. It fixes Uni due-date badges, dark-mode surface leaks, compact reminder badges, assessment empty states, modal/dropdown contrast, and keeps the updated planner/date/filter UI intact.
