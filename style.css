@@ -1778,3 +1778,52 @@ input, select, textarea { font-family: inherit; font-size: 1rem; color: var(--in
   .app-logo { padding: 9px 12px; }
   .greeting h1 { font-size: 1.28rem; }
 }
+
+/* ============================================
+   PRIO · soft date input button polish
+   Removes browser-looking text box inside custom date shells
+   ============================================ */
+.date-shell {
+  cursor: pointer;
+  min-height: 58px;
+  padding: 8px 14px;
+  background: linear-gradient(135deg, #ffffff 0%, #f6f7ff 62%, var(--primary-soft) 100%);
+  box-shadow: inset 0 0 0 1px rgba(228, 231, 244, 0.85), 0 8px 20px rgba(23, 27, 54, 0.04);
+}
+.date-shell:hover {
+  transform: translateY(-1px);
+  box-shadow: inset 0 0 0 1px rgba(67, 83, 255, 0.22), 0 12px 26px rgba(23, 27, 54, 0.08);
+}
+.date-shell:active { transform: scale(0.99); }
+.date-icon {
+  background: #fff;
+  box-shadow: 0 8px 18px rgba(67, 83, 255, 0.10), inset 0 0 0 1px var(--line);
+}
+.pretty-date-input,
+.date-shell input.pretty-date-input,
+.modal .date-shell input.pretty-date-input {
+  width: 100%;
+  min-height: 42px;
+  border: 0 !important;
+  outline: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  padding: 9px 2px !important;
+  cursor: pointer;
+  font-weight: 800;
+  color: var(--ink);
+  border-radius: 0;
+  appearance: none;
+  -webkit-appearance: none;
+}
+.pretty-date-input::placeholder {
+  color: var(--ink-soft);
+  font-weight: 700;
+  opacity: .9;
+}
+.date-shell:focus-within,
+.date-shell.date-active {
+  border-color: var(--primary);
+  background: #fff;
+  box-shadow: 0 0 0 4px var(--primary-soft), 0 12px 26px rgba(67, 83, 255, 0.10);
+}
