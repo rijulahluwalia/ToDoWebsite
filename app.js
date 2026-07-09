@@ -1715,3 +1715,86 @@ function wirePhase2Events() {
   $("routineModal").addEventListener("click", (e) => { if (e.target.id === "routineModal") $("routineModal").classList.remove("open"); });
   $("routineName").addEventListener("keydown", (e) => { if (e.key === "Enter") saveRoutine(); });
 }
+
+// ============================================
+// Phase 3 · University starter safety patch
+// This prevents the app from crashing if Uni functions were not included.
+// ============================================
+async function loadUni() {
+  try {
+    const [subjectsRes, classesRes, assessmentsRes, stepsRes] = await Promise.all([
+      db.from("uni_subjects").select("*").eq("user_id", user.id).order("position"),
+      db.from("uni_classes").select("*").eq("user_id", user.id),
+      db.from("uni_assessments").select("*").eq("user_id", user.id).order("position"),
+      db.from("uni_assessment_steps").select("*").eq("user_id", user.id).order("position"),
+    ]);
+
+    uniSubjects = subjectsRes.data || [];
+    uniClasses = classesRes.data || [];
+    uniAssessments = assessmentsRes.data || [];
+    assessmentSteps = stepsRes.data || [];
+  } catch (err) {
+    console.warn("Uni tables not ready yet:", err);
+    uniSubjects = [];
+    uniClasses = [];
+    uniAssessments = [];
+    assessmentSteps = [];
+  }
+}
+
+function renderUni() {
+  const root = $("uniRoot");
+  if (!root) return;
+
+  root.innerHTML = `
+    <div class="section-head">
+      <h2>🎓 Uni</h2>
+      <button class="btn-ghost" id="addUniSubjectBtn">+ Subject</button>
+    </div>
+    <div class="dash-grid">
+      <div class="card span2">
+        <h3 style="margin-bottom:10px">Subjects</h3>
+        <div id="uniSubjectList">${uniSubjects.length ? uniSubjects.map((s) => `
+          <div class="task" style="--task-color:${esc(s.color || '#4353ff')};margin-bottom:10px">
+            <div class="task-body">
+              <div class="task-title">${esc(s.code ? `${s.code} · ${s.name}` : s.name)}</div>
+              <div class="task-meta">
+                <span>${uniClasses.filter((c) => c.subject_id === s.id).length} class(es)</span>
+                <span>${uniAssessments.filter((a) => a.subject_id === s.id).length} assessment(s)</span>
+              </div>
+            </div>
+          </div>`).join("") : `<div class="empty"><span class="emoji">📚</span>Add your first subject once the Uni tables are ready.</div>`}</div>
+      </div>
+      <div class="card">
+        <h3 style="margin-bottom:10px">Timetable</h3>
+        ${uniClasses.length ? uniClasses.map((c) => {
+          const s = uniSubjects.find((x) => x.id === c.subject_id);
+          const days = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+          return `<div class="task" style="--task-color:${esc(s?.color || '#4353ff')};margin-bottom:10px">
+            <div class="task-body">
+              <div class="task-title">${esc(c.class_type || 'Class')} ${s ? `· ${esc(s.name)}` : ''}</div>
+              <div class="task-meta"><span>${days[c.day_of_week] || ''}</span><span>${esc(c.start_time || '')}${c.end_time ? `–${esc(c.end_time)}` : ''}</span><span>${esc(c.room || '')}</span></div>
+            </div>
+          </div>`;
+        }).join("") : `<div class="empty"><span class="emoji">🗓️</span>Your class times and rooms will show here.</div>`}
+      </div>
+      <div class="card">
+        <h3 style="margin-bottom:10px">Assessments</h3>
+        ${uniAssessments.length ? uniAssessments.map((a) => {
+          const s = uniSubjects.find((x) => x.id === a.subject_id);
+          const steps = assessmentSteps.filter((st) => st.assessment_id === a.id);
+          const done = steps.filter((st) => st.done).length;
+          const progress = steps.length ? Math.round((done / steps.length) * 100) : 0;
+          return `<div class="task" style="--task-color:${esc(s?.color || '#4353ff')};margin-bottom:10px">
+            <div class="task-body">
+              <div class="task-title">${esc(a.title)}</div>
+              <div class="task-meta"><span>${esc(s?.name || '')}</span>${a.due_date ? `<span>📅 ${niceDate(a.due_date)}</span>` : ''}<span>${Number(a.weight || 0)}%</span><span>${esc(a.task_type || 'Individual')}</span><span>${progress}% done</span></div>
+            </div>
+          </div>`;
+        }).join("") : `<div class="empty"><span class="emoji">📝</span>Your assessment list will show here.</div>`}
+      </div>
+    </div>`;
+
+  const addBtn = $("addUniSubjectBtn");
+  if (addBtn) addBtn.addEventListener("click", () => toast("Uni editing is being patched in next — app is safe now."));
+}

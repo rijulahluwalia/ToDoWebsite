@@ -14,13 +14,26 @@ const authCard = document.getElementById("authCard");
 const emailInput = document.getElementById("email");
 const passwordInput = document.getElementById("password");
 const displayNameInput = document.getElementById("displayName");
+const togglePw = document.getElementById("togglePw");
 
 let mode = "login"; // or "signup"
 
-// Already logged in? Straight to the app.
-db.auth.getSession().then(({ data }) => {
-  if (data.session) window.location.href = "app.html";
-});
+// IMPORTANT:
+// Keep the UI controls wired even if config.js / Supabase is missing.
+// Without this guard, one missing config value makes every login-page button feel dead.
+const hasSupabase = typeof db !== "undefined" && db?.auth;
+
+// ---------- messages ----------
+function showMsg(text, type) {
+  authMsg.textContent = text;
+  authMsg.className = "auth-msg " + type;
+  if (type === "error") {
+    authCard.classList.remove("shake");
+    void authCard.offsetWidth; // restart animation
+    authCard.classList.add("shake");
+  }
+}
+function hideMsg() { authMsg.className = "auth-msg"; }
 
 // ---------- tab switching ----------
 function setMode(next) {
@@ -38,39 +51,32 @@ function setMode(next) {
   passwordInput.autocomplete = signup ? "new-password" : "current-password";
   hideMsg();
 }
-tabLogin.addEventListener("click", () => setMode("login"));
-tabSignup.addEventListener("click", () => setMode("signup"));
 
 // ---------- show / hide password ----------
-const togglePw = document.getElementById("togglePw");
-togglePw.addEventListener("click", () => {
+function togglePassword() {
   const showing = passwordInput.type === "text";
   passwordInput.type = showing ? "password" : "text";
   togglePw.textContent = showing ? "SHOW" : "HIDE";
   togglePw.classList.toggle("on", !showing);
-});
-
-// ---------- messages ----------
-function showMsg(text, type) {
-  authMsg.textContent = text;
-  authMsg.className = "auth-msg " + type;
-  if (type === "error") {
-    authCard.classList.remove("shake");
-    void authCard.offsetWidth; // restart animation
-    authCard.classList.add("shake");
-  }
 }
-function hideMsg() { authMsg.className = "auth-msg"; }
 
 // ---------- submit ----------
 async function handleSubmit() {
+  if (!hasSupabase) {
+    return showMsg(
+      "Supabase config is missing. Keep your config.js file in the project with your Project URL and anon key.",
+      "error"
+    );
+  }
+
   const email = emailInput.value.trim();
   const password = passwordInput.value;
 
   if (!email || !password) return showMsg("Please fill in your email and password.", "error");
   if (password.length < 6) return showMsg("Password needs to be at least 6 characters.", "error");
-  if (mode === "signup" && !displayNameInput.value.trim())
+  if (mode === "signup" && !displayNameInput.value.trim()) {
     return showMsg("Tell us your name so we can greet you properly.", "error");
+  }
 
   submitBtn.disabled = true;
   submitBtn.textContent = mode === "signup" ? "Creating…" : "Logging in…";
@@ -102,14 +108,29 @@ async function handleSubmit() {
       "Invalid login credentials": "That email and password don't match. Try again?",
       "User already registered": "You already have an account with this email. Log in instead.",
     };
-    showMsg(friendly[err.message] || err.message, "error");
+    showMsg(friendly[err.message] || err.message || "Something went wrong. Try again.", "error");
   } finally {
     submitBtn.disabled = false;
     submitBtn.textContent = mode === "signup" ? "Create account" : "Log in";
   }
 }
 
+// Wire buttons first, before any Supabase call.
+tabLogin.addEventListener("click", () => setMode("login"));
+tabSignup.addEventListener("click", () => setMode("signup"));
+togglePw.addEventListener("click", togglePassword);
 submitBtn.addEventListener("click", handleSubmit);
-[emailInput, passwordInput, displayNameInput].forEach((el) =>
-  el.addEventListener("keydown", (e) => { if (e.key === "Enter") handleSubmit(); })
-);
+[emailInput, passwordInput, displayNameInput].forEach((el) => {
+  el.addEventListener("keydown", (e) => { if (e.key === "Enter") handleSubmit(); });
+});
+
+// Already logged in? Straight to the app. Do this after UI is wired.
+if (hasSupabase) {
+  db.auth.getSession().then(({ data }) => {
+    if (data.session) window.location.href = "app.html";
+  }).catch(() => {
+    showMsg("Couldn’t connect to Supabase. Check your config.js values.", "error");
+  });
+} else {
+  showMsg("Supabase config is missing. Add/restore config.js, then redeploy.", "error");
+}
