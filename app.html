@@ -22,12 +22,23 @@
   <div class="blob blob-1"></div>
   <div class="blob blob-2"></div>
 
+  <div class="pull-refresh" id="pullRefresh" aria-hidden="true">
+    <div class="pull-orb"><span></span></div>
+    <div class="pull-text" id="pullRefreshText">Pull to refresh</div>
+  </div>
+
   <div class="app">
     <!-- Top bar -->
     <header class="topbar fade-up">
-      <div class="greeting">
-        <h1 id="greetName">Hello!</h1>
-        <p id="greetDate"></p>
+      <div class="top-left-brand">
+        <button class="app-logo" id="homeLogoBtn" type="button" aria-label="Go to home">
+          <span class="logo-dot"></span>
+          <span>Prio</span>
+        </button>
+        <div class="greeting">
+          <h1 id="greetName">Hello!</h1>
+          <p id="greetDate"></p>
+        </div>
       </div>
       <div class="top-actions">
         <button class="menu-trigger" id="menuBtn" aria-label="Open menu" aria-expanded="false">

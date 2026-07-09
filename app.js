@@ -92,6 +92,7 @@ async function init() {
   wirePhase2Events();
   wireDatePickerEvents();
   wireUniEvents();
+  initPullToRefresh();
   loadWeather();
   loadDump();
 }
@@ -137,6 +138,60 @@ function setMenu(open) {
   trigger.classList.toggle("open", open);
   trigger.setAttribute("aria-expanded", String(open));
   backdrop.setAttribute("aria-hidden", String(!open));
+}
+
+
+function initPullToRefresh() {
+  const indicator = $("pullRefresh");
+  const text = $("pullRefreshText");
+  if (!indicator || !text || indicator.dataset.ready === "1") return;
+  indicator.dataset.ready = "1";
+
+  let startY = 0;
+  let pulling = false;
+  let distance = 0;
+  const threshold = 92;
+
+  const setPull = (y) => {
+    const eased = Math.min(118, Math.pow(y, 0.86) * 1.55);
+    indicator.classList.add("visible");
+    indicator.style.transform = `translate(-50%, ${eased - 86}px) scale(${Math.min(1, 0.9 + eased / 520)})`;
+    const ready = y > threshold;
+    indicator.classList.toggle("ready", ready);
+    text.textContent = ready ? "Release to refresh" : "Pull to refresh";
+  };
+
+  window.addEventListener("touchstart", (e) => {
+    if (window.scrollY > 0 || document.body.classList.contains("modal-open")) return;
+    startY = e.touches[0].clientY;
+    pulling = true;
+    distance = 0;
+  }, { passive: true });
+
+  window.addEventListener("touchmove", (e) => {
+    if (!pulling || window.scrollY > 0) return;
+    const currentY = e.touches[0].clientY;
+    distance = Math.max(0, currentY - startY);
+    if (distance < 8) return;
+    setPull(distance);
+  }, { passive: true });
+
+  window.addEventListener("touchend", () => {
+    if (!pulling) return;
+    pulling = false;
+    if (distance > threshold) {
+      indicator.classList.add("visible", "refreshing");
+      indicator.classList.remove("ready");
+      indicator.style.transform = "translate(-50%, 18px) scale(1)";
+      text.textContent = "Refreshing Prio…";
+      setTimeout(() => window.location.reload(), 520);
+      return;
+    }
+    indicator.classList.remove("visible", "ready", "refreshing");
+    indicator.style.transform = "translate(-50%, -90px) scale(0.92)";
+    text.textContent = "Pull to refresh";
+    distance = 0;
+  }, { passive: true });
 }
 
 function promptDialog({ title = "Add details", message = "", value = "", placeholder = "Type here…", saveText = "Save" } = {}) {
@@ -563,6 +618,7 @@ function wireEvents() {
   document.querySelectorAll("[data-view]").forEach((b) =>
     b.addEventListener("click", () => { switchView(b.dataset.view); setMenu(false); }));
   $("avatarBtn").addEventListener("click", () => { switchView("profile"); setMenu(false); });
+  if ($("homeLogoBtn")) $("homeLogoBtn").addEventListener("click", () => switchView("home"));
   if ($("menuBtn")) $("menuBtn").addEventListener("click", () => setMenu(!$('menuBackdrop').classList.contains("open")));
   if ($("menuClose")) $("menuClose").addEventListener("click", () => setMenu(false));
   if ($("menuBackdrop")) $("menuBackdrop").addEventListener("click", (e) => { if (e.target.id === "menuBackdrop") setMenu(false); });
@@ -1773,6 +1829,61 @@ function renderDatePicker() {
   $("datePickerGrid").innerHTML = html;
   $("datePickerGrid").querySelectorAll("[data-date]").forEach((b) => b.addEventListener("click", () => chooseDate(b.dataset.date)));
 }
+
+
+// ============================================
+// Friendly custom selects (keeps the real select for saving)
+// ============================================
+function closePrettySelects(except = null) {
+  document.querySelectorAll(".pretty-select.open").forEach((box) => {
+    if (box !== except) box.classList.remove("open");
+  });
+}
+function renderPrettySelect(id) {
+  const select = $(id);
+  if (!select) return;
+  const box = document.querySelector(`[data-pretty-for="${id}"]`);
+  if (!box) return initPrettySelect(id);
+  const trigger = box.querySelector(".pretty-select-trigger");
+  const menu = box.querySelector(".pretty-select-menu");
+  const selectedOption = select.options[select.selectedIndex];
+  trigger.textContent = selectedOption ? selectedOption.textContent : "Choose";
+  menu.innerHTML = Array.from(select.options).map((opt) => `
+    <button type="button" class="pretty-option ${opt.selected ? "selected" : ""}" data-value="${esc(opt.value)}">
+      ${esc(opt.textContent)}
+    </button>`).join("");
+  menu.querySelectorAll(".pretty-option").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      select.value = btn.dataset.value;
+      select.dispatchEvent(new Event("change", { bubbles: true }));
+      renderPrettySelect(id);
+      box.classList.remove("open");
+    });
+  });
+}
+function initPrettySelect(id) {
+  const select = $(id);
+  if (!select || select.dataset.prettyReady) return renderPrettySelect(id);
+  select.dataset.prettyReady = "1";
+  select.classList.add("native-select-hidden");
+  const box = document.createElement("div");
+  box.className = "pretty-select";
+  box.dataset.prettyFor = id;
+  box.innerHTML = `<button type="button" class="pretty-select-trigger">Choose</button><div class="pretty-select-menu"></div>`;
+  select.insertAdjacentElement("afterend", box);
+  box.querySelector(".pretty-select-trigger").addEventListener("click", (e) => {
+    e.stopPropagation();
+    const opening = !box.classList.contains("open");
+    closePrettySelects(box);
+    box.classList.toggle("open", opening);
+  });
+  renderPrettySelect(id);
+}
+function initPrettySelects() {
+  ["uniClassSubject", "uniClassDay", "uniAssessmentSubject", "uniAssessmentType"].forEach(initPrettySelect);
+}
+document.addEventListener("click", () => closePrettySelects());
+
 function wireDatePickerEvents() {
   ["taskDate", "pitemDate", "uniAssessmentDate"].forEach((id) => {
     const el = $(id);
@@ -1889,6 +2000,7 @@ function fillSubjectSelect(id, selected) {
   const el = $(id);
   if (!el) return;
   el.innerHTML = uniSubjects.map((s) => `<option value="${s.id}" ${s.id === selected ? 'selected' : ''}>${esc(s.code ? `${s.code} · ${s.name}` : s.name)}</option>`).join("");
+  renderPrettySelect(id);
 }
 function openUniSubject(id = null) {
   editingUniSubjectId = id;
@@ -1917,6 +2029,7 @@ function openUniClass(id = null) {
   fillSubjectSelect("uniClassSubject", c?.subject_id || uniSubjects[0]?.id);
   $("uniClassType").value = c?.class_type || "";
   $("uniClassDay").value = String(c?.day_of_week ?? 1);
+  renderPrettySelect("uniClassDay");
   $("uniClassStart").value = (c?.start_time || "").slice(0,5);
   $("uniClassEnd").value = (c?.end_time || "").slice(0,5);
   $("uniClassRoom").value = c?.room || "";
@@ -1940,6 +2053,7 @@ function openUniAssessment(id = null) {
   setDateInput("uniAssessmentDate", a?.due_date || "");
   $("uniAssessmentWeight").value = a?.weight ?? "";
   $("uniAssessmentType").value = a?.task_type || "Individual";
+  renderPrettySelect("uniAssessmentType");
   $("uniAssessmentNotes").value = a?.notes || "";
   $("uniAssessmentModalTitle").textContent = a ? "Edit assessment" : "New assessment";
   $("uniAssessmentModal").classList.add("open");
@@ -1985,6 +2099,7 @@ function wireUniDynamicEvents() {
   document.querySelectorAll("[data-toggle-step]").forEach((b) => b.addEventListener("change", async () => { await db.from("uni_assessment_steps").update({ done: b.checked }).eq("id", b.dataset.toggleStep); await loadUni(); renderUni(); }));
 }
 function wireUniEvents() {
+  initPrettySelects();
   [["uniSubjectModal", "uniSubjectCancel"], ["uniClassModal", "uniClassCancel"], ["uniAssessmentModal", "uniAssessmentCancel"], ["uniStepModal", "uniStepCancel"]].forEach(([modal, cancel]) => {
     $(cancel)?.addEventListener("click", () => $(modal).classList.remove("open"));
     $(modal)?.addEventListener("click", (e) => { if (e.target.id === modal) $(modal).classList.remove("open"); });
