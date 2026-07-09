@@ -90,6 +90,8 @@ async function init() {
   wireEvents();
   wirePrioEvents();
   wirePhase2Events();
+  wireDatePickerEvents();
+  wireUniEvents();
   loadWeather();
   loadDump();
 }
@@ -353,7 +355,7 @@ function openModal(taskId = null, presetDate = null) {
   $("modalTitle").textContent = t ? "Edit task" : "New task";
   $("taskTitle").value = t ? t.title : "";
   $("taskNotes").value = t ? t.notes || "" : "";
-  $("taskDate").value = t ? t.due_date || "" : (presetDate || "");
+  setDateInput("taskDate", t ? t.due_date || "" : (presetDate || ""));
   modalPriorityId = t ? t.priority_id : (priorities[0]?.id ?? null);
   renderPrioPick();
   $("taskModal").classList.add("open");
@@ -377,7 +379,7 @@ async function saveTask() {
     title,
     notes: $("taskNotes").value.trim() || null,
     priority_id: modalPriorityId,
-    due_date: $("taskDate").value || null,
+    due_date: $("taskDate").dataset.iso || $("taskDate").value || null,
     user_id: user.id,
     scope: existing ? existing.scope || "daily" : (activeScope === "dump" ? "daily" : activeScope),
   };
@@ -1275,7 +1277,7 @@ function openPitemModal(projectId, sectionId, itemId = null) {
   $("pitemTitle").value = it ? it.title : "";
   $("pitemNotes").value = it ? it.notes || "" : "";
   $("pitemLink").value = it ? it.link || "" : "";
-  $("pitemDate").value = it ? it.due_date || "" : "";
+  setDateInput("pitemDate", it ? it.due_date || "" : "");
   $("pitemModal").classList.add("open");
   setTimeout(() => $("pitemTitle").focus(), 250);
 }
@@ -1289,7 +1291,7 @@ async function savePitem() {
     title,
     notes: $("pitemNotes").value.trim() || null,
     link: link || null,
-    due_date: $("pitemDate").value || null,
+    due_date: $("pitemDate").dataset.iso || $("pitemDate").value || null,
   };
   const btn = $("pitemSave");
   btn.disabled = true;
@@ -1717,9 +1719,90 @@ function wirePhase2Events() {
 }
 
 // ============================================
-// Phase 3 · University starter safety patch
-// This prevents the app from crashing if Uni functions were not included.
+// Modern date picker
 // ============================================
+let datePickerTargetId = null;
+let datePickerCursor = new Date();
+
+function parseISODate(iso) {
+  if (!iso) return null;
+  const [y, m, d] = String(iso).split("-").map(Number);
+  if (!y || !m || !d) return null;
+  return new Date(y, m - 1, d);
+}
+function toISODate(d) {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+function prettyDateValue(iso) {
+  const d = parseISODate(iso);
+  return d ? d.toLocaleDateString("en-AU", { weekday: "short", day: "numeric", month: "short", year: "numeric" }) : "";
+}
+function setDateInput(id, iso) {
+  const el = $(id);
+  if (!el) return;
+  el.dataset.iso = iso || "";
+  el.value = prettyDateValue(iso);
+}
+function openDatePicker(targetId) {
+  datePickerTargetId = targetId;
+  const current = parseISODate($(targetId)?.dataset.iso || $(targetId)?.value);
+  datePickerCursor = current || new Date();
+  renderDatePicker();
+  $("datePickerModal").classList.add("open");
+}
+function closeDatePicker() { $("datePickerModal")?.classList.remove("open"); datePickerTargetId = null; }
+function chooseDate(iso) {
+  if (datePickerTargetId) setDateInput(datePickerTargetId, iso);
+  closeDatePicker();
+}
+function renderDatePicker() {
+  const y = datePickerCursor.getFullYear();
+  const m = datePickerCursor.getMonth();
+  $("dateMonthLabel").textContent = datePickerCursor.toLocaleDateString("en-AU", { month: "long", year: "numeric" });
+  const selected = datePickerTargetId ? ($(datePickerTargetId).dataset.iso || "") : "";
+  const today = todayStr();
+  const first = new Date(y, m, 1);
+  const firstDowMon = (first.getDay() + 6) % 7;
+  const daysInMonth = new Date(y, m + 1, 0).getDate();
+  let html = ["M", "T", "W", "T", "F", "S", "S"].map((d) => `<div class="date-dow">${d}</div>`).join("");
+  for (let i = 0; i < firstDowMon; i++) html += `<div class="date-cell blank"></div>`;
+  for (let d = 1; d <= daysInMonth; d++) {
+    const iso = `${y}-${String(m + 1).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
+    html += `<button type="button" class="date-cell ${iso === today ? "today" : ""} ${iso === selected ? "selected" : ""}" data-date="${iso}">${d}</button>`;
+  }
+  $("datePickerGrid").innerHTML = html;
+  $("datePickerGrid").querySelectorAll("[data-date]").forEach((b) => b.addEventListener("click", () => chooseDate(b.dataset.date)));
+}
+function wireDatePickerEvents() {
+  ["taskDate", "pitemDate", "uniAssessmentDate"].forEach((id) => {
+    const el = $(id);
+    if (el) el.addEventListener("click", () => openDatePicker(id));
+  });
+  $("datePickerClose")?.addEventListener("click", closeDatePicker);
+  $("datePickerModal")?.addEventListener("click", (e) => { if (e.target.id === "datePickerModal") closeDatePicker(); });
+  $("datePrev")?.addEventListener("click", () => { datePickerCursor.setMonth(datePickerCursor.getMonth() - 1); renderDatePicker(); });
+  $("dateNext")?.addEventListener("click", () => { datePickerCursor.setMonth(datePickerCursor.getMonth() + 1); renderDatePicker(); });
+  document.querySelectorAll(".quick-date-row [data-quick]").forEach((b) => b.addEventListener("click", () => {
+    const now = new Date();
+    if (b.dataset.quick === "clear") return chooseDate("");
+    if (b.dataset.quick === "tomorrow") now.setDate(now.getDate() + 1);
+    if (b.dataset.quick === "weekend") {
+      const day = now.getDay();
+      const add = day === 6 ? 0 : (6 - day + 7) % 7;
+      now.setDate(now.getDate() + add);
+    }
+    chooseDate(toISODate(now));
+  }));
+}
+
+// ============================================
+// Phase 3 · University dashboard
+// ============================================
+let editingUniSubjectId = null;
+let editingUniClassId = null;
+let editingUniAssessmentId = null;
+let uniStepAssessmentId = null;
+
 async function loadUni() {
   try {
     const [subjectsRes, classesRes, assessmentsRes, stepsRes] = await Promise.all([
@@ -1728,73 +1811,187 @@ async function loadUni() {
       db.from("uni_assessments").select("*").eq("user_id", user.id).order("position"),
       db.from("uni_assessment_steps").select("*").eq("user_id", user.id).order("position"),
     ]);
-
     uniSubjects = subjectsRes.data || [];
     uniClasses = classesRes.data || [];
     uniAssessments = assessmentsRes.data || [];
     assessmentSteps = stepsRes.data || [];
   } catch (err) {
     console.warn("Uni tables not ready yet:", err);
-    uniSubjects = [];
-    uniClasses = [];
-    uniAssessments = [];
-    assessmentSteps = [];
+    uniSubjects = []; uniClasses = []; uniAssessments = []; assessmentSteps = [];
   }
 }
-
+function assessmentProgress(aid) {
+  const steps = assessmentSteps.filter((s) => s.assessment_id === aid);
+  if (!steps.length) return 0;
+  return Math.round((steps.filter((s) => s.done).length / steps.length) * 100);
+}
+function daysUntil(iso) {
+  if (!iso) return "No date";
+  const today = parseISODate(todayStr());
+  const d = parseISODate(iso);
+  const diff = Math.ceil((d - today) / 86400000);
+  if (diff === 0) return "Today";
+  if (diff === 1) return "Tomorrow";
+  if (diff < 0) return `${Math.abs(diff)} day(s) late`;
+  return `${diff} day(s)`;
+}
 function renderUni() {
   const root = $("uniRoot");
   if (!root) return;
-
+  const totalAssessments = uniAssessments.length;
+  const avgProgress = totalAssessments ? Math.round(uniAssessments.reduce((sum, a) => sum + assessmentProgress(a.id), 0) / totalAssessments) : 0;
+  const upcoming = [...uniAssessments].filter((a) => a.due_date).sort((a,b) => a.due_date.localeCompare(b.due_date)).slice(0, 5);
   root.innerHTML = `
-    <div class="section-head">
-      <h2>🎓 Uni</h2>
-      <button class="btn-ghost" id="addUniSubjectBtn">+ Subject</button>
+    <div class="section-head"><h2>🎓 Uni Dashboard</h2><button class="btn-ghost" id="addUniSubjectBtn">+ Subject</button></div>
+    <div class="uni-hero card span2">
+      <div><p class="modal-kicker">Semester command centre</p><h2>${totalAssessments ? `${avgProgress}% assessment progress` : "Set up your semester"}</h2><p class="uni-muted">Subjects, timetable, assessments and breakdown tasks in one clean view.</p></div>
+      <div class="uni-big-progress"><div style="width:${avgProgress}%"></div></div>
     </div>
-    <div class="dash-grid">
-      <div class="card span2">
-        <h3 style="margin-bottom:10px">Subjects</h3>
-        <div id="uniSubjectList">${uniSubjects.length ? uniSubjects.map((s) => `
-          <div class="task" style="--task-color:${esc(s.color || '#4353ff')};margin-bottom:10px">
-            <div class="task-body">
-              <div class="task-title">${esc(s.code ? `${s.code} · ${s.name}` : s.name)}</div>
-              <div class="task-meta">
-                <span>${uniClasses.filter((c) => c.subject_id === s.id).length} class(es)</span>
-                <span>${uniAssessments.filter((a) => a.subject_id === s.id).length} assessment(s)</span>
-              </div>
-            </div>
-          </div>`).join("") : `<div class="empty"><span class="emoji">📚</span>Add your first subject once the Uni tables are ready.</div>`}</div>
+    <div class="dash-grid uni-grid">
+      <div class="card span2"><div class="section-head"><h3>Subjects</h3><button class="btn-ghost" id="addUniClassBtn">+ Class</button></div>
+        ${uniSubjects.length ? uniSubjects.map((s) => {
+          const classes = uniClasses.filter((c) => c.subject_id === s.id).length;
+          const assessments = uniAssessments.filter((a) => a.subject_id === s.id).length;
+          return `<div class="uni-subject-row" style="--subject-color:${esc(s.color || '#4353ff')}"><div><strong>${esc(s.code ? `${s.code} · ${s.name}` : s.name)}</strong><p>${classes} class(es) · ${assessments} assessment(s)</p></div><div class="row-actions"><button class="icon-btn" data-edit-subject="${s.id}">✎</button><button class="icon-btn" data-delete-subject="${s.id}">×</button></div></div>`;
+        }).join("") : `<div class="empty"><span class="emoji">📚</span>Add your first subject to unlock the dashboard.</div>`}
       </div>
-      <div class="card">
-        <h3 style="margin-bottom:10px">Timetable</h3>
-        ${uniClasses.length ? uniClasses.map((c) => {
-          const s = uniSubjects.find((x) => x.id === c.subject_id);
-          const days = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
-          return `<div class="task" style="--task-color:${esc(s?.color || '#4353ff')};margin-bottom:10px">
-            <div class="task-body">
-              <div class="task-title">${esc(c.class_type || 'Class')} ${s ? `· ${esc(s.name)}` : ''}</div>
-              <div class="task-meta"><span>${days[c.day_of_week] || ''}</span><span>${esc(c.start_time || '')}${c.end_time ? `–${esc(c.end_time)}` : ''}</span><span>${esc(c.room || '')}</span></div>
-            </div>
-          </div>`;
-        }).join("") : `<div class="empty"><span class="emoji">🗓️</span>Your class times and rooms will show here.</div>`}
+      <div class="card"><div class="section-head"><h3>Timetable</h3></div>${renderUniTimetable()}</div>
+      <div class="card"><div class="section-head"><h3>Upcoming</h3><button class="btn-ghost" id="addUniAssessmentBtn">+ Assessment</button></div>
+        ${upcoming.length ? upcoming.map((a) => renderAssessmentMini(a)).join("") : `<div class="empty"><span class="emoji">📝</span>Add assessments with due dates and weighting.</div>`}
       </div>
-      <div class="card">
-        <h3 style="margin-bottom:10px">Assessments</h3>
-        ${uniAssessments.length ? uniAssessments.map((a) => {
-          const s = uniSubjects.find((x) => x.id === a.subject_id);
-          const steps = assessmentSteps.filter((st) => st.assessment_id === a.id);
-          const done = steps.filter((st) => st.done).length;
-          const progress = steps.length ? Math.round((done / steps.length) * 100) : 0;
-          return `<div class="task" style="--task-color:${esc(s?.color || '#4353ff')};margin-bottom:10px">
-            <div class="task-body">
-              <div class="task-title">${esc(a.title)}</div>
-              <div class="task-meta"><span>${esc(s?.name || '')}</span>${a.due_date ? `<span>📅 ${niceDate(a.due_date)}</span>` : ''}<span>${Number(a.weight || 0)}%</span><span>${esc(a.task_type || 'Individual')}</span><span>${progress}% done</span></div>
-            </div>
-          </div>`;
-        }).join("") : `<div class="empty"><span class="emoji">📝</span>Your assessment list will show here.</div>`}
-      </div>
+      <div class="card span2"><div class="section-head"><h3>Assessment breakdown</h3></div>${renderAssessmentBreakdowns()}</div>
     </div>`;
-
-  const addBtn = $("addUniSubjectBtn");
-  if (addBtn) addBtn.addEventListener("click", () => toast("Uni editing is being patched in next — app is safe now."));
+  wireUniDynamicEvents();
+}
+function renderUniTimetable() {
+  if (!uniClasses.length) return `<div class="empty"><span class="emoji">🗓️</span>Your weekly class times and rooms will show here.</div>`;
+  const days = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
+  return [...uniClasses].sort((a,b) => (a.day_of_week-b.day_of_week) || String(a.start_time||"").localeCompare(String(b.start_time||""))).map((c) => {
+    const s = uniSubjects.find((x) => x.id === c.subject_id);
+    return `<div class="uni-mini-card" style="--subject-color:${esc(s?.color || '#4353ff')}"><strong>${esc(c.class_type || 'Class')} ${s ? `· ${esc(s.name)}` : ''}</strong><p>${days[c.day_of_week] || ''} · ${esc((c.start_time || '').slice(0,5))}${c.end_time ? `–${esc(c.end_time.slice(0,5))}` : ''} · ${esc(c.room || 'Room TBA')}</p><div class="row-actions"><button class="icon-btn" data-edit-class="${c.id}">✎</button><button class="icon-btn" data-delete-class="${c.id}">×</button></div></div>`;
+  }).join("");
+}
+function renderAssessmentMini(a) {
+  const s = uniSubjects.find((x) => x.id === a.subject_id);
+  const progress = assessmentProgress(a.id);
+  return `<div class="uni-mini-card" style="--subject-color:${esc(s?.color || '#4353ff')}"><strong>${esc(a.title)}</strong><p>${esc(s?.name || 'Subject')} · ${a.due_date ? niceDate(a.due_date) : 'No date'} · ${Number(a.weight || 0)}% · ${esc(a.task_type || 'Individual')} · ${daysUntil(a.due_date)}</p><div class="mini-progress"><div style="width:${progress}%"></div></div><div class="row-actions"><button class="btn-ghost" data-add-step="${a.id}">+ Step</button><button class="icon-btn" data-edit-assessment="${a.id}">✎</button><button class="icon-btn" data-delete-assessment="${a.id}">×</button></div></div>`;
+}
+function renderAssessmentBreakdowns() {
+  if (!uniAssessments.length) return `<div class="empty"><span class="emoji">🧩</span>Break assessments into smaller tasks and watch progress climb.</div>`;
+  return uniAssessments.map((a) => {
+    const s = uniSubjects.find((x) => x.id === a.subject_id);
+    const steps = assessmentSteps.filter((st) => st.assessment_id === a.id);
+    const progress = assessmentProgress(a.id);
+    return `<div class="assessment-block" style="--subject-color:${esc(s?.color || '#4353ff')}"><div class="section-head"><div><h3>${esc(a.title)}</h3><p class="uni-muted">${esc(s?.name || '')} · ${a.due_date ? niceDate(a.due_date) : 'No due date'} · ${progress}% complete</p></div><button class="btn-ghost" data-add-step="${a.id}">+ Step</button></div><div class="mini-progress big"><div style="width:${progress}%"></div></div>${steps.length ? steps.map((st) => `<label class="uni-step"><input type="checkbox" data-toggle-step="${st.id}" ${st.done ? 'checked' : ''}/><span>${esc(st.title)}</span><button type="button" class="icon-btn" data-delete-step="${st.id}">×</button></label>`).join("") : `<p class="uni-muted">No steps yet. Add a few smaller tasks.</p>`}</div>`;
+  }).join("");
+}
+function fillSubjectSelect(id, selected) {
+  const el = $(id);
+  if (!el) return;
+  el.innerHTML = uniSubjects.map((s) => `<option value="${s.id}" ${s.id === selected ? 'selected' : ''}>${esc(s.code ? `${s.code} · ${s.name}` : s.name)}</option>`).join("");
+}
+function openUniSubject(id = null) {
+  editingUniSubjectId = id;
+  const s = id ? uniSubjects.find((x) => x.id === id) : null;
+  $("uniSubjectModalTitle").textContent = s ? "Edit subject" : "New subject";
+  $("uniSubjectCode").value = s?.code || "";
+  $("uniSubjectName").value = s?.name || "";
+  $("uniSubjectColor").value = s?.color || "#4353ff";
+  $("uniSubjectModal").classList.add("open");
+}
+async function saveUniSubject() {
+  const name = $("uniSubjectName").value.trim();
+  if (!name) return toast("Subject needs a name");
+  const payload = { user_id: user.id, code: $("uniSubjectCode").value.trim() || null, name, color: $("uniSubjectColor").value || "#4353ff" };
+  let error;
+  if (editingUniSubjectId) ({ error } = await db.from("uni_subjects").update(payload).eq("id", editingUniSubjectId));
+  else ({ error } = await db.from("uni_subjects").insert({ ...payload, position: uniSubjects.length }));
+  if (error) return toast("Couldn't save subject");
+  $("uniSubjectModal").classList.remove("open");
+  await loadUni(); renderUni(); toast("Subject saved 🎓");
+}
+function openUniClass(id = null) {
+  if (!uniSubjects.length) return toast("Add a subject first");
+  editingUniClassId = id;
+  const c = id ? uniClasses.find((x) => x.id === id) : null;
+  fillSubjectSelect("uniClassSubject", c?.subject_id || uniSubjects[0]?.id);
+  $("uniClassType").value = c?.class_type || "";
+  $("uniClassDay").value = String(c?.day_of_week ?? 1);
+  $("uniClassStart").value = (c?.start_time || "").slice(0,5);
+  $("uniClassEnd").value = (c?.end_time || "").slice(0,5);
+  $("uniClassRoom").value = c?.room || "";
+  $("uniClassModalTitle").textContent = c ? "Edit class" : "New class";
+  $("uniClassModal").classList.add("open");
+}
+async function saveUniClass() {
+  const payload = { user_id: user.id, subject_id: $("uniClassSubject").value, class_type: $("uniClassType").value.trim() || "Class", day_of_week: Number($("uniClassDay").value), start_time: $("uniClassStart").value || null, end_time: $("uniClassEnd").value || null, room: $("uniClassRoom").value.trim() || null };
+  let error;
+  if (editingUniClassId) ({ error } = await db.from("uni_classes").update(payload).eq("id", editingUniClassId));
+  else ({ error } = await db.from("uni_classes").insert(payload));
+  if (error) return toast("Couldn't save class");
+  $("uniClassModal").classList.remove("open"); await loadUni(); renderUni(); toast("Class saved 🗓️");
+}
+function openUniAssessment(id = null) {
+  if (!uniSubjects.length) return toast("Add a subject first");
+  editingUniAssessmentId = id;
+  const a = id ? uniAssessments.find((x) => x.id === id) : null;
+  fillSubjectSelect("uniAssessmentSubject", a?.subject_id || uniSubjects[0]?.id);
+  $("uniAssessmentTitle").value = a?.title || "";
+  setDateInput("uniAssessmentDate", a?.due_date || "");
+  $("uniAssessmentWeight").value = a?.weight ?? "";
+  $("uniAssessmentType").value = a?.task_type || "Individual";
+  $("uniAssessmentNotes").value = a?.notes || "";
+  $("uniAssessmentModalTitle").textContent = a ? "Edit assessment" : "New assessment";
+  $("uniAssessmentModal").classList.add("open");
+}
+async function saveUniAssessment() {
+  const title = $("uniAssessmentTitle").value.trim();
+  if (!title) return toast("Assessment needs a title");
+  const payload = { user_id: user.id, subject_id: $("uniAssessmentSubject").value, title, due_date: $("uniAssessmentDate").dataset.iso || null, weight: Number($("uniAssessmentWeight").value || 0), task_type: $("uniAssessmentType").value, notes: $("uniAssessmentNotes").value.trim() || null };
+  let error;
+  if (editingUniAssessmentId) ({ error } = await db.from("uni_assessments").update(payload).eq("id", editingUniAssessmentId));
+  else ({ error } = await db.from("uni_assessments").insert({ ...payload, position: uniAssessments.length }));
+  if (error) return toast("Couldn't save assessment");
+  $("uniAssessmentModal").classList.remove("open"); await loadUni(); renderUni(); toast("Assessment saved 📝");
+}
+function openUniStep(aid) { uniStepAssessmentId = aid; $("uniStepTitle").value = ""; $("uniStepModal").classList.add("open"); setTimeout(() => $("uniStepTitle").focus(), 150); }
+async function saveUniStep() {
+  const title = $("uniStepTitle").value.trim();
+  if (!title) return toast("Step needs a title");
+  const count = assessmentSteps.filter((s) => s.assessment_id === uniStepAssessmentId).length;
+  const { error } = await db.from("uni_assessment_steps").insert({ user_id: user.id, assessment_id: uniStepAssessmentId, title, position: count });
+  if (error) return toast("Couldn't save step");
+  $("uniStepModal").classList.remove("open"); await loadUni(); renderUni(); toast("Step added ✓");
+}
+async function deleteRow(table, id, msg) {
+  const ok = await confirmDialog({ title: msg, message: "This can't be undone.", okText: "Delete" });
+  if (!ok) return;
+  const { error } = await db.from(table).delete().eq("id", id);
+  if (error) return toast("Couldn't delete");
+  await loadUni(); renderUni(); toast("Deleted");
+}
+function wireUniDynamicEvents() {
+  $("addUniSubjectBtn")?.addEventListener("click", () => openUniSubject());
+  $("addUniClassBtn")?.addEventListener("click", () => openUniClass());
+  $("addUniAssessmentBtn")?.addEventListener("click", () => openUniAssessment());
+  document.querySelectorAll("[data-edit-subject]").forEach((b) => b.addEventListener("click", () => openUniSubject(b.dataset.editSubject)));
+  document.querySelectorAll("[data-delete-subject]").forEach((b) => b.addEventListener("click", () => deleteRow("uni_subjects", b.dataset.deleteSubject, "Delete subject?")));
+  document.querySelectorAll("[data-edit-class]").forEach((b) => b.addEventListener("click", () => openUniClass(b.dataset.editClass)));
+  document.querySelectorAll("[data-delete-class]").forEach((b) => b.addEventListener("click", () => deleteRow("uni_classes", b.dataset.deleteClass, "Delete class?")));
+  document.querySelectorAll("[data-edit-assessment]").forEach((b) => b.addEventListener("click", () => openUniAssessment(b.dataset.editAssessment)));
+  document.querySelectorAll("[data-delete-assessment]").forEach((b) => b.addEventListener("click", () => deleteRow("uni_assessments", b.dataset.deleteAssessment, "Delete assessment?")));
+  document.querySelectorAll("[data-add-step]").forEach((b) => b.addEventListener("click", () => openUniStep(b.dataset.addStep)));
+  document.querySelectorAll("[data-delete-step]").forEach((b) => b.addEventListener("click", () => deleteRow("uni_assessment_steps", b.dataset.deleteStep, "Delete step?")));
+  document.querySelectorAll("[data-toggle-step]").forEach((b) => b.addEventListener("change", async () => { await db.from("uni_assessment_steps").update({ done: b.checked }).eq("id", b.dataset.toggleStep); await loadUni(); renderUni(); }));
+}
+function wireUniEvents() {
+  [["uniSubjectModal", "uniSubjectCancel"], ["uniClassModal", "uniClassCancel"], ["uniAssessmentModal", "uniAssessmentCancel"], ["uniStepModal", "uniStepCancel"]].forEach(([modal, cancel]) => {
+    $(cancel)?.addEventListener("click", () => $(modal).classList.remove("open"));
+    $(modal)?.addEventListener("click", (e) => { if (e.target.id === modal) $(modal).classList.remove("open"); });
+  });
+  $("uniSubjectSave")?.addEventListener("click", saveUniSubject);
+  $("uniClassSave")?.addEventListener("click", saveUniClass);
+  $("uniAssessmentSave")?.addEventListener("click", saveUniAssessment);
+  $("uniStepSave")?.addEventListener("click", saveUniStep);
+  $("uniStepTitle")?.addEventListener("keydown", (e) => { if (e.key === "Enter") saveUniStep(); });
 }

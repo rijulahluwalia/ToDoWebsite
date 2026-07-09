@@ -1445,3 +1445,47 @@ input, select, textarea { font-family: inherit; font-size: 1rem; color: var(--in
   .uni-assessment-main { grid-template-columns: 1fr; }
   .assessment-progress { flex-direction: column; align-items: stretch; }
 }
+
+/* ============================================
+   PRIO · modern date picker + Uni dashboard polish
+   ============================================ */
+.pretty-date-input { cursor: pointer; }
+.date-picker-modal { max-width: 420px; }
+.date-picker-top { display:flex; justify-content:space-between; align-items:flex-start; gap:12px; margin-bottom:14px; }
+.modal-kicker { color: var(--ink-soft); text-transform: uppercase; letter-spacing: .08em; font-size: .72rem; font-weight: 800; margin-bottom: 4px; }
+.quick-date-row { display:grid; grid-template-columns: repeat(2, 1fr); gap:8px; margin: 12px 0 16px; }
+.quick-date-row button { padding:10px 12px; border-radius: 14px; background: var(--bg); font-weight: 700; color: var(--ink-soft); transition: all .2s var(--ease-spring); }
+.quick-date-row button:hover { background: var(--primary-soft); color: var(--primary); transform: translateY(-1px); }
+.date-month-head { display:flex; align-items:center; justify-content:space-between; margin-bottom: 10px; }
+.date-month-head button { width:38px; height:38px; border-radius: 12px; background: var(--bg); font-size:1.4rem; font-weight:800; transition: all .2s var(--ease-spring); }
+.date-month-head button:hover { background: var(--primary); color:white; transform: scale(1.06); }
+.date-picker-grid { display:grid; grid-template-columns: repeat(7, 1fr); gap:6px; }
+.date-dow { text-align:center; font-size:.72rem; font-weight:800; color:var(--ink-soft); padding:6px 0; }
+.date-cell { min-height:42px; border-radius:14px; background:var(--bg); font-weight:800; transition: all .2s var(--ease-spring); }
+.date-cell:not(.blank):hover { background: var(--primary-soft); color: var(--primary); transform: scale(1.06); }
+.date-cell.blank { background: transparent; pointer-events:none; }
+.date-cell.today { box-shadow: inset 0 0 0 2px var(--primary); }
+.date-cell.selected { background: var(--ink); color: white; }
+.two-col-fields { display:grid; grid-template-columns: 1fr 1fr; gap:12px; }
+.input-shell select, .input-shell input[type="color"] { width:100%; border:none; background:transparent; padding:13px 14px; outline:none; min-height: 48px; }
+.input-shell input[type="color"] { padding:8px 14px; }
+.uni-hero { margin-bottom: 16px; display:flex; flex-direction:column; gap:16px; }
+.uni-muted { color: var(--ink-soft); font-size: .9rem; }
+.uni-big-progress, .mini-progress { height: 12px; border-radius:999px; background: var(--bg); overflow:hidden; }
+.uni-big-progress div, .mini-progress div { height:100%; border-radius:999px; background: linear-gradient(90deg, var(--primary), #8a63ff); transition: width .35s var(--ease-out); }
+.mini-progress { height: 8px; margin-top: 10px; }
+.mini-progress.big { height: 10px; margin: 8px 0 12px; }
+.uni-subject-row, .uni-mini-card, .assessment-block { position:relative; background: var(--surface); border-radius: 18px; padding:14px 14px 14px 18px; box-shadow: var(--shadow); margin-bottom: 10px; overflow:hidden; }
+.uni-subject-row::before, .uni-mini-card::before, .assessment-block::before { content:""; position:absolute; left:0; top:0; bottom:0; width:6px; background: var(--subject-color, var(--primary)); }
+.uni-subject-row { display:flex; align-items:center; justify-content:space-between; gap:10px; }
+.uni-subject-row p, .uni-mini-card p { color: var(--ink-soft); font-size:.84rem; margin-top:3px; }
+.row-actions { display:flex; align-items:center; gap:6px; margin-top:8px; flex-wrap:wrap; }
+.uni-subject-row .row-actions { margin-top:0; }
+.uni-step { display:flex; align-items:center; gap:10px; padding:10px 0; border-top:1px solid var(--line); }
+.uni-step input { width:18px; height:18px; accent-color: var(--primary); }
+.uni-step span { flex:1; }
+@media (max-width: 640px) {
+  .quick-date-row, .two-col-fields { grid-template-columns: 1fr; }
+  .date-cell { min-height: 38px; border-radius: 12px; }
+  .uni-subject-row { align-items:flex-start; }
+}

@@ -278,7 +278,7 @@
         <label for="taskDate">Due date (optional)</label>
         <div class="date-shell">
           <span class="date-icon">📅</span>
-          <input type="date" id="taskDate" />
+          <input type="text" id="taskDate" class="pretty-date-input" placeholder="Choose a date" readonly />
         </div>
       </div>
       <div class="modal-actions">
@@ -346,7 +346,7 @@
         <label for="pitemDate">Deadline (optional)</label>
         <div class="date-shell">
           <span class="date-icon">📅</span>
-          <input type="date" id="pitemDate" />
+          <input type="text" id="pitemDate" class="pretty-date-input" placeholder="Choose a deadline" readonly />
         </div>
       </div>
       <div class="modal-actions">
@@ -405,6 +405,78 @@
         <button class="btn-cancel" id="confirmCancel">Cancel</button>
         <button class="btn-danger-ghost" id="confirmOk">Delete</button>
       </div>
+    </div>
+  </div>
+
+
+  <!-- Modern date picker modal -->
+  <div class="modal-backdrop" id="datePickerModal">
+    <div class="modal date-picker-modal">
+      <div class="date-picker-top">
+        <div>
+          <p class="modal-kicker">Due date</p>
+          <h2 id="datePickerTitle">Pick a date</h2>
+        </div>
+        <button class="icon-btn" id="datePickerClose" aria-label="Close date picker">×</button>
+      </div>
+      <div class="quick-date-row">
+        <button type="button" data-quick="today">Today</button>
+        <button type="button" data-quick="tomorrow">Tomorrow</button>
+        <button type="button" data-quick="weekend">This weekend</button>
+        <button type="button" data-quick="clear">No date</button>
+      </div>
+      <div class="date-month-head">
+        <button id="datePrev" aria-label="Previous month">‹</button>
+        <strong id="dateMonthLabel"></strong>
+        <button id="dateNext" aria-label="Next month">›</button>
+      </div>
+      <div class="date-picker-grid" id="datePickerGrid"></div>
+    </div>
+  </div>
+
+  <!-- Uni subject modal -->
+  <div class="modal-backdrop" id="uniSubjectModal">
+    <div class="modal">
+      <h2 id="uniSubjectModalTitle">New subject</h2>
+      <div class="field"><label for="uniSubjectCode">Subject code</label><div class="input-shell"><input type="text" id="uniSubjectCode" placeholder="e.g. 31269" /></div></div>
+      <div class="field"><label for="uniSubjectName">Subject name</label><div class="input-shell"><input type="text" id="uniSubjectName" placeholder="e.g. Programming" /></div></div>
+      <div class="field"><label for="uniSubjectColor">Colour</label><div class="input-shell"><input type="color" id="uniSubjectColor" value="#4353ff" /></div></div>
+      <div class="modal-actions"><button class="btn-cancel" id="uniSubjectCancel">Cancel</button><button class="btn-primary" id="uniSubjectSave">Save subject</button></div>
+    </div>
+  </div>
+
+  <!-- Uni class modal -->
+  <div class="modal-backdrop" id="uniClassModal">
+    <div class="modal">
+      <h2 id="uniClassModalTitle">New class</h2>
+      <div class="field"><label for="uniClassSubject">Subject</label><div class="input-shell"><select id="uniClassSubject"></select></div></div>
+      <div class="field"><label for="uniClassType">Class type</label><div class="input-shell"><input type="text" id="uniClassType" placeholder="Lecture, Tutorial, Lab..." /></div></div>
+      <div class="field"><label for="uniClassDay">Day</label><div class="input-shell"><select id="uniClassDay"><option value="1">Monday</option><option value="2">Tuesday</option><option value="3">Wednesday</option><option value="4">Thursday</option><option value="5">Friday</option><option value="6">Saturday</option><option value="0">Sunday</option></select></div></div>
+      <div class="two-col-fields"><div class="field"><label for="uniClassStart">Start</label><div class="input-shell"><input type="time" id="uniClassStart" /></div></div><div class="field"><label for="uniClassEnd">End</label><div class="input-shell"><input type="time" id="uniClassEnd" /></div></div></div>
+      <div class="field"><label for="uniClassRoom">Room</label><div class="input-shell"><input type="text" id="uniClassRoom" placeholder="Building / room / online" /></div></div>
+      <div class="modal-actions"><button class="btn-cancel" id="uniClassCancel">Cancel</button><button class="btn-primary" id="uniClassSave">Save class</button></div>
+    </div>
+  </div>
+
+  <!-- Uni assessment modal -->
+  <div class="modal-backdrop" id="uniAssessmentModal">
+    <div class="modal">
+      <h2 id="uniAssessmentModalTitle">New assessment</h2>
+      <div class="field"><label for="uniAssessmentSubject">Subject</label><div class="input-shell"><select id="uniAssessmentSubject"></select></div></div>
+      <div class="field"><label for="uniAssessmentTitle">Assessment title</label><div class="input-shell"><input type="text" id="uniAssessmentTitle" placeholder="e.g. Case study" /></div></div>
+      <div class="field date-field"><label for="uniAssessmentDate">Due date</label><div class="date-shell"><span class="date-icon">📅</span><input type="text" id="uniAssessmentDate" class="pretty-date-input" placeholder="Choose due date" readonly /></div></div>
+      <div class="two-col-fields"><div class="field"><label for="uniAssessmentWeight">Weight %</label><div class="input-shell"><input type="number" id="uniAssessmentWeight" min="0" max="100" step="0.5" placeholder="30" /></div></div><div class="field"><label for="uniAssessmentType">Type</label><div class="input-shell"><select id="uniAssessmentType"><option>Individual</option><option>Group</option></select></div></div></div>
+      <div class="field"><label for="uniAssessmentNotes">Notes</label><textarea id="uniAssessmentNotes" placeholder="Marking details, links, requirements..."></textarea></div>
+      <div class="modal-actions"><button class="btn-cancel" id="uniAssessmentCancel">Cancel</button><button class="btn-primary" id="uniAssessmentSave">Save assessment</button></div>
+    </div>
+  </div>
+
+  <!-- Uni assessment step modal -->
+  <div class="modal-backdrop" id="uniStepModal">
+    <div class="modal mini-modal">
+      <h2>Add breakdown task</h2>
+      <div class="field"><label for="uniStepTitle">Step</label><div class="input-shell"><input type="text" id="uniStepTitle" placeholder="e.g. Draft introduction" /></div></div>
+      <div class="modal-actions"><button class="btn-cancel" id="uniStepCancel">Cancel</button><button class="btn-primary" id="uniStepSave">Save step</button></div>
     </div>
   </div>
 
