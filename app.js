@@ -1913,6 +1913,7 @@ let editingUniSubjectId = null;
 let editingUniClassId = null;
 let editingUniAssessmentId = null;
 let uniStepAssessmentId = null;
+let editingUniStepId = null;
 
 async function loadUni() {
   try {
@@ -1981,10 +1982,11 @@ function renderUniTimetable() {
     const s = uniSubjects.find((x) => x.id === c.subject_id);
     const start = esc((c.start_time || '').slice(0,5) || 'TBA');
     const end = c.end_time ? esc(c.end_time.slice(0,5)) : '';
-    return `<div class="uni-mini-card timetable-card" style="--subject-color:${esc(s?.color || '#4353ff')}">
-      <div class="time-pill"><strong>${start}</strong>${end ? `<span>${end}</span>` : ''}</div>
-      <div class="timetable-main"><strong>${esc(c.class_type || 'Class')} ${s ? `· ${esc(s.name)}` : ''}</strong><p><span class="day-badge">${days[c.day_of_week] || ''}</span> ${esc(c.room || 'Room TBA')}</p></div>
-      <div class="row-actions"><button class="icon-btn" data-edit-class="${c.id}">✎</button><button class="icon-btn" data-delete-class="${c.id}">×</button></div>
+    const cls = String(c.class_type || 'Class').toLowerCase().includes('lab') ? 'lab' : String(c.class_type || '').toLowerCase().includes('tutorial') ? 'tutorial' : String(c.class_type || '').toLowerCase().includes('workshop') ? 'workshop' : 'lecture';
+    return `<div class="uni-mini-card timetable-card ${cls}" style="--subject-color:${esc(s?.color || '#4353ff')}">
+      <div class="time-pill"><small>${days[c.day_of_week] || ''}</small><strong>${start}</strong>${end ? `<span>to ${end}</span>` : `<span>Time TBA</span>`}</div>
+      <div class="timetable-main"><strong>${esc(s ? (s.code ? `${s.code} · ${s.name}` : s.name) : 'Subject')}</strong><p><span class="class-type-badge">${esc(c.class_type || 'Class')}</span><span class="room-badge">📍 ${esc(c.room || 'Room TBA')}</span></p></div>
+      <div class="row-actions"><button class="icon-btn" data-edit-class="${c.id}" title="Edit class">✎</button><button class="icon-btn" data-delete-class="${c.id}" title="Delete class">×</button></div>
     </div>`;
   }).join("");
 }
@@ -2019,7 +2021,7 @@ function renderAssessmentBreakdowns() {
     const s = uniSubjects.find((x) => x.id === a.subject_id);
     const steps = assessmentSteps.filter((st) => st.assessment_id === a.id);
     const progress = assessmentProgress(a.id);
-    return `<div class="assessment-block ${dueTone(a.due_date)}" style="--subject-color:${esc(s?.color || '#4353ff')}"><div class="section-head assessment-head"><div><h3>${esc(a.title)}</h3><p class="uni-muted">${esc(s?.name || '')} · ${Number(a.weight || 0)}% · ${esc(a.task_type || 'Individual')} · ${progress}% complete</p></div>${renderDueBadge(a.due_date)}<button class="btn-ghost" data-add-step="${a.id}">+ Step</button></div><div class="mini-progress big"><div style="width:${progress}%"></div></div>${steps.length ? steps.map((st) => `<label class="uni-step"><input type="checkbox" data-toggle-step="${st.id}" ${st.done ? 'checked' : ''}/><span>${esc(st.title)}</span><button type="button" class="icon-btn" data-delete-step="${st.id}">×</button></label>`).join("") : `<p class="uni-muted">No steps yet. Add a few smaller tasks.</p>`}</div>`;
+    return `<div class="assessment-block ${dueTone(a.due_date)}" style="--subject-color:${esc(s?.color || '#4353ff')}"><div class="section-head assessment-head"><div><h3>${esc(a.title)}</h3><p class="uni-muted">${esc(s?.name || '')} · ${Number(a.weight || 0)}% · ${esc(a.task_type || 'Individual')} · ${progress}% complete</p></div>${renderDueBadge(a.due_date)}<button class="btn-ghost" data-add-step="${a.id}">+ Step</button></div><div class="mini-progress big"><div style="width:${progress}%"></div></div>${steps.length ? `<div class="uni-step-list">${steps.map((st) => `<label class="uni-step ${st.done ? 'is-done' : ''}"><input type="checkbox" data-toggle-step="${st.id}" ${st.done ? 'checked' : ''}/><span>${esc(st.title)}</span><div class="step-actions"><button type="button" class="icon-btn edit" data-edit-step="${st.id}" title="Edit step">✎</button><button type="button" class="icon-btn del" data-delete-step="${st.id}" title="Delete step">×</button></div></label>`).join("")}</div>` : `<p class="uni-muted no-step-copy">No steps yet. Add a few smaller tasks.</p>`}</div>`;
   }).join("");
 }
 function fillSubjectSelect(id, selected) {
@@ -2094,14 +2096,30 @@ async function saveUniAssessment() {
   if (error) return toast("Couldn't save assessment");
   $("uniAssessmentModal").classList.remove("open"); await loadUni(); renderUni(); toast("Assessment saved 📝");
 }
-function openUniStep(aid) { uniStepAssessmentId = aid; $("uniStepTitle").value = ""; $("uniStepModal").classList.add("open"); setTimeout(() => $("uniStepTitle").focus(), 150); }
+function openUniStep(aid, stepId = null) {
+  uniStepAssessmentId = aid;
+  editingUniStepId = stepId;
+  const st = stepId ? assessmentSteps.find((x) => x.id === stepId) : null;
+  const titleEl = $("uniStepModalTitle");
+  if (titleEl) titleEl.textContent = st ? "Edit breakdown task" : "Add breakdown task";
+  $("uniStepTitle").value = st?.title || "";
+  $("uniStepModal").classList.add("open");
+  setTimeout(() => $("uniStepTitle").focus(), 150);
+}
 async function saveUniStep() {
   const title = $("uniStepTitle").value.trim();
   if (!title) return toast("Step needs a title");
-  const count = assessmentSteps.filter((s) => s.assessment_id === uniStepAssessmentId).length;
-  const { error } = await db.from("uni_assessment_steps").insert({ user_id: user.id, assessment_id: uniStepAssessmentId, title, position: count });
+  let error;
+  if (editingUniStepId) {
+    ({ error } = await db.from("uni_assessment_steps").update({ title }).eq("id", editingUniStepId));
+  } else {
+    const count = assessmentSteps.filter((s) => s.assessment_id === uniStepAssessmentId).length;
+    ({ error } = await db.from("uni_assessment_steps").insert({ user_id: user.id, assessment_id: uniStepAssessmentId, title, position: count }));
+  }
   if (error) return toast("Couldn't save step");
-  $("uniStepModal").classList.remove("open"); await loadUni(); renderUni(); toast("Step added ✓");
+  $("uniStepModal").classList.remove("open");
+  await loadUni(); renderUni(); toast(editingUniStepId ? "Step updated ✓" : "Step added ✓");
+  editingUniStepId = null;
 }
 async function deleteRow(table, id, msg) {
   const ok = await confirmDialog({ title: msg, message: "This can't be undone.", okText: "Delete" });
@@ -2121,13 +2139,14 @@ function wireUniDynamicEvents() {
   document.querySelectorAll("[data-edit-assessment]").forEach((b) => b.addEventListener("click", () => openUniAssessment(b.dataset.editAssessment)));
   document.querySelectorAll("[data-delete-assessment]").forEach((b) => b.addEventListener("click", () => deleteRow("uni_assessments", b.dataset.deleteAssessment, "Delete assessment?")));
   document.querySelectorAll("[data-add-step]").forEach((b) => b.addEventListener("click", () => openUniStep(b.dataset.addStep)));
-  document.querySelectorAll("[data-delete-step]").forEach((b) => b.addEventListener("click", () => deleteRow("uni_assessment_steps", b.dataset.deleteStep, "Delete step?")));
+  document.querySelectorAll("[data-edit-step]").forEach((b) => b.addEventListener("click", (e) => { e.preventDefault(); e.stopPropagation(); const st = assessmentSteps.find((x) => x.id === b.dataset.editStep); if (st) openUniStep(st.assessment_id, st.id); }));
+  document.querySelectorAll("[data-delete-step]").forEach((b) => b.addEventListener("click", (e) => { e.preventDefault(); e.stopPropagation(); deleteRow("uni_assessment_steps", b.dataset.deleteStep, "Delete step?"); }));
   document.querySelectorAll("[data-toggle-step]").forEach((b) => b.addEventListener("change", async () => { await db.from("uni_assessment_steps").update({ done: b.checked }).eq("id", b.dataset.toggleStep); await loadUni(); renderUni(); }));
 }
 function wireUniEvents() {
   initPrettySelects();
   [["uniSubjectModal", "uniSubjectCancel"], ["uniClassModal", "uniClassCancel"], ["uniAssessmentModal", "uniAssessmentCancel"], ["uniStepModal", "uniStepCancel"]].forEach(([modal, cancel]) => {
-    $(cancel)?.addEventListener("click", () => $(modal).classList.remove("open"));
+    $(cancel)?.addEventListener("click", () => { $(modal).classList.remove("open"); if (modal === "uniStepModal") editingUniStepId = null; });
     $(modal)?.addEventListener("click", (e) => { if (e.target.id === modal) $(modal).classList.remove("open"); });
   });
   $("uniSubjectSave")?.addEventListener("click", saveUniSubject);

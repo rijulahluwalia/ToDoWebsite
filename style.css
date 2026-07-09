@@ -1941,3 +1941,78 @@ input, select, textarea { font-family: inherit; font-size: 1rem; color: var(--in
   .due-badge { width: 100%; display: flex; justify-content: space-between; align-items: center; text-align: left; }
   .due-badge small { margin-top: 0; }
 }
+
+
+/* ============================================
+   PRIO · Uni dashboard polish pass
+   ============================================ */
+.app-logo {
+  background: transparent !important;
+  border: 0 !important;
+  box-shadow: none !important;
+  padding: 0 !important;
+  border-radius: 0 !important;
+  font-size: 1.85rem !important;
+  font-weight: 900;
+}
+.app-logo .logo-dot { width: 24px !important; height: 24px !important; border-radius: 8px !important; }
+
+.timetable-card {
+  border: 1px solid rgba(228, 231, 244, 0.75);
+  background: linear-gradient(135deg, rgba(255,255,255,.96), rgba(247,248,255,.88));
+  box-shadow: 0 12px 28px rgba(23, 27, 54, 0.06);
+  transition: transform .28s var(--ease-spring), box-shadow .28s var(--ease-out), border-color .28s var(--ease-out);
+}
+.timetable-card::before { opacity: .7; }
+.timetable-card:hover { transform: translateY(-2px); box-shadow: 0 18px 38px rgba(23, 27, 54, 0.10); border-color: rgba(67,83,255,.14); }
+.timetable-card.lecture { background: linear-gradient(135deg, #fff, #f1f5ff); }
+.timetable-card.tutorial { background: linear-gradient(135deg, #fff, #f0fbf5); }
+.timetable-card.lab { background: linear-gradient(135deg, #fff, #f6f1ff); }
+.timetable-card.workshop { background: linear-gradient(135deg, #fff, #fff7e8); }
+.time-pill {
+  background: rgba(255,255,255,.72) !important;
+  border: 1px solid rgba(228,231,244,.9) !important;
+  box-shadow: 0 8px 20px rgba(23,27,54,.045), inset 0 0 0 1px rgba(255,255,255,.85) !important;
+}
+.time-pill small { display:block; margin-bottom:2px; font-size:.68rem; font-weight:900; color:var(--primary); letter-spacing:.08em; text-transform:uppercase; }
+.class-type-badge, .room-badge {
+  display:inline-flex; align-items:center; gap:4px;
+  padding:5px 10px; border-radius:999px;
+  background: rgba(255,255,255,.72);
+  border:1px solid rgba(228,231,244,.9);
+  font-size:.74rem; font-weight:900; color:var(--ink-soft);
+}
+.class-type-badge { color: var(--ink); }
+
+.uni-step-list { display:flex; flex-direction:column; gap:9px; margin-top:12px; }
+.uni-step {
+  border: 1px solid rgba(228,231,244,.82) !important;
+  background: rgba(255,255,255,.72);
+  box-shadow: 0 8px 20px rgba(23,27,54,.045);
+  margin: 0;
+  padding: 12px 12px !important;
+  display:flex;
+  align-items:center;
+  gap: 10px;
+  animation: fadeUp .28s var(--ease-out) both;
+}
+.uni-step:hover { background:#fff !important; transform: translateY(-2px); box-shadow: 0 14px 28px rgba(23,27,54,.08); }
+.uni-step span { flex:1; font-weight:700; color:var(--ink); word-break:break-word; }
+.uni-step.is-done { opacity:.72; }
+.step-actions { display:flex; align-items:center; gap:4px; opacity:.22; transform: translateX(4px); transition: opacity .22s var(--ease-out), transform .22s var(--ease-spring); }
+.uni-step:hover .step-actions, .uni-step:focus-within .step-actions { opacity:1; transform: translateX(0); }
+.step-actions .icon-btn { width:30px; height:30px; border-radius:10px; font-weight:900; }
+.step-actions .icon-btn.edit:hover { background: var(--primary-soft); color: var(--primary); }
+.step-actions .icon-btn.del:hover { background:#ffe9ec; color:var(--danger); }
+.no-step-copy { margin-top: 12px; padding: 12px 14px; border-radius: 14px; background: rgba(255,255,255,.68); border: 1px dashed var(--line); }
+
+.assessment-block { transition: transform .28s var(--ease-spring), box-shadow .28s var(--ease-out); }
+.assessment-block:hover { transform: translateY(-2px); box-shadow: var(--shadow-lift); }
+.assessment-block .mini-progress.big { margin: 12px 0 2px; }
+.assessment-block .mini-progress div { transition: width .55s var(--ease-spring); }
+
+@media (max-width: 640px) {
+  .app-logo { font-size: 1.62rem !important; }
+  .app-logo .logo-dot { width: 21px !important; height: 21px !important; }
+  .step-actions { opacity:1; transform:none; }
+}
