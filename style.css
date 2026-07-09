@@ -764,3 +764,115 @@ input, select, textarea { font-family: inherit; font-size: 1rem; color: var(--in
     transition-duration: 0.01ms !important;
   }
 }
+
+/* ============================================
+   V2 · Brand corner (auth page)
+   ============================================ */
+.brand-corner {
+  position: fixed;
+  top: 22px; left: 26px;
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 1.25rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  z-index: 10;
+  animation: fadeUp 0.6s var(--ease-out) both;
+}
+
+/* ============================================
+   V2 · Splash (post-login intro)
+   ============================================ */
+.splash {
+  position: fixed;
+  inset: 0;
+  background: var(--ink);
+  z-index: 300;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+}
+.splash.run { animation: splashLift 0.7s var(--ease-out) 2.1s forwards; }
+@keyframes splashLift {
+  to { transform: translateY(-100%); border-radius: 0 0 50% 50%; }
+}
+.splash-inner { text-align: center; }
+.splash-dots { display: flex; gap: 14px; justify-content: center; margin-bottom: 26px; }
+.splash-dots i {
+  width: 18px; height: 18px;
+  border-radius: 7px;
+  animation: splashBounce 0.9s var(--ease-spring) infinite alternate;
+}
+.splash-dots i:nth-child(1) { background: #2fbf71; animation-delay: 0s; }
+.splash-dots i:nth-child(2) { background: #f5a623; animation-delay: 0.12s; }
+.splash-dots i:nth-child(3) { background: #f0455a; animation-delay: 0.24s; }
+.splash-dots i:nth-child(4) { background: #4353ff; animation-delay: 0.36s; }
+@keyframes splashBounce {
+  from { transform: translateY(0) scale(1); }
+  to   { transform: translateY(-22px) scale(1.15) rotate(90deg); }
+}
+.splash-word {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: clamp(3rem, 10vw, 4.6rem);
+  color: #fff;
+  letter-spacing: -0.03em;
+  animation: wordIn 0.8s var(--ease-spring) 0.15s both;
+}
+@keyframes wordIn {
+  from { opacity: 0; transform: translateY(30px) scale(0.8); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+.splash-tag {
+  color: rgba(255, 255, 255, 0.65);
+  font-weight: 500;
+  margin-top: 8px;
+  animation: fadeUp 0.7s var(--ease-out) 0.7s both;
+}
+
+/* ============================================
+   V2 · Hero (weather + today's focus)
+   ============================================ */
+.hero {
+  display: grid;
+  grid-template-columns: 1fr 1.2fr;
+  gap: 18px;
+  margin-bottom: 18px;
+  align-items: center;
+}
+.hero-weather { display: flex; align-items: center; gap: 14px; }
+.w-emoji { font-size: 2.6rem; animation: bob 3s ease-in-out infinite; }
+.w-temp { font-family: var(--font-display); font-weight: 700; font-size: 1.7rem; line-height: 1.1; }
+.w-desc { color: var(--ink-soft); font-size: 0.85rem; }
+.hero-focus { border-left: 2px solid var(--line); padding-left: 18px; }
+.focus-label {
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+}
+.focus-num { font-family: var(--font-display); font-weight: 700; font-size: 1.25rem; margin: 2px 0 8px; }
+.progress {
+  height: 10px;
+  background: var(--bg);
+  border-radius: 999px;
+  overflow: hidden;
+}
+.progress-fill {
+  height: 100%;
+  width: 0%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #2fbf71, #4353ff);
+  transition: width 1s var(--ease-out) 0.3s;
+}
+.focus-sub { font-size: 0.78rem; color: var(--ink-soft); margin-top: 7px; }
+
+@media (max-width: 720px) {
+  .hero { grid-template-columns: 1fr; }
+  .hero-focus { border-left: none; padding-left: 0; border-top: 2px solid var(--line); padding-top: 14px; }
+}
+
+/* Google Calendar button on tasks */
+.icon-btn.gcal:hover { background: #e2f8ec; color: #1a8a52; }

@@ -10,6 +10,15 @@
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
+  <!-- Post-login splash -->
+  <div class="splash" id="splash">
+    <div class="splash-inner">
+      <div class="splash-dots"><i></i><i></i><i></i><i></i></div>
+      <div class="splash-word">Prio</div>
+      <div class="splash-tag">your day, in colour</div>
+    </div>
+  </div>
+
   <div class="blob blob-1"></div>
   <div class="blob blob-2"></div>
 
@@ -45,6 +54,21 @@
 
     <!-- ================= TASKS VIEW ================= -->
     <section class="view active" id="view-tasks">
+      <div class="hero card fade-up d1">
+        <div class="hero-weather" id="weatherBox">
+          <span class="w-emoji">⛅</span>
+          <div>
+            <div class="w-temp">--°</div>
+            <div class="w-desc">Checking the sky…</div>
+          </div>
+        </div>
+        <div class="hero-focus">
+          <div class="focus-label">Today's focus</div>
+          <div class="focus-num" id="focusNum">…</div>
+          <div class="progress"><div class="progress-fill" id="progressFill"></div></div>
+          <div class="focus-sub" id="focusSub"></div>
+        </div>
+      </div>
       <div class="chip-row fade-up d2" id="filterChips"></div>
       <div class="task-list" id="taskList"></div>
     </section>

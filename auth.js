@@ -88,11 +88,13 @@ async function handleSubmit() {
       if (!data.session) {
         showMsg("Account created! Check your inbox to confirm your email, then log in.", "ok");
       } else {
+        sessionStorage.setItem("showSplash", "1");
         window.location.href = "app.html";
       }
     } else {
       const { error } = await db.auth.signInWithPassword({ email, password });
       if (error) throw error;
+      sessionStorage.setItem("showSplash", "1");
       window.location.href = "app.html";
     }
   } catch (err) {

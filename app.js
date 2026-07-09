@@ -24,7 +24,20 @@ const DEFAULT_PRIORITIES = [
 const PRESET_COLORS = ["#2fbf71", "#f5a623", "#f0455a", "#4353ff", "#8a63ff", "#ff6fae", "#18c2c2", "#171b36"];
 
 // ---------- boot ----------
+runSplash();
 init();
+
+function runSplash() {
+  const splash = $("splash");
+  if (sessionStorage.getItem("showSplash")) {
+    sessionStorage.removeItem("showSplash");
+    splash.classList.add("run");
+    setTimeout(() => splash.remove(), 2800);
+  } else {
+    splash.remove();
+  }
+}
+
 async function init() {
   const { data } = await db.auth.getSession();
   if (!data.session) { window.location.href = "index.html"; return; }
@@ -37,6 +50,7 @@ async function init() {
   renderGreeting();
   renderAll();
   wireEvents();
+  loadWeather();
 }
 
 async function loadProfile() {
@@ -97,6 +111,7 @@ function renderAll() {
   renderCalendar();
   renderPriorities();
   renderProfileForm();
+  renderHero();
 }
 
 // ---------- navigation ----------
@@ -145,6 +160,9 @@ function taskHTML(t, i) {
       <button class="icon-btn edit" aria-label="Edit task">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 20l4-1L20 7l-3-3L5 16l-1 4z"/></svg>
       </button>
+      ${t.due_date ? `<button class="icon-btn gcal" title="Add to Google Calendar" aria-label="Add to Google Calendar">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="5" width="18" height="16" rx="3"/><path d="M8 3v4M16 3v4M3 10h18M12 14v4M10 16h4"/></svg>
+      </button>` : ""}
       <button class="icon-btn del" aria-label="Delete task">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 7h16M9 7V5a1 1 0 011-1h4a1 1 0 011 1v2m-9 0l1 13h8l1-13"/></svg>
       </button>
@@ -175,6 +193,8 @@ function wireTaskEvents(scope) {
     el.querySelector(".check").addEventListener("click", () => toggleTask(id, el));
     el.querySelector(".del").addEventListener("click", () => removeTask(id, el));
     el.querySelector(".edit").addEventListener("click", () => openModal(id));
+    const gcal = el.querySelector(".gcal");
+    if (gcal) gcal.addEventListener("click", () => openGoogleCalendar(id));
     el.querySelector(".task-body").addEventListener("click", () => openModal(id));
   });
 }
@@ -186,7 +206,7 @@ async function toggleTask(id, el) {
   const { error } = await db.from("tasks").update({ completed: t.completed }).eq("id", id);
   if (error) { t.completed = !t.completed; el.classList.toggle("done"); return toast("Couldn't save — try again"); }
   if (t.completed) toast("Nice one ✓");
-  setTimeout(() => { renderTasks(); renderCalendar(); }, 500);
+  setTimeout(() => { renderTasks(); renderCalendar(); renderHero(); }, 500);
 }
 
 async function removeTask(id, el) {
@@ -194,7 +214,7 @@ async function removeTask(id, el) {
   const { error } = await db.from("tasks").delete().eq("id", id);
   if (error) { el.classList.remove("leaving"); return toast("Couldn't delete — try again"); }
   tasks = tasks.filter((t) => t.id !== id);
-  setTimeout(() => { renderTasks(); renderCalendar(); }, 350);
+  setTimeout(() => { renderTasks(); renderCalendar(); renderHero(); }, 350);
   toast("Task removed");
 }
 
@@ -245,6 +265,7 @@ async function saveTask() {
   await loadTasks();
   renderTasks();
   renderCalendar();
+  renderHero();
   closeModal();
   toast(wasEditing ? "Task updated" : "Task added ✨");
 }
@@ -435,4 +456,94 @@ function wireEvents() {
     await db.auth.signOut();
     window.location.href = "index.html";
   });
+}
+
+// ============================================
+// V2 · Weather (Open-Meteo, free, no API key)
+// ============================================
+const WEATHER_ICONS = [
+  [0, "☀️", "Clear sky"], [1, "🌤️", "Mostly clear"], [2, "⛅", "Partly cloudy"], [3, "☁️", "Overcast"],
+  [45, "🌫️", "Foggy"], [48, "🌫️", "Foggy"], [51, "🌦️", "Light drizzle"], [53, "🌦️", "Drizzle"],
+  [55, "🌦️", "Heavy drizzle"], [61, "🌧️", "Light rain"], [63, "🌧️", "Rain"], [65, "🌧️", "Heavy rain"],
+  [71, "❄️", "Light snow"], [73, "❄️", "Snow"], [75, "❄️", "Heavy snow"], [80, "🌧️", "Showers"],
+  [81, "🌧️", "Showers"], [82, "⛈️", "Heavy showers"], [95, "⛈️", "Thunderstorm"], [96, "⛈️", "Storm + hail"], [99, "⛈️", "Storm + hail"],
+];
+function weatherLook(code) {
+  let best = ["🌡️", "Weather"];
+  for (const [c, icon, label] of WEATHER_ICONS) if (code >= c) best = [icon, label];
+  return best;
+}
+
+function loadWeather() {
+  const fallback = { lat: -33.87, lon: 151.21 }; // Sydney
+  const go = (lat, lon) => fetchWeather(lat, lon);
+  if (navigator.geolocation) {
+    navigator.geolocation.getCurrentPosition(
+      (pos) => go(pos.coords.latitude, pos.coords.longitude),
+      () => go(fallback.lat, fallback.lon),
+      { timeout: 4000 }
+    );
+  } else go(fallback.lat, fallback.lon);
+}
+
+async function fetchWeather(lat, lon) {
+  try {
+    const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}` +
+      `&current=temperature_2m,weather_code&daily=temperature_2m_max,temperature_2m_min&timezone=auto&forecast_days=1`;
+    const res = await fetch(url);
+    const w = await res.json();
+    const [icon, label] = weatherLook(w.current.weather_code);
+    $("weatherBox").innerHTML = `
+      <span class="w-emoji">${icon}</span>
+      <div>
+        <div class="w-temp">${Math.round(w.current.temperature_2m)}°</div>
+        <div class="w-desc">${label} · H ${Math.round(w.daily.temperature_2m_max[0])}° L ${Math.round(w.daily.temperature_2m_min[0])}°</div>
+      </div>`;
+  } catch {
+    $("weatherBox").innerHTML = `<span class="w-emoji">🌤️</span><div><div class="w-desc">Weather unavailable right now</div></div>`;
+  }
+}
+
+// ============================================
+// V2 · Hero focus strip
+// ============================================
+function renderHero() {
+  const today = todayStr();
+  const dueToday = tasks.filter((t) => t.due_date === today);
+  const doneToday = dueToday.filter((t) => t.completed).length;
+  const active = tasks.filter((t) => !t.completed).length;
+
+  let pct, sub;
+  if (dueToday.length > 0) {
+    pct = Math.round((doneToday / dueToday.length) * 100);
+    sub = `${doneToday} of ${dueToday.length} done · ${active} open in total`;
+    $("focusNum").textContent = `${dueToday.length - doneToday} task${dueToday.length - doneToday === 1 ? "" : "s"} due today`;
+  } else {
+    const done = tasks.filter((t) => t.completed).length;
+    pct = tasks.length ? Math.round((done / tasks.length) * 100) : 0;
+    sub = tasks.length ? `${done} of ${tasks.length} tasks completed overall` : "Add your first task to get rolling";
+    $("focusNum").textContent = "Nothing due today 🎈";
+  }
+  $("focusSub").textContent = sub;
+  requestAnimationFrame(() => { $("progressFill").style.width = pct + "%"; });
+}
+
+// ============================================
+// V2 · Google Calendar (Google sends the reminders)
+// ============================================
+function openGoogleCalendar(taskId) {
+  const t = tasks.find((x) => x.id === taskId);
+  if (!t || !t.due_date) return;
+  const start = t.due_date.replaceAll("-", "");
+  const endDate = new Date(t.due_date + "T00:00");
+  endDate.setDate(endDate.getDate() + 1);
+  const end = `${endDate.getFullYear()}${String(endDate.getMonth() + 1).padStart(2, "0")}${String(endDate.getDate()).padStart(2, "0")}`;
+  const p = prioById(t.priority_id);
+  const details = [t.notes, p ? `Priority: ${p.name}` : "", "— added from Prio"].filter(Boolean).join("\n");
+  const url = "https://calendar.google.com/calendar/render?action=TEMPLATE" +
+    `&text=${encodeURIComponent(t.title)}` +
+    `&dates=${start}/${end}` +
+    `&details=${encodeURIComponent(details)}`;
+  window.open(url, "_blank");
+  toast("Opening Google Calendar 📅");
 }
