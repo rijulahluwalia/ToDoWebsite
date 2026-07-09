@@ -349,12 +349,55 @@ function renderFilterChips() {
     ...priorities.map((p) => ({ id: p.id, label: p.name, color: p.color })),
     { id: "done", label: "Done ✓", color: null },
   ];
-  wrap.innerHTML = chips.map((c) => `
-    <button class="chip ${activeFilter === c.id ? "active" : ""}" data-filter="${c.id}">
-      ${c.color ? `<span class="swatch" style="background:${c.color}"></span>` : ""}${esc(c.label)}
-    </button>`).join("");
-  wrap.querySelectorAll(".chip").forEach((b) =>
-    b.addEventListener("click", () => { activeFilter = b.dataset.filter; renderFilterChips(); renderTasks(); }));
+  const current = chips.find((c) => c.id === activeFilter) || chips[0];
+  const label = current.id === "all" ? "Filter" : `Filter: ${current.label.replace(" ✓", "")}`;
+
+  wrap.innerHTML = `
+    <div class="filter-menu" id="plannerFilterMenu">
+      <button type="button" class="filter-trigger" id="filterTrigger" aria-expanded="false">
+        <span class="filter-icon">☰</span>
+        <span>${esc(label)}</span>
+        ${current.color ? `<span class="swatch" style="background:${current.color}"></span>` : ""}
+        <span class="filter-chevron">⌄</span>
+      </button>
+      <div class="filter-popover" id="filterPopover">
+        ${chips.map((c, i) => `
+          <button type="button" class="filter-option ${activeFilter === c.id ? "active" : ""}" data-filter="${c.id}" style="--i:${i}">
+            ${c.color ? `<span class="swatch" style="background:${c.color}"></span>` : `<span class="swatch empty"></span>`}
+            <span>${esc(c.label)}</span>
+            ${activeFilter === c.id ? `<span class="filter-tick">✓</span>` : ""}
+          </button>`).join("")}
+      </div>
+    </div>`;
+
+  const menu = $("plannerFilterMenu");
+  const trigger = $("filterTrigger");
+  const popover = $("filterPopover");
+  const close = () => {
+    menu.classList.remove("open");
+    trigger.setAttribute("aria-expanded", "false");
+  };
+
+  trigger.addEventListener("click", (e) => {
+    e.stopPropagation();
+    const open = !menu.classList.contains("open");
+    document.querySelectorAll(".filter-menu.open").forEach((m) => m.classList.remove("open"));
+    menu.classList.toggle("open", open);
+    trigger.setAttribute("aria-expanded", String(open));
+  });
+
+  popover.querySelectorAll(".filter-option").forEach((b) => {
+    b.addEventListener("click", (e) => {
+      e.stopPropagation();
+      activeFilter = b.dataset.filter;
+      close();
+      setTimeout(() => { renderFilterChips(); renderTasks(); }, 120);
+    });
+  });
+
+  setTimeout(() => {
+    document.addEventListener("click", close, { once: true });
+  }, 0);
 }
 
 // ---------- tasks ----------
