@@ -1827,3 +1827,117 @@ input, select, textarea { font-family: inherit; font-size: 1rem; color: var(--in
   background: #fff;
   box-shadow: 0 0 0 4px var(--primary-soft), 0 12px 26px rgba(67, 83, 255, 0.10);
 }
+
+/* ============================================
+   PRIO · logo + clearer uni dashboard polish
+   ============================================ */
+.app-logo {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+  border-radius: 0;
+  gap: 11px;
+  font-size: 1.55rem;
+  line-height: 1;
+  cursor: pointer;
+}
+.app-logo .logo-dot {
+  width: 20px;
+  height: 20px;
+  border-radius: 7px;
+  box-shadow: 0 8px 18px rgba(67, 83, 255, 0.25);
+}
+.app-logo:hover { transform: translateY(-1px); box-shadow: none; }
+.app-logo:active { transform: translateY(0) scale(0.98); }
+.app-logo:focus-visible {
+  outline: 3px solid var(--primary-soft);
+  outline-offset: 5px;
+  border-radius: 10px;
+}
+
+.timetable-card {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 14px 14px 18px;
+}
+.time-pill {
+  min-width: 78px;
+  border-radius: 17px;
+  padding: 10px 11px;
+  background: linear-gradient(135deg, var(--primary-soft), #fff);
+  border: 1px solid rgba(67, 83, 255, 0.16);
+  text-align: center;
+  box-shadow: inset 0 0 0 1px rgba(255,255,255,.72);
+}
+.time-pill strong { display: block; font-family: var(--font-display); font-size: 1rem; color: var(--ink); }
+.time-pill span { display: block; margin-top: 1px; font-size: .76rem; font-weight: 800; color: var(--ink-soft); }
+.timetable-main p { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.day-badge {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  padding: 4px 9px;
+  background: var(--ink);
+  color: #fff;
+  font-size: .72rem;
+  font-weight: 900;
+  letter-spacing: .03em;
+}
+
+.assessment-top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+.due-badge {
+  flex-shrink: 0;
+  min-width: 96px;
+  border-radius: 18px;
+  padding: 9px 11px;
+  text-align: center;
+  background: var(--bg);
+  border: 1px solid var(--line);
+  transition: transform .28s var(--ease-spring), box-shadow .28s var(--ease-out);
+}
+.due-badge span { display: block; font-weight: 900; font-size: .82rem; color: var(--ink); }
+.due-badge small { display: block; margin-top: 2px; font-weight: 800; color: var(--ink-soft); font-size: .72rem; }
+.due-badge.urgent, .due-badge.late {
+  background: #ffe9ec;
+  border-color: rgba(240, 69, 90, .22);
+  box-shadow: 0 10px 22px rgba(240, 69, 90, .12);
+}
+.due-badge.urgent span, .due-badge.late span { color: var(--danger); }
+.due-badge.soon {
+  background: #fff4da;
+  border-color: rgba(245, 166, 35, .25);
+  box-shadow: 0 10px 22px rgba(245, 166, 35, .10);
+}
+.due-badge.soon span { color: #a86600; }
+.due-badge.later {
+  background: var(--primary-soft);
+  border-color: rgba(67, 83, 255, .18);
+}
+.due-badge.later span { color: var(--primary); }
+.assessment-card.urgent, .assessment-card.late, .assessment-block.urgent, .assessment-block.late {
+  background: linear-gradient(135deg, #fff, #fff4f6);
+}
+.assessment-card.soon, .assessment-block.soon {
+  background: linear-gradient(135deg, #fff, #fff9ec);
+}
+.assessment-head { align-items: center; }
+.assessment-head .due-badge { margin-left: auto; }
+
+@media (max-width: 640px) {
+  .app-logo { font-size: 1.42rem; }
+  .app-logo .logo-dot { width: 18px; height: 18px; }
+  .timetable-card { grid-template-columns: 1fr; align-items: stretch; }
+  .time-pill { min-width: 0; display: flex; align-items: baseline; justify-content: center; gap: 8px; }
+  .assessment-top, .assessment-head { align-items: stretch; flex-direction: column; }
+  .assessment-head .due-badge { margin-left: 0; }
+  .due-badge { width: 100%; display: flex; justify-content: space-between; align-items: center; text-align: left; }
+  .due-badge small { margin-top: 0; }
+}

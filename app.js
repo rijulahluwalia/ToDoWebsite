@@ -1979,13 +1979,39 @@ function renderUniTimetable() {
   const days = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
   return [...uniClasses].sort((a,b) => (a.day_of_week-b.day_of_week) || String(a.start_time||"").localeCompare(String(b.start_time||""))).map((c) => {
     const s = uniSubjects.find((x) => x.id === c.subject_id);
-    return `<div class="uni-mini-card" style="--subject-color:${esc(s?.color || '#4353ff')}"><strong>${esc(c.class_type || 'Class')} ${s ? `· ${esc(s.name)}` : ''}</strong><p>${days[c.day_of_week] || ''} · ${esc((c.start_time || '').slice(0,5))}${c.end_time ? `–${esc(c.end_time.slice(0,5))}` : ''} · ${esc(c.room || 'Room TBA')}</p><div class="row-actions"><button class="icon-btn" data-edit-class="${c.id}">✎</button><button class="icon-btn" data-delete-class="${c.id}">×</button></div></div>`;
+    const start = esc((c.start_time || '').slice(0,5) || 'TBA');
+    const end = c.end_time ? esc(c.end_time.slice(0,5)) : '';
+    return `<div class="uni-mini-card timetable-card" style="--subject-color:${esc(s?.color || '#4353ff')}">
+      <div class="time-pill"><strong>${start}</strong>${end ? `<span>${end}</span>` : ''}</div>
+      <div class="timetable-main"><strong>${esc(c.class_type || 'Class')} ${s ? `· ${esc(s.name)}` : ''}</strong><p><span class="day-badge">${days[c.day_of_week] || ''}</span> ${esc(c.room || 'Room TBA')}</p></div>
+      <div class="row-actions"><button class="icon-btn" data-edit-class="${c.id}">✎</button><button class="icon-btn" data-delete-class="${c.id}">×</button></div>
+    </div>`;
   }).join("");
+}
+function dueTone(iso) {
+  if (!iso) return "none";
+  const today = parseISODate(todayStr());
+  const d = parseISODate(iso);
+  const diff = Math.ceil((d - today) / 86400000);
+  if (diff < 0) return "late";
+  if (diff <= 2) return "urgent";
+  if (diff <= 7) return "soon";
+  return "later";
+}
+function renderDueBadge(iso) {
+  const tone = dueTone(iso);
+  const label = daysUntil(iso);
+  const date = iso ? niceDate(iso) : "No due date";
+  return `<div class="due-badge ${tone}"><span>${esc(label)}</span><small>${esc(date)}</small></div>`;
 }
 function renderAssessmentMini(a) {
   const s = uniSubjects.find((x) => x.id === a.subject_id);
   const progress = assessmentProgress(a.id);
-  return `<div class="uni-mini-card" style="--subject-color:${esc(s?.color || '#4353ff')}"><strong>${esc(a.title)}</strong><p>${esc(s?.name || 'Subject')} · ${a.due_date ? niceDate(a.due_date) : 'No date'} · ${Number(a.weight || 0)}% · ${esc(a.task_type || 'Individual')} · ${daysUntil(a.due_date)}</p><div class="mini-progress"><div style="width:${progress}%"></div></div><div class="row-actions"><button class="btn-ghost" data-add-step="${a.id}">+ Step</button><button class="icon-btn" data-edit-assessment="${a.id}">✎</button><button class="icon-btn" data-delete-assessment="${a.id}">×</button></div></div>`;
+  return `<div class="uni-mini-card assessment-card ${dueTone(a.due_date)}" style="--subject-color:${esc(s?.color || '#4353ff')}">
+    <div class="assessment-top"><div><strong>${esc(a.title)}</strong><p>${esc(s?.name || 'Subject')} · ${Number(a.weight || 0)}% · ${esc(a.task_type || 'Individual')}</p></div>${renderDueBadge(a.due_date)}</div>
+    <div class="mini-progress"><div style="width:${progress}%"></div></div>
+    <div class="row-actions"><button class="btn-ghost" data-add-step="${a.id}">+ Step</button><button class="icon-btn" data-edit-assessment="${a.id}">✎</button><button class="icon-btn" data-delete-assessment="${a.id}">×</button></div>
+  </div>`;
 }
 function renderAssessmentBreakdowns() {
   if (!uniAssessments.length) return `<div class="empty"><span class="emoji">🧩</span>Break assessments into smaller tasks and watch progress climb.</div>`;
@@ -1993,7 +2019,7 @@ function renderAssessmentBreakdowns() {
     const s = uniSubjects.find((x) => x.id === a.subject_id);
     const steps = assessmentSteps.filter((st) => st.assessment_id === a.id);
     const progress = assessmentProgress(a.id);
-    return `<div class="assessment-block" style="--subject-color:${esc(s?.color || '#4353ff')}"><div class="section-head"><div><h3>${esc(a.title)}</h3><p class="uni-muted">${esc(s?.name || '')} · ${a.due_date ? niceDate(a.due_date) : 'No due date'} · ${progress}% complete</p></div><button class="btn-ghost" data-add-step="${a.id}">+ Step</button></div><div class="mini-progress big"><div style="width:${progress}%"></div></div>${steps.length ? steps.map((st) => `<label class="uni-step"><input type="checkbox" data-toggle-step="${st.id}" ${st.done ? 'checked' : ''}/><span>${esc(st.title)}</span><button type="button" class="icon-btn" data-delete-step="${st.id}">×</button></label>`).join("") : `<p class="uni-muted">No steps yet. Add a few smaller tasks.</p>`}</div>`;
+    return `<div class="assessment-block ${dueTone(a.due_date)}" style="--subject-color:${esc(s?.color || '#4353ff')}"><div class="section-head assessment-head"><div><h3>${esc(a.title)}</h3><p class="uni-muted">${esc(s?.name || '')} · ${Number(a.weight || 0)}% · ${esc(a.task_type || 'Individual')} · ${progress}% complete</p></div>${renderDueBadge(a.due_date)}<button class="btn-ghost" data-add-step="${a.id}">+ Step</button></div><div class="mini-progress big"><div style="width:${progress}%"></div></div>${steps.length ? steps.map((st) => `<label class="uni-step"><input type="checkbox" data-toggle-step="${st.id}" ${st.done ? 'checked' : ''}/><span>${esc(st.title)}</span><button type="button" class="icon-btn" data-delete-step="${st.id}">×</button></label>`).join("") : `<p class="uni-muted">No steps yet. Add a few smaller tasks.</p>`}</div>`;
   }).join("");
 }
 function fillSubjectSelect(id, selected) {
