@@ -387,11 +387,57 @@ function taskHTML(t, i) {
     </div>`;
 }
 
+function dateObj(iso) {
+  return iso ? new Date(iso + "T00:00") : null;
+}
+function weekRange(base = new Date()) {
+  const start = new Date(base.getFullYear(), base.getMonth(), base.getDate());
+  const day = (start.getDay() + 6) % 7; // Monday first
+  start.setDate(start.getDate() - day);
+  const end = new Date(start);
+  end.setDate(start.getDate() + 6);
+  return { start, end };
+}
+function inRange(iso, start, end) {
+  const d = dateObj(iso);
+  return !!d && d >= start && d <= end;
+}
 function scopeTasks() {
   const today = todayStr();
-  if (activeScope === "daily")
+  const now = new Date();
+
+  // Daily = today, overdue, and undated daily tasks.
+  if (activeScope === "daily") {
     return tasks.filter((t) => (t.scope || "daily") === "daily")
       .filter((t) => t.due_date === today || (!t.completed && t.due_date && t.due_date < today) || !t.due_date);
+  }
+
+  // Dated tasks should appear in the right planning view even if they were
+  // created from another tab. This keeps future Daily tasks visible in Weekly/Monthly.
+  if (activeScope === "weekly") {
+    const { start, end } = weekRange(now);
+    return tasks.filter((t) => t.scope === "weekly" || inRange(t.due_date, start, end));
+  }
+
+  if (activeScope === "monthly") {
+    const start = new Date(now.getFullYear(), now.getMonth(), 1);
+    const end = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+    return tasks.filter((t) => t.scope === "monthly" || inRange(t.due_date, start, end));
+  }
+
+  if (activeScope === "half-yearly") {
+    const start = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const end = new Date(start);
+    end.setMonth(end.getMonth() + 6);
+    return tasks.filter((t) => t.scope === "half-yearly" || inRange(t.due_date, start, end));
+  }
+
+  if (activeScope === "yearly") {
+    const start = new Date(now.getFullYear(), 0, 1);
+    const end = new Date(now.getFullYear(), 11, 31);
+    return tasks.filter((t) => t.scope === "yearly" || inRange(t.due_date, start, end));
+  }
+
   return tasks.filter((t) => t.scope === activeScope);
 }
 
@@ -1069,7 +1115,7 @@ function syncPlannerTabs() {
   $("plannerBody").style.display = isDump ? "none" : "block";
   $("dumpBody").style.display = isDump ? "block" : "none";
   $("fabBtn").style.display = isDump ? "none" : "grid";
-  $("routineToday").style.display = activeScope === "daily" ? "block" : "none";
+  $("routineToday").style.display = "none";
 }
 
 function wirePrioEvents() {
@@ -1504,6 +1550,12 @@ function fmtTime(hhmm) {
 // ---------- today's routines in the Daily planner ----------
 function renderTodayRoutines() {
   const wrap = $("routineToday");
+  if (!wrap) return;
+  // Keep the Planner clean: routines live in the Routines tab, not above Daily tasks.
+  wrap.innerHTML = "";
+  wrap.style.display = "none";
+  return;
+
   const due = routinesDueToday();
   if (!due.length) { wrap.innerHTML = ""; return; }
 
