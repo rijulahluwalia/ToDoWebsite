@@ -3235,3 +3235,50 @@ html.menu-open .prio-filter.open .prio-filter-panel {
 .mobile-menu {
   z-index: 9991 !important;
 }
+
+/* ============================================
+   PRIO · Colour Lab row polish fix
+   Prevents generic dark-mode input rules from drawing long boxes
+   inside priority label rows.
+   ============================================ */
+.prio-row {
+  background: var(--surface) !important;
+  border: 1px solid color-mix(in srgb, var(--line) 70%, transparent) !important;
+  box-shadow: var(--shadow) !important;
+}
+.prio-row input[type="text"] {
+  appearance: none !important;
+  -webkit-appearance: none !important;
+  background: transparent !important;
+  border: 0 !important;
+  border-bottom: 2px solid transparent !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+  padding: 4px 0 !important;
+  min-height: auto !important;
+  color: var(--ink) !important;
+}
+.prio-row input[type="text"]:focus {
+  border-bottom-color: var(--primary) !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+:root[data-theme="dark"] .prio-row {
+  background: rgba(255,255,255,0.045) !important;
+  border-color: rgba(255,255,255,0.065) !important;
+}
+:root[data-theme="dark"] .prio-row input[type="text"] {
+  background: transparent !important;
+  border: 0 !important;
+  border-bottom: 2px solid transparent !important;
+  color: var(--ink) !important;
+  box-shadow: none !important;
+}
+:root[data-theme="dark"] .prio-row input[type="text"]:focus {
+  border-bottom-color: var(--primary) !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+:root[data-theme="dark"] .color-well {
+  box-shadow: inset 0 0 0 3px rgba(255,255,255,0.45), 0 10px 24px rgba(0,0,0,0.22) !important;
+}
