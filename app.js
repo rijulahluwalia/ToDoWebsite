@@ -1260,36 +1260,33 @@ function positionGuideSpotlight(rect) {
   const target = findOnboardingTarget(step?.target);
   const styles = target ? window.getComputedStyle(target) : null;
   const isFab = step?.target === "#fabBtn";
-  const isPill = target?.matches?.("button, .chip, .planner-tabs button, .nav button, .filter-trigger, .btn-ghost, .btn-primary");
+  const isControl = target?.matches?.("button, .chip, .planner-tabs button, .nav button, .filter-trigger, .btn-ghost, .btn-primary, .avatar");
 
-  let padX = Math.max(12, Math.min(22, rect.width * 0.16));
-  let padY = Math.max(10, Math.min(18, rect.height * 0.28));
-  let minWidth = 58;
-  let minHeight = 50;
+  // Keep the spotlight mathematically centred on the live element.
+  // Earlier versions used large minimum widths, which made the yellow padding
+  // look uneven on pills like Filter / Today / Add Semester.
+  let padX = 10;
+  let padY = 10;
 
   if (isFab) {
-    padX = 14;
-    padY = 14;
-    minWidth = 86;
-    minHeight = 86;
-  } else if (isPill) {
-    padX = 18;
-    padY = 12;
-    minWidth = rect.width + 30;
-    minHeight = rect.height + 20;
+    padX = 11;
+    padY = 11;
+  } else if (isControl) {
+    padX = Math.max(8, Math.min(12, rect.width * 0.12));
+    padY = Math.max(7, Math.min(10, rect.height * 0.18));
   }
 
-  const width = Math.max(minWidth, rect.width + padX * 2);
-  const height = Math.max(minHeight, rect.height + padY * 2);
-  const left = rect.left + rect.width / 2 - width / 2;
-  const top = rect.top + rect.height / 2 - height / 2;
+  const width = Math.round(rect.width + padX * 2);
+  const height = Math.round(rect.height + padY * 2);
+  const left = Math.round(rect.left - padX);
+  const top = Math.round(rect.top - padY);
 
-  let radius = "20px";
+  let radius = "18px";
   if (styles) {
     const br = parseFloat(styles.borderTopLeftRadius || "0");
     if (isFab || (rect.width <= 76 && rect.height <= 76 && Math.abs(rect.width - rect.height) < 18)) radius = "999px";
     else if (br > rect.height * 0.35) radius = "999px";
-    else radius = `${Math.max(18, br + 10)}px`;
+    else radius = `${Math.max(16, Math.round(br + Math.min(padX, padY)))}px`;
   }
 
   spot.style.width = `${width}px`;
