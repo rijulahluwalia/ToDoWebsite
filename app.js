@@ -731,6 +731,20 @@ function saveSemesterSettingsFromModal() {
   toast("Semester calendar updated 🗓️");
 }
 
+async function clearSemesterOverview() {
+  const ok = await confirmDialog({
+    title: "Clear semester overview?",
+    message: "This will remove the semester name, dates, note and breaks. Subjects, classes and assessments stay saved.",
+    okText: "Clear"
+  });
+  if (!ok) return;
+  saveUniSemesterSettings({ name: "", notes: "", startDate: "", endDate: "", breaks: [] });
+  renderUni();
+  renderCalendar();
+  renderDayPanel();
+  toast("Semester overview cleared");
+}
+
 function renderCalendar() {
   const y = calCursor.getFullYear();
   const m = calCursor.getMonth();
@@ -2276,9 +2290,7 @@ function renderUni() {
         <button class="icon-btn edit semester-icon-action" id="editSemesterBtn" title="Edit semester overview" aria-label="Edit semester overview">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 20l4-1L20 7l-3-3L5 16l-1 4z"/></svg>
         </button>
-        <button class="icon-btn del semester-icon-action" id="resetSemesterBtn" title="Clear semester overview" aria-label="Clear semester overview">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 7h16M9 7V5a1 1 0 011-1h4a1 1 0 011 1v2m-9 0l1 13h8l1-13"/></svg>
-        </button>
+        <button class="icon-btn del semester-icon-action semester-clear-x" id="resetSemesterBtn" title="Clear semester overview" aria-label="Clear semester overview" type="button">×</button>
       </div>
       <div><p class="modal-kicker">Semester overview ${semesterWeekText() ? `· ${esc(semesterWeekText())}` : ""}</p><h2>${esc(getUniSemesterSettings().name || (totalAssessments ? `${avgProgress}% assessment progress` : "Set up your semester"))}</h2><p class="uni-muted">${esc(getUniSemesterSettings().notes || "Subjects, timetable, assessments and breakdown tasks in one clean view.")}</p><p class="semester-inline">🗓️ ${esc(semesterSummary())}</p></div>
       <div class="uni-big-progress"><div style="width:${avgProgress}%"></div></div>
@@ -2464,6 +2476,7 @@ async function deleteRow(table, id, msg) {
 function wireUniDynamicEvents() {
   $("addUniSubjectBtn")?.addEventListener("click", () => openUniSubject());
   $("editSemesterBtn")?.addEventListener("click", openSemesterModal);
+  $("resetSemesterBtn")?.addEventListener("click", clearSemesterOverview);
   $("addUniClassBtn")?.addEventListener("click", () => openUniClass());
   $("addUniAssessmentBtn")?.addEventListener("click", () => openUniAssessment());
   document.querySelectorAll("[data-edit-subject]").forEach((b) => b.addEventListener("click", () => openUniSubject(b.dataset.editSubject)));

@@ -3589,3 +3589,10 @@ html.menu-open .prio-filter.open .prio-filter-panel {
   .day-panel .section-head .btn-ghost { width:100%; justify-content:center; }
   .calendar-uni-event { padding: 13px; }
 }
+
+/* v1.0.1 · Semester clear action uses the same soft X language as the rest of Prio */
+.semester-clear-x {
+  font-size: 1.35rem;
+  font-weight: 800;
+  line-height: 1;
+}
