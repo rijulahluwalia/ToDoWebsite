@@ -3636,34 +3636,24 @@ html.menu-open .prio-filter.open .prio-filter-panel {
 /* ============================================
    V1.1 · First-run Prio guided tips
    ============================================ */
-.guide-highlight {
-  z-index: 145 !important;
-  outline: 3px solid #ffd34f !important;
-  outline-offset: 7px;
-  border-radius: 18px !important;
-  box-shadow:
-    0 0 0 9999px rgba(5, 7, 18, 0.42),
-    0 0 0 10px rgba(255, 211, 79, 0.20),
-    0 18px 48px rgba(255, 184, 56, 0.36),
-    0 0 0 1px rgba(255, 255, 255, 0.24) inset !important;
-  transform: translateY(-3px) scale(1.025);
-  transition:
-    transform 0.82s var(--ease-spring),
-    box-shadow 0.82s var(--ease-out),
-    outline-color 0.72s var(--ease-out);
-  animation: guidePulse 2.35s ease-in-out infinite;
-}
-.guide-highlight:not(.fab):not(.avatar):not(.menu-trigger)::after {
-  content: "";
-  position: absolute;
-  inset: -12px;
-  border-radius: inherit;
+.guide-dim {
+  position: fixed;
+  inset: 0;
+  z-index: 138;
+  background: rgba(5, 7, 18, 0.54);
+  opacity: 0;
   pointer-events: none;
-  border: 1px solid rgba(255, 211, 79, 0.45);
-  animation: guideRipple 2.35s ease-in-out infinite;
+  transition: opacity 0.72s var(--ease-out);
 }
+.guide-dim.open { opacity: 1; }
 
-.guide-highlight:not(.fab):not(.avatar):not(.menu-trigger) { position: relative; }
+.guide-highlight {
+  position: relative;
+  z-index: 146 !important;
+  transform: translateY(-1px) scale(1.012);
+  transition: transform 0.72s var(--ease-spring), filter 0.72s var(--ease-out);
+  filter: brightness(1.13) saturate(1.08);
+}
 .fab.guide-highlight {
   position: fixed !important;
   right: 22px !important;
@@ -3673,26 +3663,47 @@ html.menu-open .prio-filter.open .prio-filter-panel {
   .fab.guide-highlight { right: 16px !important; bottom: 22px !important; }
 }
 
-@keyframes guidePulse {
+.guide-spotlight {
+  position: fixed;
+  z-index: 147;
+  pointer-events: none;
+  border-radius: 999px;
+  opacity: 0;
+  transform: scale(0.9);
+  border: 3px solid #ffd34f;
+  background: radial-gradient(circle, rgba(255, 211, 79, 0.16), rgba(255, 211, 79, 0.04) 58%, transparent 70%);
+  box-shadow:
+    0 0 0 7px rgba(255, 211, 79, 0.16),
+    0 0 34px rgba(255, 211, 79, 0.72),
+    0 0 80px rgba(255, 184, 56, 0.34);
+  transition:
+    opacity 0.46s var(--ease-out),
+    transform 0.76s var(--ease-spring),
+    left 0s linear,
+    top 0s linear,
+    width 0.46s var(--ease-spring),
+    height 0.46s var(--ease-spring);
+}
+.guide-spotlight.open {
+  opacity: 1;
+  transform: scale(1);
+}
+.guide-spotlight.pulse { animation: guideCirclePulse 2.05s ease-in-out infinite; }
+@keyframes guideCirclePulse {
   0%, 100% {
-    outline-color: #ffd34f;
     box-shadow:
-      0 0 0 9999px rgba(5, 7, 18, 0.42),
-      0 0 0 9px rgba(255, 211, 79, 0.18),
-      0 18px 48px rgba(255, 184, 56, 0.34);
+      0 0 0 7px rgba(255, 211, 79, 0.16),
+      0 0 34px rgba(255, 211, 79, 0.72),
+      0 0 80px rgba(255, 184, 56, 0.34);
   }
   50% {
-    outline-color: #fff0a8;
     box-shadow:
-      0 0 0 9999px rgba(5, 7, 18, 0.48),
-      0 0 0 14px rgba(255, 211, 79, 0.26),
-      0 24px 62px rgba(255, 184, 56, 0.46);
+      0 0 0 13px rgba(255, 211, 79, 0.23),
+      0 0 48px rgba(255, 238, 150, 0.92),
+      0 0 105px rgba(255, 184, 56, 0.45);
   }
 }
-@keyframes guideRipple {
-  0%, 100% { opacity: 0.35; transform: scale(0.96); }
-  50% { opacity: 0.9; transform: scale(1.02); }
-}
+
 .prio-guide-tip {
   position: fixed;
   z-index: 160;
@@ -3705,28 +3716,31 @@ html.menu-open .prio-filter.open .prio-filter-panel {
   backdrop-filter: blur(14px) saturate(1.1);
   opacity: 0;
   pointer-events: none;
-  transform: translateY(8px) scale(0.975);
+  transform: translateY(4px) scale(0.985);
   transition:
-    opacity 0.36s var(--ease-out),
-    transform 0.88s var(--ease-spring),
-    left 0.88s var(--ease-spring),
-    top 0.88s var(--ease-spring);
+    opacity 0.58s var(--ease-out),
+    transform 0.72s var(--ease-spring);
 }
 .prio-guide-tip.open {
   opacity: 1;
   pointer-events: auto;
   transform: translateY(0) scale(1);
 }
+.prio-guide-tip.moving {
+  opacity: 0;
+  transform: translateY(6px) scale(0.985);
+  pointer-events: none;
+}
 .prio-guide-tip.step-in .guide-tip-icon,
 .prio-guide-tip.step-in .guide-tip-copy,
 .prio-guide-tip.step-in .guide-tip-text,
 .prio-guide-tip.step-in .guide-tip-footer {
-  animation: guideTipIn 0.58s var(--ease-out) both;
+  animation: guideTipIn 0.7s var(--ease-out) both;
 }
-.prio-guide-tip.step-in .guide-tip-text { animation-delay: 0.09s; }
-.prio-guide-tip.step-in .guide-tip-footer { animation-delay: 0.14s; }
+.prio-guide-tip.step-in .guide-tip-text { animation-delay: 0.1s; }
+.prio-guide-tip.step-in .guide-tip-footer { animation-delay: 0.16s; }
 @keyframes guideTipIn {
-  from { opacity: 0; transform: translateY(6px) scale(0.985); }
+  from { opacity: 0; transform: translateY(7px) scale(0.985); }
   to { opacity: 1; transform: translateY(0) scale(1); }
 }
 .guide-tip-arrow {
@@ -3739,7 +3753,7 @@ html.menu-open .prio-filter.open .prio-filter-panel {
   border-top: 1px solid color-mix(in srgb, #ffd34f 42%, var(--line));
   transform: rotate(45deg);
   pointer-events: none;
-  transition: left 0.88s var(--ease-spring), top 0.88s var(--ease-spring);
+  transition: none;
 }
 .prio-guide-tip.is-right .guide-tip-arrow { left: -7px !important; transform: translateY(-50%) rotate(-45deg); }
 .prio-guide-tip.is-left .guide-tip-arrow { left: auto !important; right: -7px; transform: translateY(-50%) rotate(135deg); }
@@ -3862,9 +3876,10 @@ body.dark .guide-tip-btn.ghost,
 }
 @media (max-width: 640px) {
   .guide-highlight {
-    outline-width: 2px !important;
-    outline-offset: 3px;
-    border-radius: 15px !important;
+    transform: translateY(-1px) scale(1.006);
+  }
+  .guide-spotlight {
+    border-width: 2px;
   }
   .prio-guide-tip {
     width: min(286px, calc(100vw - 20px));
@@ -3881,4 +3896,3 @@ body.dark .guide-tip-btn.ghost,
   .guide-tip-actions { gap: 4px; }
   .guide-tip-btn { padding: 0 7px; }
 }
-

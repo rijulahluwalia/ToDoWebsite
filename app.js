@@ -1042,6 +1042,16 @@ function initOnboardingGuide() {
 
 function ensureOnboardingGuide() {
   if ($("onboardingGuide")) return;
+  const dim = document.createElement("div");
+  dim.className = "guide-dim";
+  dim.id = "guideDim";
+  document.body.appendChild(dim);
+
+  const spot = document.createElement("div");
+  spot.className = "guide-spotlight";
+  spot.id = "guideSpotlight";
+  document.body.appendChild(spot);
+
   const tip = document.createElement("div");
   tip.className = "prio-guide-tip";
   tip.id = "onboardingGuide";
@@ -1097,7 +1107,9 @@ function openOnboardingGuide(manual = false) {
 
 function closeOnboardingGuide(markSeen = false) {
   clearOnboardingHighlight();
-  $("onboardingGuide")?.classList.remove("open", "is-left", "is-right", "is-top", "is-bottom", "step-in");
+  $("onboardingGuide")?.classList.remove("open", "is-left", "is-right", "is-top", "is-bottom", "step-in", "moving");
+  $("guideDim")?.classList.remove("open");
+  $("guideSpotlight")?.classList.remove("open", "pulse");
   if (markSeen) localStorage.setItem(onboardingKey(), "1");
 }
 
@@ -1126,38 +1138,50 @@ function clearOnboardingHighlight() {
 
 function renderOnboardingStep() {
   const step = ONBOARDING_STEPS[onboardingIndex];
+  const tip = $("onboardingGuide");
+  const dim = $("guideDim");
+  const spot = $("guideSpotlight");
+
   setMenu(false);
   if (step.view) switchView(step.view);
   closePlannerFilter?.();
 
-  $("guideIcon").textContent = step.icon;
-  $("guideTitle").textContent = step.title;
-  $("guideText").textContent = step.text;
-  $("guideProgress").style.width = `${((onboardingIndex + 1) / ONBOARDING_STEPS.length) * 100}%`;
-  $("guideCount").textContent = `${onboardingIndex + 1} of ${ONBOARDING_STEPS.length}`;
-  $("guideBack").disabled = onboardingIndex === 0;
-  $("guideNext").textContent = onboardingIndex === ONBOARDING_STEPS.length - 1 ? "Finish" : "Next";
-
-  const tip = $("onboardingGuide");
+  // Fade out in place first, then fade back in at the next target.
+  tip.classList.add("moving");
   tip.classList.remove("step-in", "is-left", "is-right", "is-top", "is-bottom");
-  tip.style.transform = "translateY(8px) scale(0.975)";
-  void tip.offsetWidth;
-  tip.classList.add("step-in");
+  spot?.classList.remove("pulse");
 
-  clearOnboardingHighlight();
-  document.documentElement.classList.add("guide-active");
+  setTimeout(() => {
+    $("guideIcon").textContent = step.icon;
+    $("guideTitle").textContent = step.title;
+    $("guideText").textContent = step.text;
+    $("guideProgress").style.width = `${((onboardingIndex + 1) / ONBOARDING_STEPS.length) * 100}%`;
+    $("guideCount").textContent = `${onboardingIndex + 1} of ${ONBOARDING_STEPS.length}`;
+    $("guideBack").disabled = onboardingIndex === 0;
+    $("guideNext").textContent = onboardingIndex === ONBOARDING_STEPS.length - 1 ? "Finish" : "Next";
 
-  requestAnimationFrame(() => {
-    const target = findOnboardingTarget(step.target) || document.querySelector(`#view-${step.view}`) || $("homeLogoBtn");
-    if (target) {
-      target.classList.add("guide-highlight");
-      const pos = window.getComputedStyle(target).position;
-      if (pos !== "fixed" && pos !== "sticky") {
-        target.scrollIntoView({ behavior: "smooth", block: "center", inline: "nearest" });
+    clearOnboardingHighlight();
+    document.documentElement.classList.add("guide-active");
+    dim?.classList.add("open");
+
+    requestAnimationFrame(() => {
+      const target = findOnboardingTarget(step.target) || document.querySelector(`#view-${step.view}`) || $("homeLogoBtn");
+      if (target) {
+        target.classList.add("guide-highlight");
+        const pos = window.getComputedStyle(target).position;
+        if (pos !== "fixed" && pos !== "sticky") {
+          target.scrollIntoView({ behavior: "smooth", block: "center", inline: "nearest" });
+        }
       }
-    }
-    setTimeout(positionOnboardingTip, 620);
-  });
+
+      setTimeout(() => {
+        positionOnboardingTip();
+        tip.classList.remove("moving");
+        tip.classList.add("step-in");
+        spot?.classList.add("pulse");
+      }, 520);
+    });
+  }, 180);
 }
 
 function positionOnboardingTip() {
@@ -1172,6 +1196,7 @@ function positionOnboardingTip() {
   const vw = window.innerWidth;
   const vh = window.innerHeight;
   const rect = target.getBoundingClientRect();
+  positionGuideSpotlight(rect);
   const tipRect = tip.getBoundingClientRect();
   const arrow = $("guideArrow");
 
@@ -1212,6 +1237,21 @@ function positionOnboardingTip() {
     arrow.style.left = `${Math.max(18, Math.min(targetCenterX - left, tipRect.width - 18))}px`;
     arrow.style.top = `${Math.max(18, Math.min(targetCenterY - top, tipRect.height - 18))}px`;
   }
+}
+
+function positionGuideSpotlight(rect) {
+  const spot = $("guideSpotlight");
+  if (!spot) return;
+  const isFab = ONBOARDING_STEPS[onboardingIndex]?.target === "#fabBtn";
+  const base = Math.max(rect.width, rect.height);
+  const size = isFab ? Math.max(70, base + 18) : Math.max(54, Math.min(78, base + 24));
+  const left = rect.left + rect.width / 2 - size / 2;
+  const top = rect.top + rect.height / 2 - size / 2;
+  spot.style.width = `${size}px`;
+  spot.style.height = `${size}px`;
+  spot.style.left = `${left}px`;
+  spot.style.top = `${top}px`;
+  spot.classList.add("open");
 }
 
 // ============================================
