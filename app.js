@@ -987,288 +987,253 @@ function wireEvents() {
 
 
 // ============================================
-// V1.1 · First-run Prio guided tips
+// V1.2 · Prio tour — SVG-mask onboarding
+// The dark layer is ONE SVG with a rounded hole cut through it via a
+// mask. The highlighted element is simply revealed through the hole,
+// so it never needs z-index changes — which is what broke the old
+// approach inside animated cards (transforms create stacking contexts
+// that trap z-index). The hole glides between targets with a tween.
 // ============================================
-const ONBOARDING_STEPS = [
-  {
-    icon: "＋",
-    title: "Add quickly",
-    text: "Use this button to add tasks from Home, Planner or Calendar.",
-    view: "tasks",
-    target: "#fabBtn"
-  },
-  {
-    icon: "🔎",
-    title: "Focus your list",
-    text: "Filter tasks by priority or completed status when your planner gets busy.",
-    view: "tasks",
-    target: "#filterTrigger"
-  },
-  {
-    icon: "📅",
-    title: "Jump back to today",
-    text: "Your Calendar also shows tasks, uni assessments and timetable items.",
-    view: "calendar",
-    target: "#calToday"
-  },
-  {
-    icon: "🎓",
-    title: "Set your semester",
-    text: "Add semester dates and breaks so Uni items appear correctly on the Calendar.",
-    view: "uni",
-    target: "#editSemesterBtn"
-  },
-  {
-    icon: "👤",
-    title: "Profile and guide",
-    text: "Open Profile to update your account or replay this guide later.",
-    view: "home",
-    target: "#avatarBtn"
-  }
+const TOUR_STEPS = [
+  { icon: "👋", title: "Welcome to Prio", text: "Your day, in colour. Here's a 45-second tour of the essentials — tap anywhere to move on, or skip anytime.", view: "home", target: null },
+  { icon: "＋", title: "Add anything, anywhere", text: "This button follows you around Home, Planner and Calendar. Tap it the moment something pops into your head.", view: "tasks", target: "#fabBtn" },
+  { icon: "🔎", title: "Focus your list", text: "When the planner gets busy, filter by priority colour or peek at what you've already finished.", view: "tasks", target: "#filterTrigger" },
+  { icon: "📅", title: "One calendar for everything", text: "Tasks, uni assessments and timetable classes all land here. This button snaps you back to today.", view: "calendar", target: "#calToday" },
+  { icon: "🎓", title: "Set your semester", text: "Add your semester dates and breaks so uni classes show up on exactly the right weeks.", view: "uni", target: "#editSemesterBtn" },
+  { icon: "👤", title: "Make it yours", text: "Profile holds your account settings — and you can replay this tour from there whenever you like.", view: "home", target: "#avatarBtn" },
 ];
-let onboardingIndex = 0;
-let onboardingManual = false;
-let onboardingPositionTimer = null;
+
+let tourIndex = 0;
+let tourAnim = null;
+let tourHoleBox = null; // current hole geometry {x,y,w,h,r}
+let tourSettleTimer = null;
 
 function onboardingKey() {
   return user?.id ? `prio_onboarding_seen_${user.id}` : "prio_onboarding_seen";
 }
-
-function initOnboardingGuide() {
-  ensureOnboardingGuide();
-  const seen = localStorage.getItem(onboardingKey());
-  if (!seen) setTimeout(() => openOnboardingGuide(false), 900);
+function tourPrefersStill() {
+  return window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 }
 
-function ensureOnboardingGuide() {
-  if ($("onboardingGuide")) return;
-  const dim = document.createElement("div");
-  dim.className = "guide-dim";
-  dim.id = "guideDim";
-  document.body.appendChild(dim);
+function initOnboardingGuide() {
+  if (!localStorage.getItem(onboardingKey())) setTimeout(() => openOnboardingGuide(false), 900);
+}
 
-  const spot = document.createElement("div");
-  spot.className = "guide-spotlight";
-  spot.id = "guideSpotlight";
-  document.body.appendChild(spot);
-
-  const tip = document.createElement("div");
-  tip.className = "prio-guide-tip";
-  tip.id = "onboardingGuide";
-  tip.setAttribute("aria-live", "polite");
-  tip.innerHTML = `
-    <div class="guide-tip-arrow" id="guideArrow"></div>
-    <div class="guide-tip-head">
-      <div class="guide-tip-icon" id="guideIcon">✨</div>
-      <div class="guide-tip-copy">
-        <p class="guide-tip-kicker">Prio guide</p>
-        <h2 id="guideTitle"></h2>
+function buildTour() {
+  if ($("tourVeil")) return;
+  const wrap = document.createElement("div");
+  wrap.id = "tourVeil";
+  wrap.innerHTML = `
+    <svg class="tour-svg" width="100%" height="100%" aria-hidden="true">
+      <defs>
+        <mask id="tourMask">
+          <rect x="0" y="0" width="100%" height="100%" fill="#fff"/>
+          <rect id="tourHole" x="-10" y="-10" width="0" height="0" rx="16" fill="#000"/>
+        </mask>
+      </defs>
+      <rect class="tour-shade" x="0" y="0" width="100%" height="100%" mask="url(#tourMask)"/>
+      <rect id="tourRing" class="tour-ring" x="-10" y="-10" width="0" height="0" rx="16" fill="none"/>
+    </svg>
+    <div class="tour-card" id="tourCard" role="dialog" aria-modal="true" aria-live="polite">
+      <div class="tour-top">
+        <span class="tour-icon" id="tourIcon">✨</span>
+        <div class="tour-heading">
+          <span class="tour-kicker">Prio tour</span>
+          <h2 id="tourTitle"></h2>
+        </div>
+        <button class="tour-x" id="tourX" aria-label="Close tour">✕</button>
       </div>
-      <button class="guide-tip-x" id="guideClose" aria-label="Close guide">×</button>
-    </div>
-    <p class="guide-tip-text" id="guideText"></p>
-    <div class="guide-tip-progress"><span id="guideProgress"></span></div>
-    <div class="guide-tip-footer">
-      <span class="guide-tip-count" id="guideCount"></span>
-      <div class="guide-tip-actions">
-        <button class="guide-tip-btn ghost" id="guideSkip">Skip</button>
-        <button class="guide-tip-btn ghost" id="guideBack">Back</button>
-        <button class="guide-tip-btn primary" id="guideNext">Next</button>
+      <p class="tour-text" id="tourText"></p>
+      <div class="tour-bottom">
+        <div class="tour-dots" id="tourDots"></div>
+        <div class="tour-btns">
+          <button class="tour-btn ghost" id="tourBack">Back</button>
+          <button class="tour-btn primary" id="tourNext">Next</button>
+        </div>
       </div>
     </div>`;
-  document.body.appendChild(tip);
+  document.body.appendChild(wrap);
 
-  $("guideClose").addEventListener("click", finishOnboardingGuide);
-  $("guideSkip").addEventListener("click", finishOnboardingGuide);
-  $("guideBack").addEventListener("click", () => {
-    if (onboardingIndex > 0) { onboardingIndex--; renderOnboardingStep(); }
+  $("tourX").addEventListener("click", () => closeTour(true));
+  $("tourBack").addEventListener("click", (e) => { e.stopPropagation(); tourGo(tourIndex - 1); });
+  $("tourNext").addEventListener("click", (e) => { e.stopPropagation(); tourGo(tourIndex + 1); });
+  // tap the dark veil (or the highlighted spot) to advance
+  wrap.addEventListener("click", (e) => {
+    if (e.target.closest(".tour-card")) return;
+    tourGo(tourIndex + 1);
   });
-  $("guideNext").addEventListener("click", () => {
-    if (onboardingIndex >= ONBOARDING_STEPS.length - 1) return finishOnboardingGuide();
-    onboardingIndex++;
-    renderOnboardingStep();
-  });
+  document.addEventListener("keydown", tourKeys);
+  window.addEventListener("resize", tourReflow, { passive: true });
+  window.addEventListener("scroll", tourReflow, { passive: true, capture: true });
+}
 
-  window.addEventListener("resize", positionOnboardingTip, { passive: true });
-  window.addEventListener("orientationchange", () => setTimeout(positionOnboardingTip, 180), { passive: true });
-  window.addEventListener("scroll", () => {
-    if (!$('onboardingGuide')?.classList.contains('open')) return;
-    clearTimeout(onboardingPositionTimer);
-    onboardingPositionTimer = setTimeout(positionOnboardingTip, 90);
-  }, true);
+function tourKeys(e) {
+  if (!$("tourVeil")?.classList.contains("open")) return;
+  if (e.key === "Escape") closeTour(true);
+  else if (e.key === "ArrowRight" || e.key === "Enter") tourGo(tourIndex + 1);
+  else if (e.key === "ArrowLeft") tourGo(tourIndex - 1);
 }
 
 function openOnboardingGuide(manual = false) {
-  onboardingManual = manual;
-  onboardingIndex = 0;
-  ensureOnboardingGuide();
-  $("onboardingGuide").classList.add("open");
-  renderOnboardingStep();
+  buildTour();
+  tourIndex = 0;
+  tourHoleBox = null;
+  $("tourVeil").classList.add("open");
+  showTourStep(0, true);
 }
 
-function closeOnboardingGuide(markSeen = false) {
-  clearOnboardingHighlight();
-  $("onboardingGuide")?.classList.remove("open", "is-left", "is-right", "is-top", "is-bottom", "step-in", "moving");
-  $("guideDim")?.classList.remove("open");
-  $("guideSpotlight")?.classList.remove("open", "pulse");
+function tourGo(next) {
+  if (next < 0) return;
+  if (next >= TOUR_STEPS.length) return closeTour(true, true);
+  showTourStep(next);
+}
+
+function closeTour(markSeen = false, finished = false) {
+  if (tourAnim) cancelAnimationFrame(tourAnim);
+  clearTimeout(tourSettleTimer);
+  $("tourVeil")?.classList.remove("open");
   if (markSeen) localStorage.setItem(onboardingKey(), "1");
+  if (finished) toast("Tour done! Replay it anytime from Profile ✨");
+  else if (markSeen) toast("Tour saved — reopen it from Profile ✨");
 }
 
-function finishOnboardingGuide() {
-  closeOnboardingGuide(true);
-  toast("Guide saved — you can reopen it from Profile ✨");
+function tourFindTarget(step) {
+  if (!step.target) return null;
+  const el = document.querySelector(step.target);
+  if (!el) return null;
+  const r = el.getBoundingClientRect();
+  const cs = window.getComputedStyle(el);
+  if (r.width < 1 || r.height < 1 || cs.visibility === "hidden" || cs.display === "none") return null;
+  return el;
 }
 
-function findOnboardingTarget(selector) {
-  if (!selector) return null;
-  const selectors = selector.split(",").map((x) => x.trim()).filter(Boolean);
-  for (const sel of selectors) {
-    const el = document.querySelector(sel);
-    if (!el) continue;
-    const rect = el.getBoundingClientRect();
-    const style = window.getComputedStyle(el);
-    if (rect.width > 0 && rect.height > 0 && style.visibility !== "hidden" && style.display !== "none") return el;
-  }
-  return null;
-}
+function showTourStep(i, instant = false) {
+  tourIndex = Math.max(0, Math.min(i, TOUR_STEPS.length - 1));
+  const step = TOUR_STEPS[tourIndex];
 
-function clearOnboardingHighlight() {
-  document.querySelectorAll(".guide-highlight").forEach((el) => el.classList.remove("guide-highlight"));
-  document.documentElement.classList.remove("guide-active");
-}
-
-function renderOnboardingStep() {
-  const step = ONBOARDING_STEPS[onboardingIndex];
-  const tip = $("onboardingGuide");
-  const dim = $("guideDim");
-  const spot = $("guideSpotlight");
-
-  setMenu(false);
+  if (typeof setMenu === "function") setMenu(false);
+  if (typeof closePlannerFilter === "function") closePlannerFilter();
   if (step.view) switchView(step.view);
-  closePlannerFilter?.();
 
-  // Quick fade out, jump to the next target while hidden, then fade back in.
-  // This avoids the spotlight/tip visibly travelling across the screen.
-  tip.classList.add("moving");
-  tip.classList.remove("step-in", "is-left", "is-right", "is-top", "is-bottom");
-  spot?.classList.remove("open", "pulse");
-
-  window.setTimeout(() => {
-    $("guideIcon").textContent = step.icon;
-    $("guideTitle").textContent = step.title;
-    $("guideText").textContent = step.text;
-    $("guideProgress").style.width = `${((onboardingIndex + 1) / ONBOARDING_STEPS.length) * 100}%`;
-    $("guideCount").textContent = `${onboardingIndex + 1} of ${ONBOARDING_STEPS.length}`;
-    $("guideBack").disabled = onboardingIndex === 0;
-    $("guideNext").textContent = onboardingIndex === ONBOARDING_STEPS.length - 1 ? "Finish" : "Next";
-
-    clearOnboardingHighlight();
-    document.documentElement.classList.add("guide-active");
-    dim?.classList.add("open");
-
-    const target = findOnboardingTarget(step.target) || document.querySelector(`#view-${step.view}`) || $("homeLogoBtn");
-    if (target) {
-      target.classList.add("guide-highlight");
-      const pos = window.getComputedStyle(target).position;
-      if (pos !== "fixed" && pos !== "sticky") {
-        target.scrollIntoView({ behavior: "auto", block: "center", inline: "nearest" });
-      }
+  // let the view render, scroll the target into place, then measure
+  clearTimeout(tourSettleTimer);
+  tourSettleTimer = setTimeout(() => {
+    const el = tourFindTarget(step);
+    if (el) {
+      const pos = window.getComputedStyle(el).position;
+      if (pos !== "fixed" && pos !== "sticky") el.scrollIntoView({ behavior: "auto", block: "center", inline: "nearest" });
     }
-
-    requestAnimationFrame(() => {
-      positionOnboardingTip();
-      tip.classList.remove("moving");
-      tip.classList.add("step-in");
-      spot?.classList.add("open");
-      window.setTimeout(() => spot?.classList.add("pulse"), 170);
-    });
-  }, 90);
+    tourSettleTimer = setTimeout(() => placeTourStep(step, el, instant), el ? 160 : 20);
+  }, 120);
 }
 
-function positionOnboardingTip() {
-  const tip = $("onboardingGuide");
-  if (!tip || !tip.classList.contains("open")) return;
-  const step = ONBOARDING_STEPS[onboardingIndex];
-  const target = findOnboardingTarget(step.target) || document.querySelector(`#view-${step.view}`) || $("homeLogoBtn");
-  if (!target) return;
+function placeTourStep(step, el, instant) {
+  // ---- card content ----
+  $("tourIcon").textContent = step.icon;
+  $("tourTitle").textContent = step.title;
+  $("tourText").textContent = step.text;
+  $("tourDots").innerHTML = TOUR_STEPS.map((_, d) =>
+    `<i class="${d === tourIndex ? "on" : ""}${d < tourIndex ? " past" : ""}"></i>`).join("");
+  $("tourBack").style.visibility = tourIndex === 0 ? "hidden" : "visible";
+  $("tourNext").textContent =
+    tourIndex === 0 ? "Let's go" : tourIndex === TOUR_STEPS.length - 1 ? "Finish" : "Next";
 
-  const margin = 10;
-  const gap = 12;
-  const vw = window.innerWidth;
-  const vh = window.innerHeight;
-  const rect = target.getBoundingClientRect();
-  positionGuideSpotlight(rect);
-  const tipRect = tip.getBoundingClientRect();
-  const arrow = $("guideArrow");
+  // ---- hole geometry ----
+  let box = null;
+  if (el) {
+    const r = el.getBoundingClientRect();
+    const pad = 8;
+    const br = parseFloat(window.getComputedStyle(el).borderTopLeftRadius) || 16;
+    const w = r.width + pad * 2;
+    const h = r.height + pad * 2;
+    const round = br >= Math.min(r.width, r.height) / 2 - 1; // pills & circles
+    box = {
+      x: r.left - pad, y: r.top - pad, w, h,
+      r: round ? Math.min(w, h) / 2 : Math.min(Math.max(br + pad, 14), 24),
+    };
+  }
+  moveTourHole(box, instant || tourPrefersStill());
 
-  tip.classList.remove("is-left", "is-right", "is-top", "is-bottom");
-  let placement = "bottom";
-  if (rect.right + gap + tipRect.width <= vw - margin) placement = "right";
-  else if (rect.left - gap - tipRect.width >= margin) placement = "left";
-  else if (rect.top - gap - tipRect.height >= margin) placement = "top";
-  else placement = "bottom";
+  // ---- card placement ----
+  const card = $("tourCard");
+  card.classList.remove("pop", "centered");
+  void card.offsetWidth; // restart entrance animation
+  card.classList.add("pop");
 
+  const mobile = window.innerWidth <= 640;
+  if (!box || mobile) {
+    // welcome step or phone: centred / docked (CSS handles the dock)
+    if (!box) card.classList.add("centered");
+    if (mobile) { card.style.left = ""; card.style.top = ""; return; }
+    if (!box) { card.style.left = ""; card.style.top = ""; return; }
+  }
+
+  // desktop: measure, then prefer below → above → right → left
+  card.style.left = "-9999px";
+  card.style.top = "0px";
+  const cw = card.offsetWidth, ch = card.offsetHeight;
+  const vw = window.innerWidth, vh = window.innerHeight;
+  const gap = 14, m = 12;
   let left, top;
-  if (placement === "right") {
-    left = rect.right + gap;
-    top = rect.top + rect.height / 2 - tipRect.height / 2;
-  } else if (placement === "left") {
-    left = rect.left - tipRect.width - gap;
-    top = rect.top + rect.height / 2 - tipRect.height / 2;
-  } else if (placement === "top") {
-    left = rect.left + rect.width / 2 - tipRect.width / 2;
-    top = rect.top - tipRect.height - gap;
-  } else {
-    left = rect.left + rect.width / 2 - tipRect.width / 2;
-    top = rect.bottom + gap;
+  if (box.y + box.h + gap + ch <= vh - m) {          // below
+    top = box.y + box.h + gap;
+    left = box.x + box.w / 2 - cw / 2;
+  } else if (box.y - gap - ch >= m) {                 // above
+    top = box.y - gap - ch;
+    left = box.x + box.w / 2 - cw / 2;
+  } else if (box.x + box.w + gap + cw <= vw - m) {    // right
+    left = box.x + box.w + gap;
+    top = box.y + box.h / 2 - ch / 2;
+  } else {                                            // left
+    left = box.x - gap - cw;
+    top = box.y + box.h / 2 - ch / 2;
   }
-
-  left = Math.max(margin, Math.min(left, vw - tipRect.width - margin));
-  top = Math.max(margin, Math.min(top, vh - tipRect.height - margin));
-
-  tip.style.left = `${left}px`;
-  tip.style.top = `${top}px`;
-  tip.style.right = "auto";
-  tip.style.bottom = "auto";
-  tip.classList.add(`is-${placement}`);
-
-  if (arrow) {
-    const targetCenterX = rect.left + rect.width / 2;
-    const targetCenterY = rect.top + rect.height / 2;
-    arrow.style.left = `${Math.max(18, Math.min(targetCenterX - left, tipRect.width - 18))}px`;
-    arrow.style.top = `${Math.max(18, Math.min(targetCenterY - top, tipRect.height - 18))}px`;
-  }
+  card.style.left = Math.max(m, Math.min(left, vw - cw - m)) + "px";
+  card.style.top = Math.max(m, Math.min(top, vh - ch - m)) + "px";
 }
 
-function positionGuideSpotlight(rect) {
-  const spot = $("guideSpotlight");
-  if (!spot) return;
+function moveTourHole(box, instant) {
+  const hole = $("tourHole"), ring = $("tourRing");
+  if (!hole) return;
+  // no target → shrink the hole away and hide the ring
+  const to = box || {
+    x: window.innerWidth / 2, y: window.innerHeight / 2, w: 0, h: 0, r: 16,
+  };
+  ring.style.opacity = box ? "" : "0";
 
-  const step = ONBOARDING_STEPS[onboardingIndex];
-  const target = findOnboardingTarget(step?.target);
-  const styles = target ? window.getComputedStyle(target) : null;
+  const from = tourHoleBox || { x: to.x + to.w / 2, y: to.y + to.h / 2, w: 0, h: 0, r: to.r };
+  tourHoleBox = to;
+  if (tourAnim) cancelAnimationFrame(tourAnim);
 
-  // Premium guide fix:
-  // The halo now uses the target's exact rendered box and CSS outline-offset for the glow.
-  // This avoids manual padding maths, which caused off-centre highlights on pills/FABs.
-  const width = Math.max(1, rect.width);
-  const height = Math.max(1, rect.height);
-  const left = rect.left;
-  const top = rect.top;
+  const apply = (b) => {
+    for (const [attr, val] of [["x", b.x], ["y", b.y], ["width", b.w], ["height", b.h], ["rx", b.r]]) {
+      hole.setAttribute(attr, val);
+      ring.setAttribute(attr, val);
+    }
+  };
+  if (instant) return apply(to);
 
-  let radius = "18px";
-  if (styles) {
-    const br = parseFloat(styles.borderTopLeftRadius || "0");
-    const isRound = br > Math.min(width, height) * 0.35 ||
-      (width <= 90 && height <= 90 && Math.abs(width - height) < 22);
-    radius = isRound ? "999px" : `${Math.max(14, br)}px`;
-  }
+  const t0 = performance.now(), dur = 380;
+  const ease = (t) => 1 - Math.pow(1 - t, 3); // easeOutCubic
+  const tick = (now) => {
+    const p = ease(Math.min((now - t0) / dur, 1));
+    apply({
+      x: from.x + (to.x - from.x) * p,
+      y: from.y + (to.y - from.y) * p,
+      w: from.w + (to.w - from.w) * p,
+      h: from.h + (to.h - from.h) * p,
+      r: from.r + (to.r - from.r) * p,
+    });
+    if (p < 1) tourAnim = requestAnimationFrame(tick);
+  };
+  tourAnim = requestAnimationFrame(tick);
+}
 
-  spot.style.width = `${width}px`;
-  spot.style.height = `${height}px`;
-  spot.style.left = `${left}px`;
-  spot.style.top = `${top}px`;
-  spot.style.borderRadius = radius;
+function tourReflow() {
+  if (!$("tourVeil")?.classList.contains("open")) return;
+  const step = TOUR_STEPS[tourIndex];
+  const el = tourFindTarget(step);
+  placeTourStep(step, el, true);
 }
 
 // ============================================
