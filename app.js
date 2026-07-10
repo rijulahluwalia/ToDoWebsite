@@ -987,61 +987,61 @@ function wireEvents() {
 
 
 // ============================================
-// V1.1 · First-run onboarding guide
+// V1.1 · First-run Prio tips
 // ============================================
 const ONBOARDING_STEPS = [
   {
     icon: "✨",
     title: "Welcome to Prio",
-    text: "Prio brings your tasks, calendar, uni, projects and routines into one clean space.",
-    bullets: ["Plan your day", "Track study and deadlines", "Build routines and habits"]
+    text: "Your tasks, calendar, uni, projects and routines now live in one place.",
+    view: "home"
   },
   {
     icon: "🏠",
-    title: "Home is your daily snapshot",
-    text: "Start here to see your weather, productivity, wins, streaks, reminders and weekly review.",
+    title: "Home",
+    text: "Your daily snapshot: productivity, wins, streaks, reminders and weekly review.",
     view: "home"
   },
   {
     icon: "✅",
-    title: "Planner keeps tasks organised",
-    text: "Use Daily, Weekly, Monthly, Half-Yearly and Yearly views to plan at the right level.",
-    bullets: ["Add due dates", "Filter by priority", "Use Brain Dump when your head is full"],
+    title: "Planner",
+    text: "Plan daily, weekly, monthly and yearly tasks. Use Filter to focus by priority.",
     view: "tasks"
   },
   {
     icon: "📅",
-    title: "Calendar shows what is coming",
-    text: "Tasks, assessments and uni timetable events appear here so you can see your week clearly.",
+    title: "Calendar",
+    text: "Tasks, assessments and uni timetable events appear here automatically.",
     view: "calendar"
   },
   {
     icon: "🎓",
-    title: "Uni tracks your semester",
-    text: "Add subjects, classes, assessments, breakdown steps, semester dates and breaks.",
+    title: "Uni",
+    text: "Track subjects, classes, assessments, semester dates and breaks.",
     view: "uni"
   },
   {
     icon: "📂",
-    title: "Projects break big goals down",
-    text: "Create project sections, steps, notes and deadlines so bigger goals stay manageable.",
+    title: "Projects",
+    text: "Break bigger goals into sections, steps, notes and deadlines.",
     view: "projects"
   },
   {
     icon: "🔁",
-    title: "Routines create repeatable systems",
-    text: "Build master routines once, then Prio can generate daily routine steps for you.",
+    title: "Routines",
+    text: "Build repeatable systems and check off today’s routine steps.",
     view: "routines"
   },
   {
     icon: "🎨",
-    title: "Make Prio yours",
-    text: "Use Colours to change priorities, dark mode and your accent colour. Profile lets you update account details.",
+    title: "Personalise",
+    text: "Change colours, priorities, dark mode and profile details whenever you like.",
     view: "colors"
   }
 ];
 let onboardingIndex = 0;
 let onboardingManual = false;
+let onboardingAutoTimer = null;
 
 function onboardingKey() {
   return user?.id ? `prio_onboarding_seen_${user.id}` : "prio_onboarding_seen";
@@ -1050,31 +1050,35 @@ function onboardingKey() {
 function initOnboardingGuide() {
   ensureOnboardingGuide();
   const seen = localStorage.getItem(onboardingKey());
-  if (!seen) setTimeout(() => openOnboardingGuide(false), 650);
+  if (!seen) setTimeout(() => openOnboardingGuide(false), 850);
 }
 
 function ensureOnboardingGuide() {
   if ($("onboardingGuide")) return;
-  const guide = document.createElement("div");
-  guide.className = "onboarding-backdrop";
-  guide.id = "onboardingGuide";
-  guide.innerHTML = `
-    <div class="onboarding-card" role="dialog" aria-modal="true" aria-labelledby="guideTitle">
-      <button class="guide-x" id="guideClose" aria-label="Close guide">×</button>
-      <div class="guide-progress" id="guideProgress"></div>
-      <div class="guide-icon" id="guideIcon">✨</div>
-      <p class="guide-kicker">Prio guide</p>
-      <h2 id="guideTitle"></h2>
-      <p class="guide-text" id="guideText"></p>
-      <ul class="guide-bullets" id="guideBullets"></ul>
-      <div class="guide-dots" id="guideDots"></div>
-      <div class="guide-actions">
-        <button class="btn-cancel" id="guideSkip">Skip</button>
-        <button class="btn-ghost" id="guideBack">Back</button>
-        <button class="btn-primary" id="guideNext">Next</button>
+  const tip = document.createElement("div");
+  tip.className = "prio-tip";
+  tip.id = "onboardingGuide";
+  tip.setAttribute("aria-live", "polite");
+  tip.innerHTML = `
+    <div class="tip-progress" id="guideProgress"></div>
+    <div class="tip-main">
+      <div class="tip-icon" id="guideIcon">✨</div>
+      <div class="tip-copy">
+        <p class="tip-kicker">Prio tip</p>
+        <h2 id="guideTitle"></h2>
+        <p class="tip-text" id="guideText"></p>
+      </div>
+      <button class="tip-x" id="guideClose" aria-label="Close tip">×</button>
+    </div>
+    <div class="tip-footer">
+      <div class="tip-dots" id="guideDots"></div>
+      <div class="tip-actions">
+        <button class="tip-btn ghost" id="guideSkip">Skip</button>
+        <button class="tip-btn ghost" id="guideBack">Back</button>
+        <button class="tip-btn primary" id="guideNext">Next</button>
       </div>
     </div>`;
-  document.body.appendChild(guide);
+  document.body.appendChild(tip);
 
   $("guideClose").addEventListener("click", closeOnboardingGuide);
   $("guideSkip").addEventListener("click", finishOnboardingGuide);
@@ -1086,41 +1090,54 @@ function ensureOnboardingGuide() {
     onboardingIndex++;
     renderOnboardingStep();
   });
-  guide.addEventListener("click", (e) => { if (e.target.id === "onboardingGuide") closeOnboardingGuide(); });
 }
 
 function openOnboardingGuide(manual = false) {
   onboardingManual = manual;
   onboardingIndex = 0;
   ensureOnboardingGuide();
+  clearTimeout(onboardingAutoTimer);
   $("onboardingGuide").classList.add("open");
-  document.body.classList.add("guide-open");
   renderOnboardingStep();
 }
 
 function closeOnboardingGuide() {
+  clearTimeout(onboardingAutoTimer);
   $("onboardingGuide")?.classList.remove("open");
-  document.body.classList.remove("guide-open");
   if (!onboardingManual) localStorage.setItem(onboardingKey(), "1");
 }
 
 function finishOnboardingGuide() {
   localStorage.setItem(onboardingKey(), "1");
   closeOnboardingGuide();
-  toast("You're ready to use Prio ✨");
+  toast("Guide saved — you can reopen it from Profile ✨");
 }
 
 function renderOnboardingStep() {
   const step = ONBOARDING_STEPS[onboardingIndex];
-  if (step.view && !onboardingManual) switchView(step.view);
+  if (step.view) switchView(step.view);
+
+  const tip = $("onboardingGuide");
+  tip.classList.remove("step-in");
+  void tip.offsetWidth;
+  tip.classList.add("step-in");
+
   $("guideIcon").textContent = step.icon;
   $("guideTitle").textContent = step.title;
   $("guideText").textContent = step.text;
-  $("guideBullets").innerHTML = (step.bullets || []).map((b) => `<li>${esc(b)}</li>`).join("");
   $("guideProgress").style.setProperty("--guide-progress", `${((onboardingIndex + 1) / ONBOARDING_STEPS.length) * 100}%`);
   $("guideDots").innerHTML = ONBOARDING_STEPS.map((_, i) => `<i class="${i === onboardingIndex ? "active" : ""}"></i>`).join("");
   $("guideBack").disabled = onboardingIndex === 0;
-  $("guideNext").textContent = onboardingIndex === ONBOARDING_STEPS.length - 1 ? "Get started" : "Next";
+  $("guideNext").textContent = onboardingIndex === ONBOARDING_STEPS.length - 1 ? "Done" : "Next";
+
+  clearTimeout(onboardingAutoTimer);
+  if (!onboardingManual && onboardingIndex < ONBOARDING_STEPS.length - 1) {
+    onboardingAutoTimer = setTimeout(() => {
+      if (!$("onboardingGuide")?.classList.contains("open")) return;
+      onboardingIndex++;
+      renderOnboardingStep();
+    }, 5200);
+  }
 }
 
 // ============================================
