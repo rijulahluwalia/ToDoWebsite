@@ -1116,40 +1116,48 @@ function showTourStep(i, instant = false) {
   if (typeof closePlannerFilter === "function") closePlannerFilter();
   if (step.view) switchView(step.view);
 
-  // let the view render, scroll the target into place, then measure
+  // Let the newly-switched view settle, then scroll, then measure on a fresh frame.
+  // This matters when going Back as well as Next: the filter button can move after
+  // the planner view re-renders, so we always re-query and re-measure the live DOM.
   clearTimeout(tourSettleTimer);
   tourSettling = true;
   tourSettleTimer = setTimeout(() => {
-    const el = tourFindTarget(step);
-    if (el) {
-      const pos = window.getComputedStyle(el).position;
-      if (pos !== "fixed" && pos !== "sticky") el.scrollIntoView({ behavior: "auto", block: "center", inline: "nearest" });
+    const firstEl = tourFindTarget(step);
+    if (firstEl) {
+      const pos = window.getComputedStyle(firstEl).position;
+      if (pos !== "fixed" && pos !== "sticky") {
+        firstEl.scrollIntoView({ behavior: "auto", block: "center", inline: "nearest" });
+      }
     }
+
     tourSettleTimer = setTimeout(() => {
-      tourSettling = false;
-      placeTourStep(step, el, instant, true);
-    }, el ? 160 : 20);
-  }, 120);
+      requestAnimationFrame(() => requestAnimationFrame(() => {
+        const liveEl = tourFindTarget(step);
+        tourSettling = false;
+        placeTourStep(step, liveEl, instant, true);
+      }));
+    }, firstEl ? 120 : 20);
+  }, 90);
 }
 
 function placeTourStep(step, el, instant, fresh = false) {
   // ---- card content (skip on scroll/resize reflows so the card doesn't flicker) ----
   if (fresh) {
-  $("tourIcon").textContent = step.icon;
-  $("tourTitle").textContent = step.title;
-  $("tourText").textContent = step.text;
-  $("tourDots").innerHTML = TOUR_STEPS.map((_, d) =>
-    `<i class="${d === tourIndex ? "on" : ""}${d < tourIndex ? " past" : ""}"></i>`).join("");
-  $("tourBack").style.visibility = tourIndex === 0 ? "hidden" : "visible";
-  $("tourNext").textContent =
-    tourIndex === 0 ? "Let's go" : tourIndex === TOUR_STEPS.length - 1 ? "Finish" : "Next";
+    $("tourIcon").textContent = step.icon;
+    $("tourTitle").textContent = step.title;
+    $("tourText").textContent = step.text;
+    $("tourDots").innerHTML = TOUR_STEPS.map((_, d) =>
+      `<i class="${d === tourIndex ? "on" : ""}${d < tourIndex ? " past" : ""}"></i>`).join("");
+    $("tourBack").style.visibility = tourIndex === 0 ? "hidden" : "visible";
+    $("tourNext").textContent =
+      tourIndex === 0 ? "Let's go" : tourIndex === TOUR_STEPS.length - 1 ? "Finish" : "Next";
   }
 
   // ---- hole geometry ----
   let box = null;
   if (el) {
     const r = el.getBoundingClientRect();
-    const pad = 8;
+    const pad = window.innerWidth <= 640 ? 6 : 8;
     const br = parseFloat(window.getComputedStyle(el).borderTopLeftRadius) || 16;
     const w = r.width + pad * 2;
     const h = r.height + pad * 2;
@@ -1163,7 +1171,10 @@ function placeTourStep(step, el, instant, fresh = false) {
 
   // ---- card placement ----
   const card = $("tourCard");
-  card.classList.remove("centered");
+  card.classList.remove("centered", "mobile-positioned");
+  card.style.right = "";
+  card.style.bottom = "";
+  card.style.transform = "";
   if (fresh) {
     card.classList.remove("pop");
     void card.offsetWidth; // restart entrance animation
@@ -1171,18 +1182,45 @@ function placeTourStep(step, el, instant, fresh = false) {
   }
 
   const mobile = window.innerWidth <= 640;
-  if (!box || mobile) {
-    // welcome step or phone: centred / docked (CSS handles the dock)
-    if (!box) card.classList.add("centered");
-    if (mobile) { card.style.left = ""; card.style.top = ""; return; }
-    if (!box) { card.style.left = ""; card.style.top = ""; return; }
+  const vw = window.innerWidth, vh = window.innerHeight;
+
+  if (!box) {
+    card.classList.add("centered");
+    card.style.left = "";
+    card.style.top = "";
+    return;
+  }
+
+  // Mobile: never dock over the highlighted target. Put the card above a bottom FAB,
+  // below a top control such as Filter, and clamp inside the safe viewport.
+  if (mobile) {
+    card.classList.add("mobile-positioned");
+    card.style.left = "-9999px";
+    card.style.top = "0px";
+    const cw = card.offsetWidth, ch = card.offsetHeight;
+    const gap = 16;
+    const m = 12;
+    const safeBottom = 14;
+    let left = box.x + box.w / 2 - cw / 2;
+    let top;
+
+    if (box.y + box.h + gap + ch <= vh - safeBottom) {
+      top = box.y + box.h + gap;      // below target, e.g. Filter
+    } else if (box.y - gap - ch >= m) {
+      top = box.y - gap - ch;         // above target, e.g. floating + button
+    } else {
+      top = Math.max(m, Math.min(vh - ch - safeBottom, box.y + box.h + gap));
+    }
+
+    card.style.left = Math.max(m, Math.min(left, vw - cw - m)) + "px";
+    card.style.top = Math.max(m, Math.min(top, vh - ch - safeBottom)) + "px";
+    return;
   }
 
   // desktop: measure, then prefer below → above → right → left
   card.style.left = "-9999px";
   card.style.top = "0px";
   const cw = card.offsetWidth, ch = card.offsetHeight;
-  const vw = window.innerWidth, vh = window.innerHeight;
   const gap = 14, m = 12;
   let left, top;
   if (box.y + box.h + gap + ch <= vh - m) {          // below
