@@ -746,13 +746,14 @@ function renderCalendar() {
   for (let d = 1; d <= daysInMonth; d++) {
     const iso = `${y}-${String(m + 1).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
     const dayTasks = tasks.filter((t) => t.due_date === iso);
-    const uniItems = uniCalendarItemsForDate(iso);
+    const breakInfo = uniBreakForDate(iso);
+    const uniItems = breakInfo ? [] : uniCalendarItemsForDate(iso);
     const dots = [
       ...dayTasks.map((t) => ({ color: prioById(t.priority_id)?.color || "#c3c8dd" })),
-      ...uniItems.map((u) => ({ color: u.type === "assessment" ? "#ffb938" : u.color })),
+      ...(breakInfo ? [{ color: "#2fbf71" }] : uniItems.map((u) => ({ color: u.type === "assessment" ? "#ffb938" : u.color }))),
     ].slice(0, 5).map((dot, i) => `<i style="background:${dot.color};animation-delay:${i * 0.06}s"></i>`).join("");
-    const cls = ["cal-day", iso === today ? "today" : "", iso === selectedDate ? "selected" : ""].join(" ");
-    html += `<button class="${cls}" data-date="${iso}"><span>${d}</span><span class="cal-dots">${dots}</span></button>`;
+    const cls = ["cal-day", iso === today ? "today" : "", iso === selectedDate ? "selected" : "", breakInfo ? "semester-break" : ""].join(" ");
+    html += `<button class="${cls}" data-date="${iso}" title="${breakInfo ? esc(breakInfo.label || 'Semester break') : ''}"><span>${d}</span><span class="cal-dots">${dots}</span></button>`;
   }
   $("calGrid").innerHTML = html;
   $("calGrid").querySelectorAll(".cal-day:not(.blank)").forEach((b) =>
@@ -767,13 +768,19 @@ function renderDayPanel() {
   const panel = $("dayPanel");
   if (!selectedDate) { panel.innerHTML = ""; return; }
   const dayTasks = tasks.filter((t) => t.due_date === selectedDate);
-  const uniItems = uniCalendarItemsForDate(selectedDate);
   const breakInfo = uniBreakForDate(selectedDate);
+  // Semester breaks always win: assessments still appear on their due date,
+  // but recurring timetable classes are intentionally hidden during breaks.
+  const uniItems = breakInfo ? uniAssessmentsForDate(selectedDate).map((a) => {
+    const s = uniSubjects.find((x) => x.id === a.subject_id);
+    return { type: "assessment", subject: s, item: a, color: s?.color || "#f5a623" };
+  }) : uniCalendarItemsForDate(selectedDate);
   const pretty = new Date(selectedDate + "T00:00").toLocaleDateString("en-AU",
     { weekday: "long", day: "numeric", month: "long" });
-  const uniHtml = uniItems.length ? `
+  const uniHtml = (breakInfo || uniItems.length) ? `
     <div class="calendar-uni-list">
       <h4>Uni</h4>
+      ${breakInfo ? `<div class="calendar-break-note">🌿 ${esc(breakInfo.label || "Semester break")} · timetable classes paused for this day</div>` : ""}
       ${uniItems.map((ev) => {
         if (ev.type === "assessment") {
           const a = ev.item;
@@ -783,7 +790,7 @@ function renderDayPanel() {
         const time = `${esc((c.start_time || "").slice(0,5) || "TBA")}${c.end_time ? ` – ${esc(c.end_time.slice(0,5))}` : ""}`;
         return `<div class="calendar-uni-event class" style="--subject-color:${esc(ev.color)}"><span>🎓</span><div><strong>${esc(ev.subject?.code || ev.subject?.name || "Subject")} · ${esc(c.class_type || "Class")}</strong><p>${time} · ${esc(c.room || "Room TBA")}</p></div></div>`;
       }).join("")}
-    </div>` : (breakInfo ? `<div class="calendar-uni-list"><div class="calendar-break-note">🌿 ${esc(breakInfo.label || "Semester break")} · no classes scheduled</div></div>` : "");
+    </div>` : "";
   panel.innerHTML = `
     <div class="section-head">
       <h3>${pretty}</h3>

@@ -3525,3 +3525,67 @@ html.menu-open .prio-filter.open .prio-filter-panel {
   .semester-overview-card { padding-right: 22px; padding-top: 68px; }
   .semester-overview-actions { top: 18px; left: 22px; right: auto; }
 }
+
+/* v1.0.2 · Calendar break + day panel polish */
+.day-panel {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 24px;
+  padding: 18px;
+  box-shadow: var(--shadow);
+  overflow: hidden;
+}
+.day-panel .section-head {
+  margin-bottom: 14px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--line);
+}
+.day-panel .section-head h3 {
+  margin: 0;
+  font-size: 1.05rem;
+}
+.calendar-uni-list {
+  border-radius: 20px;
+  padding: 4px 0 2px;
+}
+.calendar-uni-event,
+.calendar-break-note {
+  border-radius: 20px;
+  box-shadow: none;
+}
+.cal-day.semester-break {
+  background: color-mix(in srgb, var(--green) 12%, var(--bg));
+  border-color: color-mix(in srgb, var(--green) 28%, transparent);
+}
+.cal-day.semester-break span:first-child::after {
+  content: "🌿";
+  display: block;
+  font-size: .72rem;
+  line-height: 1;
+  margin-top: 1px;
+}
+.calendar-break-note {
+  background: color-mix(in srgb, var(--green) 13%, var(--surface));
+  border: 1px solid color-mix(in srgb, var(--green) 24%, var(--line));
+  color: var(--ink);
+}
+:root[data-theme="dark"] .day-panel {
+  background: linear-gradient(180deg, rgba(32,37,59,0.96), rgba(25,29,48,0.96)) !important;
+  border-color: rgba(255,255,255,.08) !important;
+}
+:root[data-theme="dark"] .day-panel .section-head { border-bottom-color: rgba(255,255,255,.08); }
+:root[data-theme="dark"] .cal-day.semester-break {
+  background: rgba(47,191,113,.13) !important;
+  border-color: rgba(47,191,113,.30) !important;
+}
+:root[data-theme="dark"] .calendar-break-note {
+  background: rgba(47,191,113,.12);
+  border-color: rgba(47,191,113,.24);
+  color: var(--ink);
+}
+@media (max-width: 560px) {
+  .day-panel { padding: 14px; border-radius: 22px; }
+  .day-panel .section-head { align-items:flex-start; }
+  .day-panel .section-head .btn-ghost { width:100%; justify-content:center; }
+  .calendar-uni-event { padding: 13px; }
+}
