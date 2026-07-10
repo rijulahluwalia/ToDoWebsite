@@ -1242,25 +1242,41 @@ function positionOnboardingTip() {
 function positionGuideSpotlight(rect) {
   const spot = $("guideSpotlight");
   if (!spot) return;
+
   const step = ONBOARDING_STEPS[onboardingIndex];
   const target = findOnboardingTarget(step?.target);
-  const isFab = step?.target === "#fabBtn";
   const styles = target ? window.getComputedStyle(target) : null;
+  const isFab = step?.target === "#fabBtn";
+  const isPill = target?.matches?.("button, .chip, .planner-tabs button, .nav button, .filter-trigger, .btn-ghost, .btn-primary");
 
-  const padX = isFab ? 10 : Math.max(8, Math.min(16, rect.width * 0.08));
-  const padY = isFab ? 10 : Math.max(8, Math.min(14, rect.height * 0.18));
-  const minSize = isFab ? 70 : 46;
-  const width = Math.max(minSize, rect.width + padX * 2);
-  const height = Math.max(minSize, rect.height + padY * 2);
+  let padX = Math.max(12, Math.min(22, rect.width * 0.16));
+  let padY = Math.max(10, Math.min(18, rect.height * 0.28));
+  let minWidth = 58;
+  let minHeight = 50;
+
+  if (isFab) {
+    padX = 14;
+    padY = 14;
+    minWidth = 86;
+    minHeight = 86;
+  } else if (isPill) {
+    padX = 18;
+    padY = 12;
+    minWidth = rect.width + 30;
+    minHeight = rect.height + 20;
+  }
+
+  const width = Math.max(minWidth, rect.width + padX * 2);
+  const height = Math.max(minHeight, rect.height + padY * 2);
   const left = rect.left + rect.width / 2 - width / 2;
   const top = rect.top + rect.height / 2 - height / 2;
 
-  let radius = "18px";
+  let radius = "20px";
   if (styles) {
     const br = parseFloat(styles.borderTopLeftRadius || "0");
-    if (rect.width <= 80 && rect.height <= 80) radius = "999px";
+    if (isFab || (rect.width <= 76 && rect.height <= 76 && Math.abs(rect.width - rect.height) < 18)) radius = "999px";
     else if (br > rect.height * 0.35) radius = "999px";
-    else radius = `${Math.max(16, br + 8)}px`;
+    else radius = `${Math.max(18, br + 10)}px`;
   }
 
   spot.style.width = `${width}px`;

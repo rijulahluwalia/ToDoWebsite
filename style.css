@@ -3649,7 +3649,7 @@ html.menu-open .prio-filter.open .prio-filter-panel {
 
 .guide-highlight {
   position: relative;
-  z-index: 146 !important;
+  z-index: 151 !important;
   transform: translateY(-1px) scale(1.012);
   transition: transform 0.32s var(--ease-spring), filter 0.28s var(--ease-out);
   filter: brightness(1.13) saturate(1.08);
@@ -3665,13 +3665,13 @@ html.menu-open .prio-filter.open .prio-filter-panel {
 
 .guide-spotlight {
   position: fixed;
-  z-index: 147;
+  z-index: 150;
   pointer-events: none;
   border-radius: 18px;
   opacity: 0;
   transform: scale(0.9);
   border: 3px solid #ffd34f;
-  background: radial-gradient(circle, rgba(255, 211, 79, 0.16), rgba(255, 211, 79, 0.04) 58%, transparent 70%);
+  background: transparent;
   box-shadow:
     0 0 0 7px rgba(255, 211, 79, 0.16),
     0 0 34px rgba(255, 211, 79, 0.72),
@@ -3681,9 +3681,9 @@ html.menu-open .prio-filter.open .prio-filter-panel {
     transform 0.34s var(--ease-spring),
     left 0s linear,
     top 0s linear,
-    width 0.24s var(--ease-spring),
-    height 0.24s var(--ease-spring),
-    border-radius 0.24s var(--ease-spring);
+    width 0.18s var(--ease-out),
+    height 0.18s var(--ease-out),
+    border-radius 0.18s var(--ease-out);
 }
 .guide-spotlight.open {
   opacity: 1;
@@ -3876,6 +3876,7 @@ body.dark .guide-tip-btn.ghost,
   background: rgba(255,255,255,0.06);
 }
 @media (max-width: 640px) {
+  .guide-dim { background: rgba(5, 7, 18, 0.48); }
   .guide-highlight {
     transform: translateY(-1px) scale(1.006);
   }
