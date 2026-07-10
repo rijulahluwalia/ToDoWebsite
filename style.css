@@ -3640,19 +3640,26 @@ html.menu-open .prio-filter.open .prio-filter-panel {
   position: fixed;
   inset: 0;
   z-index: 138;
-  background: rgba(5, 7, 18, 0.54);
+  background: rgba(5, 7, 18, 0.50);
   opacity: 0;
   pointer-events: none;
-  transition: opacity 0.34s var(--ease-out);
+  transition: opacity 0.22s var(--ease-out);
 }
 .guide-dim.open { opacity: 1; }
 
+.guide-context-bright {
+  position: relative;
+  z-index: 149 !important;
+  filter: brightness(1.16) saturate(1.08);
+  transition: filter 0.18s var(--ease-out);
+}
 .guide-highlight {
   position: relative;
-  z-index: 151 !important;
-  transform: translateY(-1px) scale(1.012);
-  transition: transform 0.32s var(--ease-spring), filter 0.28s var(--ease-out);
-  filter: brightness(1.13) saturate(1.08);
+  z-index: 152 !important;
+  transform: translateY(-1px) scale(1.01);
+  transition: transform 0.18s var(--ease-spring), filter 0.16s var(--ease-out);
+  filter: none !important;
+  isolation: isolate;
 }
 .fab.guide-highlight {
   position: fixed !important;
@@ -3665,7 +3672,7 @@ html.menu-open .prio-filter.open .prio-filter-panel {
 
 .guide-spotlight {
   position: fixed;
-  z-index: 150;
+  z-index: 151;
   pointer-events: none;
   border-radius: 18px;
   opacity: 0;
@@ -3677,13 +3684,13 @@ html.menu-open .prio-filter.open .prio-filter-panel {
     0 0 34px rgba(255, 211, 79, 0.72),
     0 0 80px rgba(255, 184, 56, 0.34);
   transition:
-    opacity 0.22s var(--ease-out),
-    transform 0.34s var(--ease-spring),
+    opacity 0.16s var(--ease-out),
+    transform 0.22s var(--ease-spring),
     left 0s linear,
     top 0s linear,
-    width 0.18s var(--ease-out),
-    height 0.18s var(--ease-out),
-    border-radius 0.18s var(--ease-out);
+    width 0.12s var(--ease-out),
+    height 0.12s var(--ease-out),
+    border-radius 0.12s var(--ease-out);
 }
 .guide-spotlight.open {
   opacity: 1;
@@ -3719,8 +3726,8 @@ html.menu-open .prio-filter.open .prio-filter-panel {
   pointer-events: none;
   transform: translateY(4px) scale(0.985);
   transition:
-    opacity 0.24s var(--ease-out),
-    transform 0.32s var(--ease-spring);
+    opacity 0.16s var(--ease-out),
+    transform 0.22s var(--ease-spring);
 }
 .prio-guide-tip.open {
   opacity: 1;
@@ -3736,7 +3743,7 @@ html.menu-open .prio-filter.open .prio-filter-panel {
 .prio-guide-tip.step-in .guide-tip-copy,
 .prio-guide-tip.step-in .guide-tip-text,
 .prio-guide-tip.step-in .guide-tip-footer {
-  animation: guideTipIn 0.32s var(--ease-out) both;
+  animation: guideTipIn 0.22s var(--ease-out) both;
 }
 .prio-guide-tip.step-in .guide-tip-text { animation-delay: 0.04s; }
 .prio-guide-tip.step-in .guide-tip-footer { animation-delay: 0.07s; }

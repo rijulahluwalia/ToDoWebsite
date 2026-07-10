@@ -1029,6 +1029,7 @@ const ONBOARDING_STEPS = [
 let onboardingIndex = 0;
 let onboardingManual = false;
 let onboardingPositionTimer = null;
+let onboardingRenderTimer = null;
 
 function onboardingKey() {
   return user?.id ? `prio_onboarding_seen_${user.id}` : "prio_onboarding_seen";
@@ -1106,6 +1107,7 @@ function openOnboardingGuide(manual = false) {
 }
 
 function closeOnboardingGuide(markSeen = false) {
+  clearTimeout(onboardingRenderTimer);
   clearOnboardingHighlight();
   $("onboardingGuide")?.classList.remove("open", "is-left", "is-right", "is-top", "is-bottom", "step-in", "moving");
   $("guideDim")?.classList.remove("open");
@@ -1133,7 +1135,14 @@ function findOnboardingTarget(selector) {
 
 function clearOnboardingHighlight() {
   document.querySelectorAll(".guide-highlight").forEach((el) => el.classList.remove("guide-highlight"));
+  document.querySelectorAll(".guide-context-bright").forEach((el) => el.classList.remove("guide-context-bright"));
   document.documentElement.classList.remove("guide-active");
+}
+
+function guideContextFor(target) {
+  if (!target) return null;
+  if (target.id === "fabBtn") return target;
+  return target.closest(".task, .uni-assessment-card, .semester-overview, .planner-filter-wrap, .filter-menu-wrap, .planner-tabs, .nav, .topbar, .card") || target;
 }
 
 function renderOnboardingStep() {
@@ -1142,31 +1151,35 @@ function renderOnboardingStep() {
   const dim = $("guideDim");
   const spot = $("guideSpotlight");
 
+  clearTimeout(onboardingRenderTimer);
   setMenu(false);
   if (step.view) switchView(step.view);
   closePlannerFilter?.();
 
-  // Quick fade out, jump to the next target while hidden, then fade back in.
-  // This avoids the spotlight/tip visibly travelling across the screen.
+  // Fade the tip/spotlight out first, then calculate the next target fresh.
+  // This prevents stale coordinates when moving Next/Back quickly.
   tip.classList.add("moving");
   tip.classList.remove("step-in", "is-left", "is-right", "is-top", "is-bottom");
   spot?.classList.remove("open", "pulse");
+  clearOnboardingHighlight();
 
-  window.setTimeout(() => {
-    $("guideIcon").textContent = step.icon;
-    $("guideTitle").textContent = step.title;
-    $("guideText").textContent = step.text;
+  onboardingRenderTimer = window.setTimeout(() => {
+    const currentStep = ONBOARDING_STEPS[onboardingIndex];
+    $("guideIcon").textContent = currentStep.icon;
+    $("guideTitle").textContent = currentStep.title;
+    $("guideText").textContent = currentStep.text;
     $("guideProgress").style.width = `${((onboardingIndex + 1) / ONBOARDING_STEPS.length) * 100}%`;
     $("guideCount").textContent = `${onboardingIndex + 1} of ${ONBOARDING_STEPS.length}`;
     $("guideBack").disabled = onboardingIndex === 0;
     $("guideNext").textContent = onboardingIndex === ONBOARDING_STEPS.length - 1 ? "Finish" : "Next";
 
-    clearOnboardingHighlight();
     document.documentElement.classList.add("guide-active");
     dim?.classList.add("open");
 
-    const target = findOnboardingTarget(step.target) || document.querySelector(`#view-${step.view}`) || $("homeLogoBtn");
+    const target = findOnboardingTarget(currentStep.target) || document.querySelector(`#view-${currentStep.view}`) || $("homeLogoBtn");
     if (target) {
+      const context = guideContextFor(target);
+      context?.classList.add("guide-context-bright");
       target.classList.add("guide-highlight");
       const pos = window.getComputedStyle(target).position;
       if (pos !== "fixed" && pos !== "sticky") {
@@ -1179,9 +1192,9 @@ function renderOnboardingStep() {
       tip.classList.remove("moving");
       tip.classList.add("step-in");
       spot?.classList.add("open");
-      window.setTimeout(() => spot?.classList.add("pulse"), 170);
+      window.setTimeout(() => spot?.classList.add("pulse"), 120);
     });
-  }, 130);
+  }, 90);
 }
 
 function positionOnboardingTip() {
