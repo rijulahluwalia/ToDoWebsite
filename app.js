@@ -1116,54 +1116,58 @@ function showTourStep(i, instant = false) {
   if (typeof closePlannerFilter === "function") closePlannerFilter();
   if (step.view) switchView(step.view);
 
-  // Let the newly-switched view settle, then scroll, then measure on a fresh frame.
-  // This matters when going Back as well as Next: the filter button can move after
-  // the planner view re-renders, so we always re-query and re-measure the live DOM.
+  // let the view render, scroll the target into place, then measure
   clearTimeout(tourSettleTimer);
   tourSettling = true;
   tourSettleTimer = setTimeout(() => {
-    const firstEl = tourFindTarget(step);
-    if (firstEl) {
-      const pos = window.getComputedStyle(firstEl).position;
-      if (pos !== "fixed" && pos !== "sticky") {
-        firstEl.scrollIntoView({ behavior: "auto", block: "center", inline: "nearest" });
-      }
+    const el = tourFindTarget(step);
+    if (el) {
+      const pos = window.getComputedStyle(el).position;
+      if (pos !== "fixed" && pos !== "sticky") el.scrollIntoView({ behavior: "auto", block: "center", inline: "nearest" });
     }
-
     tourSettleTimer = setTimeout(() => {
-      requestAnimationFrame(() => requestAnimationFrame(() => {
-        const liveEl = tourFindTarget(step);
+      requestAnimationFrame(() => {
         tourSettling = false;
-        placeTourStep(step, liveEl, instant, true);
-      }));
-    }, firstEl ? 120 : 20);
-  }, 90);
+        // New steps should snap to the freshly measured target first; this
+        // prevents a visible slide from an old mobile rectangle when going Back.
+        placeTourStep(step, tourFindTarget(step), true, true);
+      });
+    }, el ? 80 : 20);
+  }, 120);
 }
 
 function placeTourStep(step, el, instant, fresh = false) {
   // ---- card content (skip on scroll/resize reflows so the card doesn't flicker) ----
   if (fresh) {
-    $("tourIcon").textContent = step.icon;
-    $("tourTitle").textContent = step.title;
-    $("tourText").textContent = step.text;
-    $("tourDots").innerHTML = TOUR_STEPS.map((_, d) =>
-      `<i class="${d === tourIndex ? "on" : ""}${d < tourIndex ? " past" : ""}"></i>`).join("");
-    $("tourBack").style.visibility = tourIndex === 0 ? "hidden" : "visible";
-    $("tourNext").textContent =
-      tourIndex === 0 ? "Let's go" : tourIndex === TOUR_STEPS.length - 1 ? "Finish" : "Next";
+  $("tourIcon").textContent = step.icon;
+  $("tourTitle").textContent = step.title;
+  $("tourText").textContent = step.text;
+  $("tourDots").innerHTML = TOUR_STEPS.map((_, d) =>
+    `<i class="${d === tourIndex ? "on" : ""}${d < tourIndex ? " past" : ""}"></i>`).join("");
+  $("tourBack").style.visibility = tourIndex === 0 ? "hidden" : "visible";
+  $("tourNext").textContent =
+    tourIndex === 0 ? "Let's go" : tourIndex === TOUR_STEPS.length - 1 ? "Finish" : "Next";
   }
 
   // ---- hole geometry ----
   let box = null;
   if (el) {
+    // Always measure the live element on the current frame. This avoids the
+    // mobile Back/Next drift where the old rectangle was reused after the
+    // planner view had re-rendered.
     const r = el.getBoundingClientRect();
-    const pad = window.innerWidth <= 640 ? 6 : 8;
+    const isFilter = step.target === "#filterTrigger";
+    const isFab = step.target === "#fabBtn";
+    const pad = isFilter ? 2 : isFab ? 6 : 8;
     const br = parseFloat(window.getComputedStyle(el).borderTopLeftRadius) || 16;
     const w = r.width + pad * 2;
     const h = r.height + pad * 2;
     const round = br >= Math.min(r.width, r.height) / 2 - 1; // pills & circles
     box = {
-      x: r.left - pad, y: r.top - pad, w, h,
+      x: Math.round(r.left - pad),
+      y: Math.round(r.top - pad),
+      w: Math.round(w),
+      h: Math.round(h),
       r: round ? Math.min(w, h) / 2 : Math.min(Math.max(br + pad, 14), 24),
     };
   }
@@ -1171,10 +1175,7 @@ function placeTourStep(step, el, instant, fresh = false) {
 
   // ---- card placement ----
   const card = $("tourCard");
-  card.classList.remove("centered", "mobile-positioned");
-  card.style.right = "";
-  card.style.bottom = "";
-  card.style.transform = "";
+  card.classList.remove("centered");
   if (fresh) {
     card.classList.remove("pop");
     void card.offsetWidth; // restart entrance animation
@@ -1182,7 +1183,26 @@ function placeTourStep(step, el, instant, fresh = false) {
   }
 
   const mobile = window.innerWidth <= 640;
-  const vw = window.innerWidth, vh = window.innerHeight;
+  if (mobile) {
+    // Mobile is normally a bottom sheet, but the FAB lives bottom-right, so the
+    // sheet must move above it instead of covering the target.
+    card.style.left = "";
+    card.style.right = "";
+    card.style.top = "";
+    card.style.bottom = "";
+    card.dataset.mobileDock = box ? (step.target === "#fabBtn" ? "above-target" : "bottom") : "center";
+    if (!box) {
+      card.classList.add("centered");
+      return;
+    }
+    if (step.target === "#fabBtn") {
+      card.style.left = "12px";
+      card.style.right = "12px";
+      card.style.bottom = Math.max(12, window.innerHeight - box.y + 18) + "px";
+      return;
+    }
+    return;
+  }
 
   if (!box) {
     card.classList.add("centered");
@@ -1191,36 +1211,11 @@ function placeTourStep(step, el, instant, fresh = false) {
     return;
   }
 
-  // Mobile: never dock over the highlighted target. Put the card above a bottom FAB,
-  // below a top control such as Filter, and clamp inside the safe viewport.
-  if (mobile) {
-    card.classList.add("mobile-positioned");
-    card.style.left = "-9999px";
-    card.style.top = "0px";
-    const cw = card.offsetWidth, ch = card.offsetHeight;
-    const gap = 16;
-    const m = 12;
-    const safeBottom = 14;
-    let left = box.x + box.w / 2 - cw / 2;
-    let top;
-
-    if (box.y + box.h + gap + ch <= vh - safeBottom) {
-      top = box.y + box.h + gap;      // below target, e.g. Filter
-    } else if (box.y - gap - ch >= m) {
-      top = box.y - gap - ch;         // above target, e.g. floating + button
-    } else {
-      top = Math.max(m, Math.min(vh - ch - safeBottom, box.y + box.h + gap));
-    }
-
-    card.style.left = Math.max(m, Math.min(left, vw - cw - m)) + "px";
-    card.style.top = Math.max(m, Math.min(top, vh - ch - safeBottom)) + "px";
-    return;
-  }
-
   // desktop: measure, then prefer below → above → right → left
   card.style.left = "-9999px";
   card.style.top = "0px";
   const cw = card.offsetWidth, ch = card.offsetHeight;
+  const vw = window.innerWidth, vh = window.innerHeight;
   const gap = 14, m = 12;
   let left, top;
   if (box.y + box.h + gap + ch <= vh - m) {          // below

@@ -3653,14 +3653,14 @@ body.dark .tour-shade,
 
 .tour-ring {
   stroke: var(--primary);
-  stroke-width: 2.5;
-  filter: drop-shadow(0 0 10px color-mix(in srgb, var(--primary) 65%, transparent));
+  stroke-width: 2;
+  filter: drop-shadow(0 0 4px color-mix(in srgb, var(--primary) 35%, transparent));
   transition: opacity 0.25s;
 }
 #tourVeil.open .tour-ring { animation: tourPulse 1.8s ease-in-out infinite; }
 @keyframes tourPulse {
-  0%, 100% { stroke-width: 2.5; stroke-opacity: 0.95; }
-  50% { stroke-width: 4.5; stroke-opacity: 0.5; }
+  0%, 100% { stroke-width: 2; stroke-opacity: 0.95; }
+  50% { stroke-width: 2.8; stroke-opacity: 0.72; }
 }
 
 .tour-card {
@@ -3764,17 +3764,24 @@ body.dark .tour-card,
 
 /* phones: the card docks to the bottom like a sheet — no clipping, easy thumbs */
 @media (max-width: 640px) {
-  .tour-card,
-  .tour-card.centered {
+  .tour-card {
     left: 12px !important;
-    right: 12px;
+    right: 12px !important;
     top: auto !important;
     bottom: calc(14px + env(safe-area-inset-bottom));
     width: auto;
     transform: none;
   }
-  .tour-card[style*="bottom"] {
-    bottom: inherit;
+  .tour-card.centered {
+    left: 12px !important;
+    right: 12px !important;
+    top: 50% !important;
+    bottom: auto !important;
+    width: auto;
+    transform: translateY(-50%);
+  }
+  .tour-card[data-mobile-dock="above-target"] {
+    top: auto !important;
   }
   .tour-text { font-size: 0.84rem; }
 }
