@@ -1151,7 +1151,10 @@ function renderOnboardingStep() {
     const target = findOnboardingTarget(step.target) || document.querySelector(`#view-${step.view}`) || $("homeLogoBtn");
     if (target) {
       target.classList.add("guide-highlight");
-      target.scrollIntoView({ behavior: "smooth", block: "center", inline: "nearest" });
+      const pos = window.getComputedStyle(target).position;
+      if (pos !== "fixed" && pos !== "sticky") {
+        target.scrollIntoView({ behavior: "smooth", block: "center", inline: "nearest" });
+      }
     }
     setTimeout(positionOnboardingTip, 360);
   });
