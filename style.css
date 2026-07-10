@@ -3477,3 +3477,51 @@ html.menu-open .prio-filter.open .prio-filter-panel {
   .semester-modal-card { max-width: calc(100vw - 24px); }
   .semester-break-builder { padding: 12px; }
 }
+
+/* v1.0.1 · Semester overview actions */
+.semester-overview-card {
+  position: relative;
+  padding-right: 86px;
+}
+.semester-overview-actions {
+  position: absolute;
+  top: 18px;
+  right: 18px;
+  display: flex;
+  gap: 8px;
+  z-index: 2;
+}
+.semester-icon-action {
+  width: 38px;
+  height: 38px;
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--surface) 78%, var(--primary-soft));
+  border: 1px solid color-mix(in srgb, var(--line) 78%, transparent);
+  box-shadow: none;
+}
+.semester-icon-action svg { width: 17px; height: 17px; }
+.semester-icon-action.edit:hover {
+  background: var(--primary-soft);
+  color: var(--primary);
+}
+.semester-icon-action.del:hover {
+  background: #ffe9ec;
+  color: var(--danger);
+}
+:root[data-theme="dark"] .semester-icon-action {
+  background: rgba(255,255,255,.06) !important;
+  border-color: rgba(255,255,255,.08) !important;
+  color: var(--ink-soft) !important;
+}
+:root[data-theme="dark"] .semester-icon-action.edit:hover {
+  background: color-mix(in srgb, var(--primary) 24%, rgba(255,255,255,.06)) !important;
+  color: #fff !important;
+}
+:root[data-theme="dark"] .semester-icon-action.del:hover {
+  background: rgba(240,69,90,.18) !important;
+  color: #ffd8df !important;
+}
+@media (max-width: 560px) {
+  .semester-overview-card { padding-right: 22px; padding-top: 68px; }
+  .semester-overview-actions { top: 18px; left: 22px; right: auto; }
+}

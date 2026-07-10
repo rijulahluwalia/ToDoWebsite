@@ -2263,8 +2263,16 @@ function renderUni() {
   const avgProgress = totalAssessments ? Math.round(uniAssessments.reduce((sum, a) => sum + assessmentProgress(a.id), 0) / totalAssessments) : 0;
   const upcoming = [...uniAssessments].filter((a) => a.due_date).sort((a,b) => a.due_date.localeCompare(b.due_date)).slice(0, 5);
   root.innerHTML = `
-    <div class="section-head"><h2>🎓 Uni Dashboard</h2><div class="uni-head-actions"><button class="btn-ghost" id="editSemesterBtn">Edit overview</button><button class="btn-ghost" id="addUniSubjectBtn">+ Subject</button></div></div>
-    <div class="uni-hero card span2">
+    <div class="section-head"><h2>🎓 Uni Dashboard</h2><div class="uni-head-actions"><button class="btn-ghost" id="addUniSubjectBtn">+ Subject</button></div></div>
+    <div class="uni-hero card span2 semester-overview-card">
+      <div class="semester-overview-actions" aria-label="Semester actions">
+        <button class="icon-btn edit semester-icon-action" id="editSemesterBtn" title="Edit semester overview" aria-label="Edit semester overview">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 20l4-1L20 7l-3-3L5 16l-1 4z"/></svg>
+        </button>
+        <button class="icon-btn del semester-icon-action" id="resetSemesterBtn" title="Clear semester overview" aria-label="Clear semester overview">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 7h16M9 7V5a1 1 0 011-1h4a1 1 0 011 1v2m-9 0l1 13h8l1-13"/></svg>
+        </button>
+      </div>
       <div><p class="modal-kicker">Semester overview ${semesterWeekText() ? `· ${esc(semesterWeekText())}` : ""}</p><h2>${esc(getUniSemesterSettings().name || (totalAssessments ? `${avgProgress}% assessment progress` : "Set up your semester"))}</h2><p class="uni-muted">${esc(getUniSemesterSettings().notes || "Subjects, timetable, assessments and breakdown tasks in one clean view.")}</p><p class="semester-inline">🗓️ ${esc(semesterSummary())}</p></div>
       <div class="uni-big-progress"><div style="width:${avgProgress}%"></div></div>
     </div>
