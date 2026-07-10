@@ -3294,3 +3294,98 @@ html.menu-open .prio-filter.open .prio-filter-panel {
   background: #171b36 !important;
   color: #ffffff !important;
 }
+
+/* ============================================
+   PRIO · Tiny phone Streaks layout fix
+   Keeps long habit names readable on narrow screens.
+   ============================================ */
+:root[data-theme="dark"] .habit-check {
+  background: rgba(255,255,255,0.045) !important;
+  border-color: rgba(255,255,255,0.16) !important;
+}
+:root[data-theme="dark"] .habit-check.done {
+  background: var(--green) !important;
+  border-color: var(--green) !important;
+  color: #fff !important;
+}
+
+@media (max-width: 520px) {
+  #habitList { display: flex; flex-direction: column; gap: 10px; }
+  .habit-row {
+    display: grid !important;
+    grid-template-columns: 38px minmax(0, 1fr) 42px;
+    grid-template-areas:
+      "icon name check"
+      "icon streak check"
+      "tools tools tools";
+    align-items: center;
+    gap: 4px 10px;
+    padding: 14px 0 !important;
+  }
+  .habit-icon {
+    grid-area: icon;
+    width: 34px !important;
+    height: 34px;
+    display: grid;
+    place-items: center;
+    border-radius: 14px;
+    background: color-mix(in srgb, var(--primary) 10%, transparent);
+    font-size: 1.25rem !important;
+  }
+  .habit-name {
+    grid-area: name;
+    font-size: 0.98rem;
+    line-height: 1.25;
+    word-break: normal !important;
+    overflow-wrap: anywhere;
+  }
+  .habit-streak {
+    grid-area: streak;
+    justify-self: start;
+    padding: 3px 9px;
+    border-radius: 999px;
+    background: color-mix(in srgb, var(--surface) 68%, var(--primary) 8%);
+    border: 1px solid color-mix(in srgb, var(--line) 72%, transparent);
+    font-size: 0.76rem !important;
+    margin-top: 2px;
+  }
+  .habit-check {
+    grid-area: check;
+    width: 38px !important;
+    height: 38px !important;
+    justify-self: end;
+  }
+  .habit-tools {
+    grid-area: tools;
+    justify-self: end;
+    display: flex !important;
+    align-items: center;
+    gap: 4px !important;
+    margin-top: 6px;
+    padding: 4px;
+    border-radius: 14px;
+    background: color-mix(in srgb, var(--bg) 82%, var(--surface));
+  }
+  .habit-tools .icon-btn {
+    width: 32px !important;
+    height: 32px !important;
+  }
+  .habit-tools .icon-btn svg {
+    width: 15px !important;
+    height: 15px !important;
+  }
+}
+
+@media (max-width: 380px) {
+  .card { padding: 18px; }
+  .section-head h2 { font-size: 1.08rem; }
+  .section-head .btn-ghost { padding: 8px 12px !important; }
+  .habit-row {
+    grid-template-columns: 34px minmax(0, 1fr) 38px;
+    gap: 4px 8px;
+  }
+  .habit-icon { width: 30px !important; height: 30px; font-size: 1.1rem !important; border-radius: 12px; }
+  .habit-name { font-size: 0.94rem; }
+  .habit-check { width: 34px !important; height: 34px !important; }
+  .habit-tools { justify-self: stretch; justify-content: space-between; }
+}
