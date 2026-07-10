@@ -613,16 +613,20 @@ function getUniSemesterSettings() {
     const raw = localStorage.getItem(uniSemesterKey());
     const parsed = raw ? JSON.parse(raw) : {};
     return {
+      name: parsed.name || "",
+      notes: parsed.notes || "",
       startDate: parsed.startDate || "",
       endDate: parsed.endDate || "",
       breaks: Array.isArray(parsed.breaks) ? parsed.breaks.filter((b) => b && b.start && b.end) : [],
     };
   } catch {
-    return { startDate: "", endDate: "", breaks: [] };
+    return { name: "", notes: "", startDate: "", endDate: "", breaks: [] };
   }
 }
 function saveUniSemesterSettings(settings) {
   localStorage.setItem(uniSemesterKey(), JSON.stringify({
+    name: settings.name || "",
+    notes: settings.notes || "",
     startDate: settings.startDate || "",
     endDate: settings.endDate || "",
     breaks: Array.isArray(settings.breaks) ? settings.breaks : [],
@@ -663,6 +667,17 @@ function semesterSummary() {
   const breaks = s.breaks.length ? ` · ${s.breaks.length} break${s.breaks.length === 1 ? "" : "s"}` : " · no breaks";
   return `${niceDate(s.startDate)} – ${niceDate(s.endDate)}${breaks}`;
 }
+function semesterWeekText() {
+  const s = getUniSemesterSettings();
+  if (!s.startDate || !s.endDate) return "";
+  const today = todayStr();
+  if (today < s.startDate) return "Semester starts soon";
+  if (today > s.endDate) return "Semester finished";
+  const start = parseISODate(s.startDate);
+  const now = parseISODate(today);
+  const week = Math.max(1, Math.floor((now - start) / (7 * 86400000)) + 1);
+  return `Week ${week}`;
+}
 function renderBreakDraftList() {
   const wrap = $("semesterBreakList");
   if (!wrap) return;
@@ -678,6 +693,8 @@ function renderBreakDraftList() {
 }
 function openSemesterModal() {
   const settings = getUniSemesterSettings();
+  if ($("semesterName")) $("semesterName").value = settings.name || "";
+  if ($("semesterNotes")) $("semesterNotes").value = settings.notes || "";
   setDateInput("semesterStartDate", settings.startDate || "");
   setDateInput("semesterEndDate", settings.endDate || "");
   setDateInput("semesterBreakStart", "");
@@ -704,7 +721,9 @@ function saveSemesterSettingsFromModal() {
   const endDate = $("semesterEndDate")?.dataset.iso || "";
   if ((startDate && !endDate) || (!startDate && endDate)) return toast("Add both semester start and end dates");
   if (startDate && endDate && endDate < startDate) return toast("Semester end must be after start");
-  saveUniSemesterSettings({ startDate, endDate, breaks: semesterDraftBreaks });
+  const name = $("semesterName")?.value.trim() || "";
+  const notes = $("semesterNotes")?.value.trim() || "";
+  saveUniSemesterSettings({ name, notes, startDate, endDate, breaks: semesterDraftBreaks });
   $("semesterModal")?.classList.remove("open");
   renderUni();
   renderCalendar();
@@ -2244,9 +2263,9 @@ function renderUni() {
   const avgProgress = totalAssessments ? Math.round(uniAssessments.reduce((sum, a) => sum + assessmentProgress(a.id), 0) / totalAssessments) : 0;
   const upcoming = [...uniAssessments].filter((a) => a.due_date).sort((a,b) => a.due_date.localeCompare(b.due_date)).slice(0, 5);
   root.innerHTML = `
-    <div class="section-head"><h2>🎓 Uni Dashboard</h2><div class="uni-head-actions"><button class="btn-ghost" id="editSemesterBtn">Semester dates</button><button class="btn-ghost" id="addUniSubjectBtn">+ Subject</button></div></div>
+    <div class="section-head"><h2>🎓 Uni Dashboard</h2><div class="uni-head-actions"><button class="btn-ghost" id="editSemesterBtn">Edit overview</button><button class="btn-ghost" id="addUniSubjectBtn">+ Subject</button></div></div>
     <div class="uni-hero card span2">
-      <div><p class="modal-kicker">Semester overview</p><h2>${totalAssessments ? `${avgProgress}% assessment progress` : "Set up your semester"}</h2><p class="uni-muted">Subjects, timetable, assessments and breakdown tasks in one clean view.</p><p class="semester-inline">🗓️ ${esc(semesterSummary())}</p></div>
+      <div><p class="modal-kicker">Semester overview ${semesterWeekText() ? `· ${esc(semesterWeekText())}` : ""}</p><h2>${esc(getUniSemesterSettings().name || (totalAssessments ? `${avgProgress}% assessment progress` : "Set up your semester"))}</h2><p class="uni-muted">${esc(getUniSemesterSettings().notes || "Subjects, timetable, assessments and breakdown tasks in one clean view.")}</p><p class="semester-inline">🗓️ ${esc(semesterSummary())}</p></div>
       <div class="uni-big-progress"><div style="width:${avgProgress}%"></div></div>
     </div>
     <div class="dash-grid uni-grid">

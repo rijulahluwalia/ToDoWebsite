@@ -536,8 +536,10 @@
   <div class="modal-backdrop" id="semesterModal">
     <div class="modal semester-modal-card">
       <p class="modal-kicker">Calendar sync</p>
-      <h2>Semester dates</h2>
-      <p class="uni-muted">Classes repeat on the Calendar between these dates. Breaks pause timetable classes, but assessments still appear on their due dates.</p>
+      <h2>Semester overview</h2>
+      <p class="uni-muted">Edit the title, dates and breaks for your semester. Classes repeat on the Calendar between these dates. Breaks pause timetable classes, but assessments still appear on their due dates.</p>
+      <div class="field"><label for="semesterName">Semester name</label><div class="input-shell"><input type="text" id="semesterName" placeholder="e.g. Semester 2, 2026" /></div></div>
+      <div class="field"><label for="semesterNotes">Overview note</label><textarea id="semesterNotes" placeholder="e.g. Focus on databases, systems programming, weekly study blocks..."></textarea></div>
       <div class="two-col-fields">
         <div class="field date-field"><label for="semesterStartDate">Semester start</label><div class="date-shell"><span class="date-icon">📅</span><input type="text" id="semesterStartDate" class="pretty-date-input" placeholder="Choose start" readonly /></div></div>
         <div class="field date-field"><label for="semesterEndDate">Semester end</label><div class="date-shell"><span class="date-icon">📅</span><input type="text" id="semesterEndDate" class="pretty-date-input" placeholder="Choose end" readonly /></div></div>
