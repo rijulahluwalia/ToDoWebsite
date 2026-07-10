@@ -3639,43 +3639,45 @@ html.menu-open .prio-filter.open .prio-filter-panel {
 .guide-highlight {
   position: relative;
   z-index: 145 !important;
-  outline: 3px solid #ffd34f !important;
-  outline-offset: 5px;
-  border-radius: 22px !important;
+  outline: 2px solid #ffd34f !important;
+  outline-offset: 4px;
+  border-radius: 16px !important;
   box-shadow:
-    0 0 0 8px rgba(255, 211, 79, 0.16),
-    0 16px 45px rgba(255, 184, 56, 0.26) !important;
-  animation: guideGlow 1.7s ease-in-out infinite;
+    0 0 0 6px rgba(255, 211, 79, 0.15),
+    0 10px 28px rgba(255, 184, 56, 0.24),
+    0 0 0 1px rgba(255, 255, 255, 0.22) inset !important;
+  transform: translateY(-2px) scale(1.015);
+  transition: transform 0.45s var(--ease-spring), box-shadow 0.45s var(--ease-out), outline-color 0.45s var(--ease-out);
+  animation: guidePulse 1.9s ease-in-out infinite;
 }
-@keyframes guideGlow {
+@keyframes guidePulse {
   0%, 100% {
     outline-color: #ffd34f;
-    box-shadow: 0 0 0 7px rgba(255, 211, 79, 0.14), 0 16px 44px rgba(255, 184, 56, 0.22);
+    box-shadow: 0 0 0 5px rgba(255, 211, 79, 0.13), 0 10px 28px rgba(255, 184, 56, 0.22);
   }
   50% {
-    outline-color: #ffe58a;
-    box-shadow: 0 0 0 12px rgba(255, 211, 79, 0.22), 0 22px 60px rgba(255, 184, 56, 0.34);
+    outline-color: #fff0a8;
+    box-shadow: 0 0 0 9px rgba(255, 211, 79, 0.2), 0 16px 42px rgba(255, 184, 56, 0.32);
   }
 }
 .prio-guide-tip {
   position: fixed;
   z-index: 160;
-  width: min(330px, calc(100vw - 24px));
-  border-radius: 22px;
-  padding: 14px;
-  background: color-mix(in srgb, var(--surface) 94%, transparent);
-  border: 1px solid color-mix(in srgb, #ffd34f 54%, var(--line));
-  box-shadow: 0 24px 70px rgba(23, 27, 54, 0.22), 0 0 0 1px rgba(255, 211, 79, 0.16) inset;
-  backdrop-filter: blur(16px) saturate(1.12);
+  width: min(292px, calc(100vw - 22px));
+  border-radius: 20px;
+  padding: 12px;
+  background: color-mix(in srgb, var(--surface) 95%, transparent);
+  border: 1px solid color-mix(in srgb, #ffd34f 42%, var(--line));
+  box-shadow: 0 18px 55px rgba(23, 27, 54, 0.2), 0 0 0 1px rgba(255, 211, 79, 0.12) inset;
+  backdrop-filter: blur(14px) saturate(1.1);
   opacity: 0;
   pointer-events: none;
-  transform: translateY(10px) scale(0.965);
+  transform: translateY(8px) scale(0.975);
   transition:
-    opacity 0.32s var(--ease-out),
-    transform 0.62s var(--ease-spring),
-    left 0.62s var(--ease-spring),
-    top 0.62s var(--ease-spring),
-    box-shadow 0.24s var(--ease-out);
+    opacity 0.26s var(--ease-out),
+    transform 0.58s var(--ease-spring),
+    left 0.58s var(--ease-spring),
+    top 0.58s var(--ease-spring);
 }
 .prio-guide-tip.open {
   opacity: 1;
@@ -3686,25 +3688,25 @@ html.menu-open .prio-filter.open .prio-filter-panel {
 .prio-guide-tip.step-in .guide-tip-copy,
 .prio-guide-tip.step-in .guide-tip-text,
 .prio-guide-tip.step-in .guide-tip-footer {
-  animation: guideTipIn 0.46s var(--ease-out) both;
+  animation: guideTipIn 0.42s var(--ease-out) both;
 }
-.prio-guide-tip.step-in .guide-tip-text { animation-delay: 0.045s; }
-.prio-guide-tip.step-in .guide-tip-footer { animation-delay: 0.08s; }
+.prio-guide-tip.step-in .guide-tip-text { animation-delay: 0.04s; }
+.prio-guide-tip.step-in .guide-tip-footer { animation-delay: 0.075s; }
 @keyframes guideTipIn {
-  from { opacity: 0; transform: translateY(7px) scale(0.985); }
+  from { opacity: 0; transform: translateY(6px) scale(0.985); }
   to { opacity: 1; transform: translateY(0) scale(1); }
 }
 .guide-tip-arrow {
   position: absolute;
-  width: 14px;
-  height: 14px;
+  width: 13px;
+  height: 13px;
   border-radius: 4px;
   background: inherit;
-  border-left: 1px solid color-mix(in srgb, #ffd34f 54%, var(--line));
-  border-top: 1px solid color-mix(in srgb, #ffd34f 54%, var(--line));
+  border-left: 1px solid color-mix(in srgb, #ffd34f 42%, var(--line));
+  border-top: 1px solid color-mix(in srgb, #ffd34f 42%, var(--line));
   transform: rotate(45deg);
   pointer-events: none;
-  transition: left 0.62s var(--ease-spring), top 0.62s var(--ease-spring);
+  transition: left 0.58s var(--ease-spring), top 0.58s var(--ease-spring);
 }
 .prio-guide-tip.is-right .guide-tip-arrow { left: -7px !important; transform: translateY(-50%) rotate(-45deg); }
 .prio-guide-tip.is-left .guide-tip-arrow { left: auto !important; right: -7px; transform: translateY(-50%) rotate(135deg); }
@@ -3714,57 +3716,57 @@ html.menu-open .prio-filter.open .prio-filter-panel {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr) auto;
   align-items: start;
-  gap: 10px;
+  gap: 9px;
 }
 .guide-tip-icon {
-  width: 38px;
-  height: 38px;
+  width: 34px;
+  height: 34px;
   display: grid;
   place-items: center;
-  border-radius: 15px;
-  font-size: 1.12rem;
-  background: linear-gradient(135deg, rgba(255, 211, 79, 0.26), color-mix(in srgb, var(--primary) 12%, var(--surface)));
-  box-shadow: inset 0 0 0 1px rgba(255, 211, 79, 0.24);
+  border-radius: 13px;
+  font-size: 1rem;
+  background: linear-gradient(135deg, rgba(255, 211, 79, 0.24), color-mix(in srgb, var(--primary) 10%, var(--surface)));
+  box-shadow: inset 0 0 0 1px rgba(255, 211, 79, 0.22);
 }
 .guide-tip-copy { min-width: 0; }
 .guide-tip-kicker {
   margin: 0 0 2px;
-  color: color-mix(in srgb, var(--primary) 72%, #b97900);
-  font-size: 0.66rem;
+  color: color-mix(in srgb, var(--primary) 70%, #b97900);
+  font-size: 0.62rem;
   font-weight: 950;
   text-transform: uppercase;
   letter-spacing: 0.08em;
 }
 .prio-guide-tip h2 {
   margin: 0;
-  font-size: 0.98rem;
+  font-size: 0.94rem;
   line-height: 1.12;
 }
 .guide-tip-text {
-  margin: 10px 2px 12px;
+  margin: 8px 2px 10px;
   color: var(--ink-soft);
-  font-size: 0.85rem;
-  line-height: 1.38;
+  font-size: 0.8rem;
+  line-height: 1.36;
 }
 .guide-tip-x {
-  width: 30px;
-  height: 30px;
-  border-radius: 12px;
+  width: 28px;
+  height: 28px;
+  border-radius: 11px;
   display: grid;
   place-items: center;
-  font-size: 1.05rem;
+  font-size: 1rem;
   font-weight: 950;
   color: var(--ink-soft);
-  background: color-mix(in srgb, var(--bg) 78%, transparent);
+  background: color-mix(in srgb, var(--bg) 74%, transparent);
   transition: transform 0.22s var(--ease-spring), background 0.2s, color 0.2s;
 }
 .guide-tip-x:hover { transform: scale(1.06); background: var(--primary-soft); color: var(--primary); }
 .guide-tip-progress {
-  height: 5px;
+  height: 4px;
   border-radius: 999px;
   overflow: hidden;
-  background: color-mix(in srgb, var(--ink-soft) 13%, transparent);
-  margin-bottom: 11px;
+  background: color-mix(in srgb, var(--ink-soft) 12%, transparent);
+  margin-bottom: 10px;
 }
 .guide-tip-progress span {
   display: block;
@@ -3772,52 +3774,52 @@ html.menu-open .prio-filter.open .prio-filter-panel {
   width: 0;
   border-radius: inherit;
   background: linear-gradient(90deg, var(--primary), #ffd34f);
-  transition: width 0.65s var(--ease-out);
+  transition: width 0.6s var(--ease-out);
 }
 .guide-tip-footer {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 10px;
+  gap: 8px;
 }
 .guide-tip-count {
   color: var(--ink-soft);
-  font-size: 0.72rem;
+  font-size: 0.68rem;
   font-weight: 900;
   white-space: nowrap;
 }
 .guide-tip-actions {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 5px;
   flex-shrink: 0;
 }
 .guide-tip-btn {
-  height: 32px;
-  padding: 0 11px;
+  height: 30px;
+  padding: 0 10px;
   border-radius: 999px;
-  font-size: 0.75rem;
+  font-size: 0.71rem;
   font-weight: 950;
   transition: transform 0.22s var(--ease-spring), background 0.2s, color 0.2s, opacity 0.2s;
 }
 .guide-tip-btn:active { transform: scale(0.96); }
 .guide-tip-btn.ghost {
-  background: color-mix(in srgb, var(--bg) 78%, transparent);
+  background: color-mix(in srgb, var(--bg) 74%, transparent);
   color: var(--ink-soft);
 }
 .guide-tip-btn.ghost:hover { color: var(--ink); background: var(--primary-soft); }
 .guide-tip-btn.primary {
   background: var(--primary);
   color: #fff;
-  box-shadow: 0 10px 22px color-mix(in srgb, var(--primary) 24%, transparent);
+  box-shadow: 0 9px 20px color-mix(in srgb, var(--primary) 23%, transparent);
 }
 .guide-tip-btn.primary:hover { transform: translateY(-1px); background: var(--primary-deep); }
-.guide-tip-actions button:disabled { opacity: 0.38; pointer-events: none; }
+.guide-tip-actions button:disabled { opacity: 0.36; pointer-events: none; }
 body.dark .prio-guide-tip,
 :root[data-theme="dark"] .prio-guide-tip {
-  background: color-mix(in srgb, var(--surface) 90%, transparent);
-  border-color: rgba(255, 211, 79, 0.36);
-  box-shadow: 0 26px 80px rgba(0,0,0,0.5), 0 0 0 1px rgba(255, 211, 79, 0.12) inset;
+  background: color-mix(in srgb, var(--surface) 91%, transparent);
+  border-color: rgba(255, 211, 79, 0.34);
+  box-shadow: 0 24px 70px rgba(0,0,0,0.48), 0 0 0 1px rgba(255, 211, 79, 0.11) inset;
 }
 body.dark .guide-tip-x,
 body.dark .guide-tip-btn.ghost,
@@ -3828,21 +3830,22 @@ body.dark .guide-tip-btn.ghost,
 @media (max-width: 640px) {
   .guide-highlight {
     outline-width: 2px !important;
-    outline-offset: 4px;
-    border-radius: 18px !important;
+    outline-offset: 3px;
+    border-radius: 15px !important;
   }
   .prio-guide-tip {
-    width: min(318px, calc(100vw - 22px));
-    border-radius: 20px;
-    padding: 12px;
+    width: min(286px, calc(100vw - 20px));
+    border-radius: 18px;
+    padding: 11px;
   }
-  .guide-tip-icon { width: 35px; height: 35px; border-radius: 13px; }
-  .guide-tip-text { font-size: 0.82rem; margin: 8px 1px 10px; }
-  .guide-tip-btn { height: 30px; padding: 0 9px; font-size: 0.72rem; }
+  .guide-tip-icon { width: 32px; height: 32px; border-radius: 12px; }
+  .guide-tip-text { font-size: 0.78rem; margin: 7px 1px 9px; }
+  .guide-tip-btn { height: 29px; padding: 0 9px; font-size: 0.7rem; }
 }
 @media (max-width: 360px) {
-  .prio-guide-tip { width: calc(100vw - 18px); padding: 11px; }
-  .guide-tip-head { gap: 8px; }
-  .guide-tip-actions { gap: 5px; }
-  .guide-tip-btn { padding: 0 8px; }
+  .prio-guide-tip { width: calc(100vw - 16px); padding: 10px; }
+  .guide-tip-head { gap: 7px; }
+  .guide-tip-actions { gap: 4px; }
+  .guide-tip-btn { padding: 0 7px; }
 }
+

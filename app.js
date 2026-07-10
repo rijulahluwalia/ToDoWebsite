@@ -991,67 +991,46 @@ function wireEvents() {
 // ============================================
 const ONBOARDING_STEPS = [
   {
-    icon: "✨",
-    title: "Welcome to Prio",
-    text: "This quick tour highlights the main areas without blocking your whole screen.",
+    icon: "🏠",
+    title: "Home base",
+    text: "Tap the Prio logo anytime to return to your dashboard.",
     view: "home",
     target: "#homeLogoBtn"
   },
   {
-    icon: "🏠",
-    title: "Home dashboard",
-    text: "Your snapshot for the day: weather, productivity, wins, streaks and reminders.",
-    view: "home",
-    target: "#view-home .hero"
-  },
-  {
-    icon: "✅",
-    title: "Planner",
-    text: "Plan tasks across daily, weekly, monthly, half-yearly and yearly views.",
+    icon: "＋",
+    title: "Add quickly",
+    text: "Use this button to add tasks from Home, Planner or Calendar.",
     view: "tasks",
-    target: "#plannerTabs"
+    target: "#fabBtn"
   },
   {
     icon: "🔎",
-    title: "Filter tasks",
-    text: "Use this to focus on priorities, completed tasks or everything at once.",
+    title: "Focus your list",
+    text: "Filter tasks by priority or completed status when your planner gets busy.",
     view: "tasks",
     target: "#filterTrigger"
   },
   {
     icon: "📅",
-    title: "Calendar",
-    text: "Tasks, uni assessments and timetable classes appear here automatically.",
+    title: "Jump back to today",
+    text: "Your Calendar also shows tasks, uni assessments and timetable items.",
     view: "calendar",
-    target: "#view-calendar .card"
+    target: "#calToday"
   },
   {
     icon: "🎓",
-    title: "Uni",
-    text: "Track subjects, semester dates, breaks, classes, assessments and progress.",
+    title: "Set your semester",
+    text: "Add semester dates and breaks so Uni items appear correctly on the Calendar.",
     view: "uni",
-    target: "#view-uni .semester-overview-card, #view-uni .uni-hero, #view-uni"
+    target: "#editSemesterBtn"
   },
   {
-    icon: "📂",
-    title: "Projects",
-    text: "Break bigger goals into sections, items, notes and deadlines.",
-    view: "projects",
-    target: "#view-projects"
-  },
-  {
-    icon: "🔁",
-    title: "Routines",
-    text: "Build repeatable routines and check off today’s steps.",
-    view: "routines",
-    target: "#view-routines"
-  },
-  {
-    icon: "🎨",
-    title: "Personalise Prio",
-    text: "Change colours, dark mode, themes and profile settings whenever you like.",
-    view: "colors",
-    target: "#view-colors"
+    icon: "👤",
+    title: "Profile and guide",
+    text: "Open Profile to update your account or replay this guide later.",
+    view: "home",
+    target: "#avatarBtn"
   }
 ];
 let onboardingIndex = 0;
@@ -1168,6 +1147,7 @@ function renderOnboardingStep() {
 
   const tip = $("onboardingGuide");
   tip.classList.remove("step-in", "is-left", "is-right", "is-top", "is-bottom");
+  tip.style.transform = "translateY(8px) scale(0.975)";
   void tip.offsetWidth;
   tip.classList.add("step-in");
 
@@ -1191,8 +1171,8 @@ function positionOnboardingTip() {
   const target = findOnboardingTarget(step.target) || document.querySelector(`#view-${step.view}`) || $("homeLogoBtn");
   if (!target) return;
 
-  const margin = 12;
-  const gap = 14;
+  const margin = 10;
+  const gap = 12;
   const vw = window.innerWidth;
   const vh = window.innerHeight;
   const rect = target.getBoundingClientRect();
