@@ -3596,3 +3596,39 @@ html.menu-open .prio-filter.open .prio-filter-panel {
   font-weight: 800;
   line-height: 1;
 }
+
+/* v1.0.3 · Cleaner semester overview empty/configured states */
+.semester-overview-card h2 { margin-bottom: 4px; }
+.semester-overview-card .semester-brief { margin-top: 0; }
+.semester-chip-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 12px;
+}
+.semester-chip-row span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 12px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--primary-soft) 70%, var(--surface));
+  color: var(--ink-soft);
+  font-weight: 700;
+  font-size: 0.85rem;
+}
+.semester-overview-card.is-empty .uni-big-progress { opacity: .35; }
+.semester-plus-icon {
+  font-size: 1.35rem;
+  line-height: 1;
+  font-weight: 900;
+  transform: translateY(-1px);
+}
+:root[data-theme="dark"] .semester-chip-row span {
+  background: rgba(255,255,255,.055);
+  color: var(--ink-soft);
+  border: 1px solid rgba(255,255,255,.06);
+}
+@media (max-width: 560px) {
+  .semester-chip-row span { font-size: .8rem; padding: 7px 10px; }
+}

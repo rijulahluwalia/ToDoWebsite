@@ -661,11 +661,19 @@ function uniCalendarItemsForDate(iso) {
   });
   return [...classes, ...assessments];
 }
+function hasSemesterOverview() {
+  const s = getUniSemesterSettings();
+  return Boolean(s.name || s.notes || s.startDate || s.endDate || (s.breaks && s.breaks.length));
+}
 function semesterSummary() {
   const s = getUniSemesterSettings();
-  if (!s.startDate || !s.endDate) return "Add your semester start and end dates to place timetable classes on the Calendar.";
-  const breaks = s.breaks.length ? ` · ${s.breaks.length} break${s.breaks.length === 1 ? "" : "s"}` : " · no breaks";
-  return `${niceDate(s.startDate)} – ${niceDate(s.endDate)}${breaks}`;
+  if (!s.startDate || !s.endDate) return "Dates not set";
+  return `${niceDate(s.startDate)} – ${niceDate(s.endDate)}`;
+}
+function semesterBreakSummary() {
+  const s = getUniSemesterSettings();
+  const count = s.breaks?.length || 0;
+  return `${count} break${count === 1 ? "" : "s"}`;
 }
 function semesterWeekText() {
   const s = getUniSemesterSettings();
@@ -2283,16 +2291,28 @@ function renderUni() {
   const totalAssessments = uniAssessments.length;
   const avgProgress = totalAssessments ? Math.round(uniAssessments.reduce((sum, a) => sum + assessmentProgress(a.id), 0) / totalAssessments) : 0;
   const upcoming = [...uniAssessments].filter((a) => a.due_date).sort((a,b) => a.due_date.localeCompare(b.due_date)).slice(0, 5);
+  const semesterSettings = getUniSemesterSettings();
+  const semesterReady = hasSemesterOverview();
+  const semesterTitle = semesterReady ? (semesterSettings.name || "Semester") : "Add Semester";
+  const semesterNote = semesterReady ? (semesterSettings.notes || "Dates • Breaks • Calendar") : "Dates • Breaks • Calendar";
+  const semesterActionIcon = semesterReady
+    ? `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 20l4-1L20 7l-3-3L5 16l-1 4z"/></svg>`
+    : `<span class="semester-plus-icon">+</span>`;
   root.innerHTML = `
     <div class="section-head"><h2>🎓 Uni Dashboard</h2><div class="uni-head-actions"><button class="btn-ghost" id="addUniSubjectBtn">+ Subject</button></div></div>
-    <div class="uni-hero card span2 semester-overview-card">
+    <div class="uni-hero card span2 semester-overview-card ${semesterReady ? "has-semester" : "is-empty"}">
       <div class="semester-overview-actions" aria-label="Semester actions">
-        <button class="icon-btn edit semester-icon-action" id="editSemesterBtn" title="Edit semester overview" aria-label="Edit semester overview">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 20l4-1L20 7l-3-3L5 16l-1 4z"/></svg>
+        <button class="icon-btn edit semester-icon-action" id="editSemesterBtn" title="${semesterReady ? "Edit semester" : "Add semester"}" aria-label="${semesterReady ? "Edit semester" : "Add semester"}" type="button">
+          ${semesterActionIcon}
         </button>
-        <button class="icon-btn del semester-icon-action semester-clear-x" id="resetSemesterBtn" title="Clear semester overview" aria-label="Clear semester overview" type="button">×</button>
+        ${semesterReady ? `<button class="icon-btn del semester-icon-action semester-clear-x" id="resetSemesterBtn" title="Clear semester" aria-label="Clear semester" type="button">×</button>` : ""}
       </div>
-      <div><p class="modal-kicker">Semester overview ${semesterWeekText() ? `· ${esc(semesterWeekText())}` : ""}</p><h2>${esc(getUniSemesterSettings().name || (totalAssessments ? `${avgProgress}% assessment progress` : "Set up your semester"))}</h2><p class="uni-muted">${esc(getUniSemesterSettings().notes || "Subjects, timetable, assessments and breakdown tasks in one clean view.")}</p><p class="semester-inline">🗓️ ${esc(semesterSummary())}</p></div>
+      <div>
+        <p class="modal-kicker">Semester overview ${semesterReady && semesterWeekText() ? `· ${esc(semesterWeekText())}` : ""}</p>
+        <h2>${esc(semesterTitle)}</h2>
+        <p class="uni-muted semester-brief">${esc(semesterNote)}</p>
+        ${semesterReady ? `<div class="semester-chip-row"><span>🗓️ ${esc(semesterSummary())}</span><span>🌿 ${esc(semesterBreakSummary())}</span></div>` : ""}
+      </div>
       <div class="uni-big-progress"><div style="width:${avgProgress}%"></div></div>
     </div>
     <div class="dash-grid uni-grid">
