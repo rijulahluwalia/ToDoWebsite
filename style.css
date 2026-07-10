@@ -3762,11 +3762,10 @@ body.dark .tour-card,
   box-shadow: 0 24px 70px rgba(0, 0, 0, 0.55), 0 0 0 1px rgba(255, 255, 255, 0.08) inset;
 }
 
-/* phones: untargeted cards dock neatly; targeted cards are positioned by JS
-   so they never cover the highlighted control. */
+/* phones: the card docks to the bottom like a sheet — no clipping, easy thumbs */
 @media (max-width: 640px) {
-  .tour-card:not(.mobile-positioned),
-  .tour-card.centered:not(.mobile-positioned) {
+  .tour-card,
+  .tour-card.centered {
     left: 12px !important;
     right: 12px;
     top: auto !important;
@@ -3774,10 +3773,8 @@ body.dark .tour-card,
     width: auto;
     transform: none;
   }
-  .tour-card.mobile-positioned {
-    right: auto;
-    bottom: auto;
-    width: min(354px, calc(100vw - 24px));
+  .tour-card[style*="bottom"] {
+    bottom: inherit;
   }
   .tour-text { font-size: 0.84rem; }
 }
