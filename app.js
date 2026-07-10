@@ -1113,8 +1113,15 @@ function showTourStep(i, instant = false) {
   const step = TOUR_STEPS[tourIndex];
 
   if (typeof setMenu === "function") setMenu(false);
-  if (typeof closePlannerFilter === "function") closePlannerFilter();
   if (step.view) switchView(step.view);
+  if (typeof closePlannerFilter === "function") closePlannerFilter();
+
+  // Critical: every Next/Back step starts from the real DOM target again.
+  // Never reuse an already-expanded tour rectangle, otherwise the mobile
+  // spotlight grows each time you go Back -> Next -> Back.
+  if (tourAnim) cancelAnimationFrame(tourAnim);
+  tourAnim = null;
+  tourHoleBox = null;
 
   // let the view render, scroll the target into place, then measure
   clearTimeout(tourSettleTimer);
@@ -1158,14 +1165,20 @@ function placeTourStep(step, el, instant, fresh = false) {
     const r = el.getBoundingClientRect();
     const isFilter = step.target === "#filterTrigger";
     const isFab = step.target === "#fabBtn";
-    const pad = isFilter ? 2 : isFab ? 6 : 8;
+
+    // The filter is a pill with its own shadow. On mobile, adding extra
+    // padding makes the tour ring look like it is drifting downward. Keep
+    // this one exact. Other targets can still breathe.
+    const pad = isFilter ? 0 : isFab ? 6 : 8;
     const br = parseFloat(window.getComputedStyle(el).borderTopLeftRadius) || 16;
+    const x = r.left - pad;
+    const y = r.top - pad;
     const w = r.width + pad * 2;
     const h = r.height + pad * 2;
     const round = br >= Math.min(r.width, r.height) / 2 - 1; // pills & circles
     box = {
-      x: Math.round(r.left - pad),
-      y: Math.round(r.top - pad),
+      x: Math.round(x),
+      y: Math.round(y),
       w: Math.round(w),
       h: Math.round(h),
       r: round ? Math.min(w, h) / 2 : Math.min(Math.max(br + pad, 14), 24),
@@ -1198,7 +1211,9 @@ function placeTourStep(step, el, instant, fresh = false) {
     if (step.target === "#fabBtn") {
       card.style.left = "12px";
       card.style.right = "12px";
-      card.style.bottom = Math.max(12, window.innerHeight - box.y + 18) + "px";
+      const lift = Math.max(12, window.innerHeight - box.y + 18);
+      card.style.setProperty("--tour-mobile-bottom", `${lift}px`);
+      card.style.bottom = `${lift}px`;
       return;
     }
     return;

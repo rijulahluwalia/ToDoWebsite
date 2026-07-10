@@ -89,3 +89,8 @@ This build uses the last stable Prio base and applies a consistency pass only. I
 - Semester calendar sync: Uni timetable classes now appear on the Calendar between your semester start/end dates.
 - Semester breaks: add multiple break periods so classes pause during mid-semester breaks.
 - Uni assessments appear on the Calendar on their due dates.
+
+
+## Tour root fix
+
+Fixed the mobile onboarding spotlight so the filter highlight is recalculated from the live DOM element on every Next/Back step, without reusing an expanded rectangle. Also fixed the mobile + button tour card so it docks above the button instead of covering it.
