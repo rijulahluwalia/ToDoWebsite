@@ -18,9 +18,6 @@ const togglePw = document.getElementById("togglePw");
 
 let mode = "login"; // or "signup"
 
-// IMPORTANT:
-// Keep the UI controls wired even if config.js / Supabase is missing.
-// Without this guard, one missing config value makes every login-page button feel dead.
 const hasSupabase = typeof db !== "undefined" && db?.auth;
 
 // ---------- messages ----------
@@ -33,7 +30,23 @@ function showMsg(text, type) {
     authCard.classList.add("shake");
   }
 }
+
 function hideMsg() { authMsg.className = "auth-msg"; }
+
+function friendlyAuthError(message = "") {
+  const msg = String(message);
+
+  if (msg.toLowerCase().includes("email not confirmed")) {
+    return "This account exists but email confirmation is still on in Supabase. Turn OFF Authentication → Providers → Email → Confirm email, then delete/recreate this test user or manually confirm them in Supabase.";
+  }
+
+  const friendly = {
+    "Invalid login credentials": "That email and password don't match. If you just signed up, check Supabase has Confirm email turned OFF.",
+    "User already registered": "You already have an account with this email. Try logging in instead.",
+  };
+
+  return friendly[msg] || msg || "Something went wrong. Try again.";
+}
 
 // ---------- tab switching ----------
 function setMode(next) {
@@ -69,7 +82,7 @@ async function handleSubmit() {
     );
   }
 
-  const email = emailInput.value.trim();
+  const email = emailInput.value.trim().toLowerCase();
   const password = passwordInput.value;
 
   if (!email || !password) return showMsg("Please fill in your email and password.", "error");
@@ -86,29 +99,35 @@ async function handleSubmit() {
       const { data, error } = await db.auth.signUp({
         email,
         password,
-        options: { data: { display_name: displayNameInput.value.trim() } },
+        options: {
+          data: { display_name: displayNameInput.value.trim() },
+          emailRedirectTo: `${window.location.origin}/app.html`,
+        },
       });
       if (error) throw error;
 
-      // If email confirmation is ON in Supabase, there's no session yet.
-      if (!data.session) {
-        showMsg("Account created! Check your inbox to confirm your email, then log in.", "ok");
-      } else {
+      // If Supabase email confirmation is OFF, a session is returned and we can enter immediately.
+      if (data?.session) {
         sessionStorage.setItem("showSplash", "1");
         window.location.href = "app.html";
+        return;
       }
-    } else {
-      const { error } = await db.auth.signInWithPassword({ email, password });
-      if (error) throw error;
-      sessionStorage.setItem("showSplash", "1");
-      window.location.href = "app.html";
+
+      // If we get here, Supabase email confirmation is still ON.
+      showMsg(
+        "Account created, but Supabase email confirmation is still ON. To log users in straight away: Supabase → Authentication → Providers → Email → turn OFF Confirm email. Then delete/recreate this test user or manually confirm them.",
+        "error"
+      );
+      return;
     }
+
+    const { error } = await db.auth.signInWithPassword({ email, password });
+    if (error) throw error;
+
+    sessionStorage.setItem("showSplash", "1");
+    window.location.href = "app.html";
   } catch (err) {
-    const friendly = {
-      "Invalid login credentials": "That email and password don't match. Try again?",
-      "User already registered": "You already have an account with this email. Log in instead.",
-    };
-    showMsg(friendly[err.message] || err.message || "Something went wrong. Try again.", "error");
+    showMsg(friendlyAuthError(err.message), "error");
   } finally {
     submitBtn.disabled = false;
     submitBtn.textContent = mode === "signup" ? "Create account" : "Log in";

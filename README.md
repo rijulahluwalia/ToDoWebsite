@@ -26,7 +26,11 @@ An animated, mobile-friendly life management app with accounts, a dashboard, pla
    - `anon` `public` key
 4. Open `js/config.js` and paste both values in. (The anon key is designed to be public — RLS is what protects the data.)
 
-**Optional but recommended while testing:** In **Authentication → Providers → Email**, turn OFF "Confirm email" so you can sign up and log in instantly. Turn it back on before sharing the site with others.
+**Required for instant sign-up/login:** In **Authentication → Providers → Email**, turn OFF **Confirm email** so new users can sign up and enter Prio immediately.
+
+If you created a test user while Confirm email was ON, that user may stay stuck as unconfirmed. In Supabase, go to **Authentication → Users** and either:
+- delete the test user and sign up again, or
+- manually confirm the user.
 
 ### 2. GitHub
 
