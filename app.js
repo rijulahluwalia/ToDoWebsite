@@ -991,13 +991,6 @@ function wireEvents() {
 // ============================================
 const ONBOARDING_STEPS = [
   {
-    icon: "🏠",
-    title: "Home base",
-    text: "Tap the Prio logo anytime to return to your dashboard.",
-    view: "home",
-    target: "#homeLogoBtn"
-  },
-  {
     icon: "＋",
     title: "Add quickly",
     text: "Use this button to add tasks from Home, Planner or Calendar.",

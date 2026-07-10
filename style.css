@@ -3639,36 +3639,59 @@ html.menu-open .prio-filter.open .prio-filter-panel {
 .guide-highlight {
   position: relative;
   z-index: 145 !important;
-  outline: 2px solid #ffd34f !important;
-  outline-offset: 4px;
-  border-radius: 16px !important;
+  outline: 3px solid #ffd34f !important;
+  outline-offset: 7px;
+  border-radius: 18px !important;
   box-shadow:
-    0 0 0 6px rgba(255, 211, 79, 0.15),
-    0 10px 28px rgba(255, 184, 56, 0.24),
-    0 0 0 1px rgba(255, 255, 255, 0.22) inset !important;
-  transform: translateY(-2px) scale(1.015);
-  transition: transform 0.45s var(--ease-spring), box-shadow 0.45s var(--ease-out), outline-color 0.45s var(--ease-out);
-  animation: guidePulse 1.9s ease-in-out infinite;
+    0 0 0 9999px rgba(5, 7, 18, 0.42),
+    0 0 0 10px rgba(255, 211, 79, 0.20),
+    0 18px 48px rgba(255, 184, 56, 0.36),
+    0 0 0 1px rgba(255, 255, 255, 0.24) inset !important;
+  transform: translateY(-3px) scale(1.025);
+  transition:
+    transform 0.58s var(--ease-spring),
+    box-shadow 0.58s var(--ease-out),
+    outline-color 0.45s var(--ease-out);
+  animation: guidePulse 1.65s ease-in-out infinite;
+}
+.guide-highlight::after {
+  content: "";
+  position: absolute;
+  inset: -12px;
+  border-radius: inherit;
+  pointer-events: none;
+  border: 1px solid rgba(255, 211, 79, 0.45);
+  animation: guideRipple 1.65s ease-in-out infinite;
 }
 @keyframes guidePulse {
   0%, 100% {
     outline-color: #ffd34f;
-    box-shadow: 0 0 0 5px rgba(255, 211, 79, 0.13), 0 10px 28px rgba(255, 184, 56, 0.22);
+    box-shadow:
+      0 0 0 9999px rgba(5, 7, 18, 0.42),
+      0 0 0 9px rgba(255, 211, 79, 0.18),
+      0 18px 48px rgba(255, 184, 56, 0.34);
   }
   50% {
     outline-color: #fff0a8;
-    box-shadow: 0 0 0 9px rgba(255, 211, 79, 0.2), 0 16px 42px rgba(255, 184, 56, 0.32);
+    box-shadow:
+      0 0 0 9999px rgba(5, 7, 18, 0.48),
+      0 0 0 14px rgba(255, 211, 79, 0.26),
+      0 24px 62px rgba(255, 184, 56, 0.46);
   }
+}
+@keyframes guideRipple {
+  0%, 100% { opacity: 0.35; transform: scale(0.96); }
+  50% { opacity: 0.9; transform: scale(1.02); }
 }
 .prio-guide-tip {
   position: fixed;
   z-index: 160;
-  width: min(292px, calc(100vw - 22px));
+  width: min(300px, calc(100vw - 22px));
   border-radius: 20px;
   padding: 12px;
   background: color-mix(in srgb, var(--surface) 95%, transparent);
-  border: 1px solid color-mix(in srgb, #ffd34f 42%, var(--line));
-  box-shadow: 0 18px 55px rgba(23, 27, 54, 0.2), 0 0 0 1px rgba(255, 211, 79, 0.12) inset;
+  border: 1.5px solid color-mix(in srgb, #ffd34f 58%, var(--line));
+  box-shadow: 0 22px 70px rgba(23, 27, 54, 0.28), 0 0 0 1px rgba(255, 211, 79, 0.18) inset;
   backdrop-filter: blur(14px) saturate(1.1);
   opacity: 0;
   pointer-events: none;
