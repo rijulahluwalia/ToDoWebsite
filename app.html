@@ -531,6 +531,31 @@
     </div>
   </div>
 
+
+  <!-- Semester dates modal -->
+  <div class="modal-backdrop" id="semesterModal">
+    <div class="modal semester-modal-card">
+      <p class="modal-kicker">Calendar sync</p>
+      <h2>Semester dates</h2>
+      <p class="uni-muted">Classes repeat on the Calendar between these dates. Breaks pause timetable classes, but assessments still appear on their due dates.</p>
+      <div class="two-col-fields">
+        <div class="field date-field"><label for="semesterStartDate">Semester start</label><div class="date-shell"><span class="date-icon">📅</span><input type="text" id="semesterStartDate" class="pretty-date-input" placeholder="Choose start" readonly /></div></div>
+        <div class="field date-field"><label for="semesterEndDate">Semester end</label><div class="date-shell"><span class="date-icon">📅</span><input type="text" id="semesterEndDate" class="pretty-date-input" placeholder="Choose end" readonly /></div></div>
+      </div>
+      <div class="semester-break-builder">
+        <h3>Breaks</h3>
+        <div class="field"><label for="semesterBreakLabel">Break name</label><div class="input-shell"><input type="text" id="semesterBreakLabel" placeholder="e.g. Mid-sem break" /></div></div>
+        <div class="two-col-fields">
+          <div class="field date-field"><label for="semesterBreakStart">Break start</label><div class="date-shell"><span class="date-icon">🌿</span><input type="text" id="semesterBreakStart" class="pretty-date-input" placeholder="Start" readonly /></div></div>
+          <div class="field date-field"><label for="semesterBreakEnd">Break end</label><div class="date-shell"><span class="date-icon">🌿</span><input type="text" id="semesterBreakEnd" class="pretty-date-input" placeholder="End" readonly /></div></div>
+        </div>
+        <button type="button" class="btn-ghost semester-add-break" id="semesterAddBreak">+ Add break</button>
+        <div class="semester-break-list" id="semesterBreakList"></div>
+      </div>
+      <div class="modal-actions"><button class="btn-cancel" id="semesterCancel">Cancel</button><button class="btn-primary" id="semesterSave">Save semester</button></div>
+    </div>
+  </div>
+
   <div class="toast" id="toast"></div>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>

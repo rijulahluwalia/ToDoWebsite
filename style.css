@@ -3389,3 +3389,91 @@ html.menu-open .prio-filter.open .prio-filter-panel {
   .habit-check { width: 34px !important; height: 34px !important; }
   .habit-tools { justify-self: stretch; justify-content: space-between; }
 }
+
+
+/* V1.1 · Uni calendar sync + semester breaks */
+.uni-head-actions { display:flex; gap:10px; flex-wrap:wrap; justify-content:flex-end; }
+.semester-inline {
+  margin-top: 10px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 12px;
+  border-radius: 999px;
+  background: rgba(67,83,255,0.08);
+  color: var(--ink-soft);
+  font-weight: 700;
+  font-size: .86rem;
+}
+.semester-modal-card { max-width: 560px; }
+.semester-break-builder {
+  margin-top: 14px;
+  padding: 16px;
+  border-radius: 20px;
+  background: rgba(67,83,255,0.06);
+  border: 1px solid rgba(67,83,255,0.12);
+}
+.semester-break-builder h3 { margin-bottom: 12px; font-size: 1rem; }
+.semester-add-break { margin: 2px 0 12px; }
+.semester-break-list { display:flex; flex-direction:column; gap:10px; }
+.semester-break-row {
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px;
+  padding: 12px 14px;
+  border-radius: 16px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  animation: fadeUp .22s var(--ease-out);
+}
+.semester-break-row p { color: var(--ink-soft); font-size:.84rem; margin-top:2px; }
+.calendar-uni-list {
+  margin: 0 0 14px;
+  display:flex;
+  flex-direction:column;
+  gap:10px;
+}
+.calendar-uni-list h4 {
+  color: var(--ink-soft);
+  font-size:.82rem;
+  letter-spacing:.05em;
+  text-transform:uppercase;
+}
+.calendar-uni-event {
+  display:flex;
+  align-items:flex-start;
+  gap:12px;
+  padding: 14px;
+  border-radius: 18px;
+  background: color-mix(in srgb, var(--subject-color, var(--primary)) 10%, var(--surface));
+  border: 1px solid color-mix(in srgb, var(--subject-color, var(--primary)) 24%, var(--line));
+  box-shadow: var(--shadow);
+  animation: taskIn .28s var(--ease-spring) both;
+}
+.calendar-uni-event > span { font-size:1.25rem; line-height:1; }
+.calendar-uni-event strong { display:block; font-size:.96rem; }
+.calendar-uni-event p { color: var(--ink-soft); font-size:.85rem; margin-top:2px; }
+.calendar-uni-event.assessment { background: color-mix(in srgb, #ffb938 12%, var(--surface)); border-color: color-mix(in srgb, #ffb938 30%, var(--line)); }
+.calendar-break-note {
+  padding: 13px 14px;
+  border-radius: 16px;
+  background: rgba(47,191,113,.10);
+  color: var(--ink-soft);
+  border: 1px solid rgba(47,191,113,.18);
+  font-weight:700;
+}
+:root[data-theme="dark"] .semester-inline { background: rgba(255,255,255,.06); color: var(--ink-soft); }
+:root[data-theme="dark"] .semester-break-builder { background: rgba(255,255,255,.045); border-color: rgba(255,255,255,.08); }
+:root[data-theme="dark"] .semester-break-row { background: rgba(255,255,255,.045); border-color: rgba(255,255,255,.08); }
+:root[data-theme="dark"] .calendar-uni-event {
+  background: color-mix(in srgb, var(--subject-color, var(--primary)) 18%, var(--surface));
+  border-color: color-mix(in srgb, var(--subject-color, var(--primary)) 30%, rgba(255,255,255,.08));
+}
+:root[data-theme="dark"] .calendar-uni-event.assessment { background: color-mix(in srgb, #ffb938 18%, var(--surface)); border-color: rgba(255,185,56,.25); }
+@media (max-width: 520px) {
+  .uni-head-actions { width:100%; justify-content:stretch; }
+  .uni-head-actions .btn-ghost { flex:1; }
+  .semester-modal-card { max-width: calc(100vw - 24px); }
+  .semester-break-builder { padding: 12px; }
+}

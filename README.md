@@ -78,3 +78,10 @@ This version adds the Prio command centre: earned achievement badges, an upcomin
 ## Prio v1.0 Stability Update
 
 This build uses the last stable Prio base and applies a consistency pass only. It fixes Uni due-date badges, dark-mode surface leaks, compact reminder badges, assessment empty states, modal/dropdown contrast, and keeps the updated planner/date/filter UI intact.
+
+
+## V1.1 add-on
+
+- Semester calendar sync: Uni timetable classes now appear on the Calendar between your semester start/end dates.
+- Semester breaks: add multiple break periods so classes pause during mid-semester breaks.
+- Uni assessments appear on the Calendar on their due dates.

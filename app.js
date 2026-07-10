@@ -605,6 +605,113 @@ async function saveTask() {
 }
 
 // ---------- calendar ----------
+// ---------- uni calendar helpers ----------
+let semesterDraftBreaks = [];
+function uniSemesterKey() { return `prio_uni_semester_${user?.id || "guest"}`; }
+function getUniSemesterSettings() {
+  try {
+    const raw = localStorage.getItem(uniSemesterKey());
+    const parsed = raw ? JSON.parse(raw) : {};
+    return {
+      startDate: parsed.startDate || "",
+      endDate: parsed.endDate || "",
+      breaks: Array.isArray(parsed.breaks) ? parsed.breaks.filter((b) => b && b.start && b.end) : [],
+    };
+  } catch {
+    return { startDate: "", endDate: "", breaks: [] };
+  }
+}
+function saveUniSemesterSettings(settings) {
+  localStorage.setItem(uniSemesterKey(), JSON.stringify({
+    startDate: settings.startDate || "",
+    endDate: settings.endDate || "",
+    breaks: Array.isArray(settings.breaks) ? settings.breaks : [],
+  }));
+}
+function isDateBetween(iso, start, end) {
+  if (!iso || !start || !end) return false;
+  return iso >= start && iso <= end;
+}
+function uniBreakForDate(iso) {
+  return getUniSemesterSettings().breaks.find((b) => isDateBetween(iso, b.start, b.end)) || null;
+}
+function uniClassesForDate(iso) {
+  const settings = getUniSemesterSettings();
+  if (!settings.startDate || !settings.endDate) return [];
+  if (!isDateBetween(iso, settings.startDate, settings.endDate)) return [];
+  if (uniBreakForDate(iso)) return [];
+  const day = parseISODate(iso)?.getDay();
+  return uniClasses.filter((c) => Number(c.day_of_week) === day);
+}
+function uniAssessmentsForDate(iso) {
+  return uniAssessments.filter((a) => a.due_date === iso);
+}
+function uniCalendarItemsForDate(iso) {
+  const classes = uniClassesForDate(iso).map((c) => {
+    const s = uniSubjects.find((x) => x.id === c.subject_id);
+    return { type: "class", subject: s, item: c, color: s?.color || "#4353ff" };
+  });
+  const assessments = uniAssessmentsForDate(iso).map((a) => {
+    const s = uniSubjects.find((x) => x.id === a.subject_id);
+    return { type: "assessment", subject: s, item: a, color: s?.color || "#f5a623" };
+  });
+  return [...classes, ...assessments];
+}
+function semesterSummary() {
+  const s = getUniSemesterSettings();
+  if (!s.startDate || !s.endDate) return "Add your semester start and end dates to place timetable classes on the Calendar.";
+  const breaks = s.breaks.length ? ` · ${s.breaks.length} break${s.breaks.length === 1 ? "" : "s"}` : " · no breaks";
+  return `${niceDate(s.startDate)} – ${niceDate(s.endDate)}${breaks}`;
+}
+function renderBreakDraftList() {
+  const wrap = $("semesterBreakList");
+  if (!wrap) return;
+  wrap.innerHTML = semesterDraftBreaks.length ? semesterDraftBreaks.map((b, i) => `
+    <div class="semester-break-row">
+      <div><strong>${esc(b.label || `Break ${i + 1}`)}</strong><p>${niceDate(b.start)} – ${niceDate(b.end)}</p></div>
+      <button class="icon-btn" data-remove-break="${i}" type="button">×</button>
+    </div>`).join("") : `<p class="uni-muted">No breaks added yet.</p>`;
+  wrap.querySelectorAll("[data-remove-break]").forEach((btn) => btn.addEventListener("click", () => {
+    semesterDraftBreaks.splice(Number(btn.dataset.removeBreak), 1);
+    renderBreakDraftList();
+  }));
+}
+function openSemesterModal() {
+  const settings = getUniSemesterSettings();
+  setDateInput("semesterStartDate", settings.startDate || "");
+  setDateInput("semesterEndDate", settings.endDate || "");
+  setDateInput("semesterBreakStart", "");
+  setDateInput("semesterBreakEnd", "");
+  $("semesterBreakLabel").value = "";
+  semesterDraftBreaks = [...settings.breaks];
+  renderBreakDraftList();
+  $("semesterModal")?.classList.add("open");
+}
+function addSemesterBreak() {
+  const start = $("semesterBreakStart")?.dataset.iso || "";
+  const end = $("semesterBreakEnd")?.dataset.iso || "";
+  const label = $("semesterBreakLabel")?.value.trim() || `Break ${semesterDraftBreaks.length + 1}`;
+  if (!start || !end) return toast("Choose break start and end dates");
+  if (end < start) return toast("Break end must be after start");
+  semesterDraftBreaks.push({ label, start, end });
+  setDateInput("semesterBreakStart", "");
+  setDateInput("semesterBreakEnd", "");
+  $("semesterBreakLabel").value = "";
+  renderBreakDraftList();
+}
+function saveSemesterSettingsFromModal() {
+  const startDate = $("semesterStartDate")?.dataset.iso || "";
+  const endDate = $("semesterEndDate")?.dataset.iso || "";
+  if ((startDate && !endDate) || (!startDate && endDate)) return toast("Add both semester start and end dates");
+  if (startDate && endDate && endDate < startDate) return toast("Semester end must be after start");
+  saveUniSemesterSettings({ startDate, endDate, breaks: semesterDraftBreaks });
+  $("semesterModal")?.classList.remove("open");
+  renderUni();
+  renderCalendar();
+  renderDayPanel();
+  toast("Semester calendar updated 🗓️");
+}
+
 function renderCalendar() {
   const y = calCursor.getFullYear();
   const m = calCursor.getMonth();
@@ -620,10 +727,11 @@ function renderCalendar() {
   for (let d = 1; d <= daysInMonth; d++) {
     const iso = `${y}-${String(m + 1).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
     const dayTasks = tasks.filter((t) => t.due_date === iso);
-    const dots = dayTasks.slice(0, 4).map((t, i) => {
-      const p = prioById(t.priority_id);
-      return `<i style="background:${p ? p.color : "#c3c8dd"};animation-delay:${i * 0.06}s"></i>`;
-    }).join("");
+    const uniItems = uniCalendarItemsForDate(iso);
+    const dots = [
+      ...dayTasks.map((t) => ({ color: prioById(t.priority_id)?.color || "#c3c8dd" })),
+      ...uniItems.map((u) => ({ color: u.type === "assessment" ? "#ffb938" : u.color })),
+    ].slice(0, 5).map((dot, i) => `<i style="background:${dot.color};animation-delay:${i * 0.06}s"></i>`).join("");
     const cls = ["cal-day", iso === today ? "today" : "", iso === selectedDate ? "selected" : ""].join(" ");
     html += `<button class="${cls}" data-date="${iso}"><span>${d}</span><span class="cal-dots">${dots}</span></button>`;
   }
@@ -640,16 +748,32 @@ function renderDayPanel() {
   const panel = $("dayPanel");
   if (!selectedDate) { panel.innerHTML = ""; return; }
   const dayTasks = tasks.filter((t) => t.due_date === selectedDate);
+  const uniItems = uniCalendarItemsForDate(selectedDate);
+  const breakInfo = uniBreakForDate(selectedDate);
   const pretty = new Date(selectedDate + "T00:00").toLocaleDateString("en-AU",
     { weekday: "long", day: "numeric", month: "long" });
+  const uniHtml = uniItems.length ? `
+    <div class="calendar-uni-list">
+      <h4>Uni</h4>
+      ${uniItems.map((ev) => {
+        if (ev.type === "assessment") {
+          const a = ev.item;
+          return `<div class="calendar-uni-event assessment" style="--subject-color:${esc(ev.color)}"><span>📝</span><div><strong>${esc(a.title)}</strong><p>${esc(ev.subject?.code || ev.subject?.name || "Subject")} · Assessment due</p></div></div>`;
+        }
+        const c = ev.item;
+        const time = `${esc((c.start_time || "").slice(0,5) || "TBA")}${c.end_time ? ` – ${esc(c.end_time.slice(0,5))}` : ""}`;
+        return `<div class="calendar-uni-event class" style="--subject-color:${esc(ev.color)}"><span>🎓</span><div><strong>${esc(ev.subject?.code || ev.subject?.name || "Subject")} · ${esc(c.class_type || "Class")}</strong><p>${time} · ${esc(c.room || "Room TBA")}</p></div></div>`;
+      }).join("")}
+    </div>` : (breakInfo ? `<div class="calendar-uni-list"><div class="calendar-break-note">🌿 ${esc(breakInfo.label || "Semester break")} · no classes scheduled</div></div>` : "");
   panel.innerHTML = `
     <div class="section-head">
       <h3>${pretty}</h3>
       <button class="btn-ghost" id="addOnDay">+ Add task this day</button>
     </div>
+    ${uniHtml}
     <div class="task-list">${dayTasks.length
       ? dayTasks.map(taskHTML).join("")
-      : `<div class="empty"><span class="emoji">🗓️</span>Nothing planned — a rare free day!</div>`}</div>`;
+      : (!uniItems.length && !breakInfo ? `<div class="empty"><span class="emoji">🗓️</span>Nothing planned — a rare free day!</div>` : "")}</div>`;
   $("addOnDay").addEventListener("click", () => openModal(null, selectedDate));
   wireTaskEvents(panel);
 }
@@ -2051,7 +2175,7 @@ function initPrettySelects() {
 document.addEventListener("click", () => closePrettySelects());
 
 function wireDatePickerEvents() {
-  ["taskDate", "pitemDate", "uniAssessmentDate"].forEach((id) => {
+  ["taskDate", "pitemDate", "uniAssessmentDate", "semesterStartDate", "semesterEndDate", "semesterBreakStart", "semesterBreakEnd"].forEach((id) => {
     const el = $(id);
     if (el) el.addEventListener("click", () => openDatePicker(id));
   });
@@ -2120,9 +2244,9 @@ function renderUni() {
   const avgProgress = totalAssessments ? Math.round(uniAssessments.reduce((sum, a) => sum + assessmentProgress(a.id), 0) / totalAssessments) : 0;
   const upcoming = [...uniAssessments].filter((a) => a.due_date).sort((a,b) => a.due_date.localeCompare(b.due_date)).slice(0, 5);
   root.innerHTML = `
-    <div class="section-head"><h2>🎓 Uni Dashboard</h2><button class="btn-ghost" id="addUniSubjectBtn">+ Subject</button></div>
+    <div class="section-head"><h2>🎓 Uni Dashboard</h2><div class="uni-head-actions"><button class="btn-ghost" id="editSemesterBtn">Semester dates</button><button class="btn-ghost" id="addUniSubjectBtn">+ Subject</button></div></div>
     <div class="uni-hero card span2">
-      <div><p class="modal-kicker">Semester overview</p><h2>${totalAssessments ? `${avgProgress}% assessment progress` : "Set up your semester"}</h2><p class="uni-muted">Subjects, timetable, assessments and breakdown tasks in one clean view.</p></div>
+      <div><p class="modal-kicker">Semester overview</p><h2>${totalAssessments ? `${avgProgress}% assessment progress` : "Set up your semester"}</h2><p class="uni-muted">Subjects, timetable, assessments and breakdown tasks in one clean view.</p><p class="semester-inline">🗓️ ${esc(semesterSummary())}</p></div>
       <div class="uni-big-progress"><div style="width:${avgProgress}%"></div></div>
     </div>
     <div class="dash-grid uni-grid">
@@ -2245,7 +2369,7 @@ async function saveUniClass() {
   if (editingUniClassId) ({ error } = await db.from("uni_classes").update(payload).eq("id", editingUniClassId));
   else ({ error } = await db.from("uni_classes").insert(payload));
   if (error) return toast("Couldn't save class");
-  $("uniClassModal").classList.remove("open"); await loadUni(); renderUni(); toast("Class saved 🗓️");
+  $("uniClassModal").classList.remove("open"); await loadUni(); renderUni(); renderCalendar(); renderDayPanel(); toast("Class saved 🗓️");
 }
 function openUniAssessment(id = null) {
   if (!uniSubjects.length) return toast("Add a subject first");
@@ -2269,7 +2393,7 @@ async function saveUniAssessment() {
   if (editingUniAssessmentId) ({ error } = await db.from("uni_assessments").update(payload).eq("id", editingUniAssessmentId));
   else ({ error } = await db.from("uni_assessments").insert({ ...payload, position: uniAssessments.length }));
   if (error) return toast("Couldn't save assessment");
-  $("uniAssessmentModal").classList.remove("open"); await loadUni(); renderUni(); toast("Assessment saved 📝");
+  $("uniAssessmentModal").classList.remove("open"); await loadUni(); renderUni(); renderCalendar(); renderDayPanel(); toast("Assessment saved 📝");
 }
 function openUniStep(aid, stepId = null) {
   uniStepAssessmentId = aid;
@@ -2301,10 +2425,11 @@ async function deleteRow(table, id, msg) {
   if (!ok) return;
   const { error } = await db.from(table).delete().eq("id", id);
   if (error) return toast("Couldn't delete");
-  await loadUni(); renderUni(); toast("Deleted");
+  await loadUni(); renderUni(); renderCalendar(); renderDayPanel(); toast("Deleted");
 }
 function wireUniDynamicEvents() {
   $("addUniSubjectBtn")?.addEventListener("click", () => openUniSubject());
+  $("editSemesterBtn")?.addEventListener("click", openSemesterModal);
   $("addUniClassBtn")?.addEventListener("click", () => openUniClass());
   $("addUniAssessmentBtn")?.addEventListener("click", () => openUniAssessment());
   document.querySelectorAll("[data-edit-subject]").forEach((b) => b.addEventListener("click", () => openUniSubject(b.dataset.editSubject)));
@@ -2320,7 +2445,7 @@ function wireUniDynamicEvents() {
 }
 function wireUniEvents() {
   initPrettySelects();
-  [["uniSubjectModal", "uniSubjectCancel"], ["uniClassModal", "uniClassCancel"], ["uniAssessmentModal", "uniAssessmentCancel"], ["uniStepModal", "uniStepCancel"]].forEach(([modal, cancel]) => {
+  [["uniSubjectModal", "uniSubjectCancel"], ["uniClassModal", "uniClassCancel"], ["uniAssessmentModal", "uniAssessmentCancel"], ["uniStepModal", "uniStepCancel"], ["semesterModal", "semesterCancel"]].forEach(([modal, cancel]) => {
     $(cancel)?.addEventListener("click", () => { $(modal).classList.remove("open"); if (modal === "uniStepModal") editingUniStepId = null; });
     $(modal)?.addEventListener("click", (e) => { if (e.target.id === modal) $(modal).classList.remove("open"); });
   });
@@ -2328,6 +2453,8 @@ function wireUniEvents() {
   $("uniClassSave")?.addEventListener("click", saveUniClass);
   $("uniAssessmentSave")?.addEventListener("click", saveUniAssessment);
   $("uniStepSave")?.addEventListener("click", saveUniStep);
+  $("semesterAddBreak")?.addEventListener("click", addSemesterBreak);
+  $("semesterSave")?.addEventListener("click", saveSemesterSettingsFromModal);
   $("uniStepTitle")?.addEventListener("keydown", (e) => { if (e.key === "Enter") saveUniStep(); });
 }
 
