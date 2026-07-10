@@ -1146,12 +1146,13 @@ function renderOnboardingStep() {
   if (step.view) switchView(step.view);
   closePlannerFilter?.();
 
-  // Fade out in place first, then fade back in at the next target.
+  // Quick fade out, jump to the next target while hidden, then fade back in.
+  // This avoids the spotlight/tip visibly travelling across the screen.
   tip.classList.add("moving");
   tip.classList.remove("step-in", "is-left", "is-right", "is-top", "is-bottom");
-  spot?.classList.remove("pulse");
+  spot?.classList.remove("open", "pulse");
 
-  setTimeout(() => {
+  window.setTimeout(() => {
     $("guideIcon").textContent = step.icon;
     $("guideTitle").textContent = step.title;
     $("guideText").textContent = step.text;
@@ -1164,24 +1165,23 @@ function renderOnboardingStep() {
     document.documentElement.classList.add("guide-active");
     dim?.classList.add("open");
 
-    requestAnimationFrame(() => {
-      const target = findOnboardingTarget(step.target) || document.querySelector(`#view-${step.view}`) || $("homeLogoBtn");
-      if (target) {
-        target.classList.add("guide-highlight");
-        const pos = window.getComputedStyle(target).position;
-        if (pos !== "fixed" && pos !== "sticky") {
-          target.scrollIntoView({ behavior: "smooth", block: "center", inline: "nearest" });
-        }
+    const target = findOnboardingTarget(step.target) || document.querySelector(`#view-${step.view}`) || $("homeLogoBtn");
+    if (target) {
+      target.classList.add("guide-highlight");
+      const pos = window.getComputedStyle(target).position;
+      if (pos !== "fixed" && pos !== "sticky") {
+        target.scrollIntoView({ behavior: "auto", block: "center", inline: "nearest" });
       }
+    }
 
-      setTimeout(() => {
-        positionOnboardingTip();
-        tip.classList.remove("moving");
-        tip.classList.add("step-in");
-        spot?.classList.add("pulse");
-      }, 520);
+    requestAnimationFrame(() => {
+      positionOnboardingTip();
+      tip.classList.remove("moving");
+      tip.classList.add("step-in");
+      spot?.classList.add("open");
+      window.setTimeout(() => spot?.classList.add("pulse"), 170);
     });
-  }, 180);
+  }, 130);
 }
 
 function positionOnboardingTip() {
@@ -1242,16 +1242,32 @@ function positionOnboardingTip() {
 function positionGuideSpotlight(rect) {
   const spot = $("guideSpotlight");
   if (!spot) return;
-  const isFab = ONBOARDING_STEPS[onboardingIndex]?.target === "#fabBtn";
-  const base = Math.max(rect.width, rect.height);
-  const size = isFab ? Math.max(70, base + 18) : Math.max(54, Math.min(78, base + 24));
-  const left = rect.left + rect.width / 2 - size / 2;
-  const top = rect.top + rect.height / 2 - size / 2;
-  spot.style.width = `${size}px`;
-  spot.style.height = `${size}px`;
+  const step = ONBOARDING_STEPS[onboardingIndex];
+  const target = findOnboardingTarget(step?.target);
+  const isFab = step?.target === "#fabBtn";
+  const styles = target ? window.getComputedStyle(target) : null;
+
+  const padX = isFab ? 10 : Math.max(8, Math.min(16, rect.width * 0.08));
+  const padY = isFab ? 10 : Math.max(8, Math.min(14, rect.height * 0.18));
+  const minSize = isFab ? 70 : 46;
+  const width = Math.max(minSize, rect.width + padX * 2);
+  const height = Math.max(minSize, rect.height + padY * 2);
+  const left = rect.left + rect.width / 2 - width / 2;
+  const top = rect.top + rect.height / 2 - height / 2;
+
+  let radius = "18px";
+  if (styles) {
+    const br = parseFloat(styles.borderTopLeftRadius || "0");
+    if (rect.width <= 80 && rect.height <= 80) radius = "999px";
+    else if (br > rect.height * 0.35) radius = "999px";
+    else radius = `${Math.max(16, br + 8)}px`;
+  }
+
+  spot.style.width = `${width}px`;
+  spot.style.height = `${height}px`;
   spot.style.left = `${left}px`;
   spot.style.top = `${top}px`;
-  spot.classList.add("open");
+  spot.style.borderRadius = radius;
 }
 
 // ============================================

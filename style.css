@@ -3643,7 +3643,7 @@ html.menu-open .prio-filter.open .prio-filter-panel {
   background: rgba(5, 7, 18, 0.54);
   opacity: 0;
   pointer-events: none;
-  transition: opacity 0.72s var(--ease-out);
+  transition: opacity 0.34s var(--ease-out);
 }
 .guide-dim.open { opacity: 1; }
 
@@ -3651,7 +3651,7 @@ html.menu-open .prio-filter.open .prio-filter-panel {
   position: relative;
   z-index: 146 !important;
   transform: translateY(-1px) scale(1.012);
-  transition: transform 0.72s var(--ease-spring), filter 0.72s var(--ease-out);
+  transition: transform 0.32s var(--ease-spring), filter 0.28s var(--ease-out);
   filter: brightness(1.13) saturate(1.08);
 }
 .fab.guide-highlight {
@@ -3667,7 +3667,7 @@ html.menu-open .prio-filter.open .prio-filter-panel {
   position: fixed;
   z-index: 147;
   pointer-events: none;
-  border-radius: 999px;
+  border-radius: 18px;
   opacity: 0;
   transform: scale(0.9);
   border: 3px solid #ffd34f;
@@ -3677,18 +3677,19 @@ html.menu-open .prio-filter.open .prio-filter-panel {
     0 0 34px rgba(255, 211, 79, 0.72),
     0 0 80px rgba(255, 184, 56, 0.34);
   transition:
-    opacity 0.46s var(--ease-out),
-    transform 0.76s var(--ease-spring),
+    opacity 0.22s var(--ease-out),
+    transform 0.34s var(--ease-spring),
     left 0s linear,
     top 0s linear,
-    width 0.46s var(--ease-spring),
-    height 0.46s var(--ease-spring);
+    width 0.24s var(--ease-spring),
+    height 0.24s var(--ease-spring),
+    border-radius 0.24s var(--ease-spring);
 }
 .guide-spotlight.open {
   opacity: 1;
   transform: scale(1);
 }
-.guide-spotlight.pulse { animation: guideCirclePulse 2.05s ease-in-out infinite; }
+.guide-spotlight.pulse { animation: guideCirclePulse 1.55s ease-in-out infinite; }
 @keyframes guideCirclePulse {
   0%, 100% {
     box-shadow:
@@ -3718,8 +3719,8 @@ html.menu-open .prio-filter.open .prio-filter-panel {
   pointer-events: none;
   transform: translateY(4px) scale(0.985);
   transition:
-    opacity 0.58s var(--ease-out),
-    transform 0.72s var(--ease-spring);
+    opacity 0.24s var(--ease-out),
+    transform 0.32s var(--ease-spring);
 }
 .prio-guide-tip.open {
   opacity: 1;
@@ -3728,17 +3729,17 @@ html.menu-open .prio-filter.open .prio-filter-panel {
 }
 .prio-guide-tip.moving {
   opacity: 0;
-  transform: translateY(6px) scale(0.985);
+  transform: translateY(3px) scale(0.99);
   pointer-events: none;
 }
 .prio-guide-tip.step-in .guide-tip-icon,
 .prio-guide-tip.step-in .guide-tip-copy,
 .prio-guide-tip.step-in .guide-tip-text,
 .prio-guide-tip.step-in .guide-tip-footer {
-  animation: guideTipIn 0.7s var(--ease-out) both;
+  animation: guideTipIn 0.32s var(--ease-out) both;
 }
-.prio-guide-tip.step-in .guide-tip-text { animation-delay: 0.1s; }
-.prio-guide-tip.step-in .guide-tip-footer { animation-delay: 0.16s; }
+.prio-guide-tip.step-in .guide-tip-text { animation-delay: 0.04s; }
+.prio-guide-tip.step-in .guide-tip-footer { animation-delay: 0.07s; }
 @keyframes guideTipIn {
   from { opacity: 0; transform: translateY(7px) scale(0.985); }
   to { opacity: 1; transform: translateY(0) scale(1); }
@@ -3821,7 +3822,7 @@ html.menu-open .prio-filter.open .prio-filter-panel {
   width: 0;
   border-radius: inherit;
   background: linear-gradient(90deg, var(--primary), #ffd34f);
-  transition: width 0.85s var(--ease-out);
+  transition: width 0.38s var(--ease-out);
 }
 .guide-tip-footer {
   display: flex;
