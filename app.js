@@ -1083,7 +1083,7 @@ function ensureOnboardingGuide() {
   window.addEventListener("scroll", () => {
     if (!$('onboardingGuide')?.classList.contains('open')) return;
     clearTimeout(onboardingPositionTimer);
-    onboardingPositionTimer = setTimeout(positionOnboardingTip, 40);
+    onboardingPositionTimer = setTimeout(positionOnboardingTip, 90);
   }, true);
 }
 
@@ -1156,7 +1156,7 @@ function renderOnboardingStep() {
         target.scrollIntoView({ behavior: "smooth", block: "center", inline: "nearest" });
       }
     }
-    setTimeout(positionOnboardingTip, 360);
+    setTimeout(positionOnboardingTip, 620);
   });
 }
 

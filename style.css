@@ -3648,10 +3648,10 @@ html.menu-open .prio-filter.open .prio-filter-panel {
     0 0 0 1px rgba(255, 255, 255, 0.24) inset !important;
   transform: translateY(-3px) scale(1.025);
   transition:
-    transform 0.58s var(--ease-spring),
-    box-shadow 0.58s var(--ease-out),
-    outline-color 0.45s var(--ease-out);
-  animation: guidePulse 1.65s ease-in-out infinite;
+    transform 0.82s var(--ease-spring),
+    box-shadow 0.82s var(--ease-out),
+    outline-color 0.72s var(--ease-out);
+  animation: guidePulse 2.35s ease-in-out infinite;
 }
 .guide-highlight:not(.fab):not(.avatar):not(.menu-trigger)::after {
   content: "";
@@ -3660,7 +3660,7 @@ html.menu-open .prio-filter.open .prio-filter-panel {
   border-radius: inherit;
   pointer-events: none;
   border: 1px solid rgba(255, 211, 79, 0.45);
-  animation: guideRipple 1.65s ease-in-out infinite;
+  animation: guideRipple 2.35s ease-in-out infinite;
 }
 
 .guide-highlight:not(.fab):not(.avatar):not(.menu-trigger) { position: relative; }
@@ -3707,10 +3707,10 @@ html.menu-open .prio-filter.open .prio-filter-panel {
   pointer-events: none;
   transform: translateY(8px) scale(0.975);
   transition:
-    opacity 0.26s var(--ease-out),
-    transform 0.58s var(--ease-spring),
-    left 0.58s var(--ease-spring),
-    top 0.58s var(--ease-spring);
+    opacity 0.36s var(--ease-out),
+    transform 0.88s var(--ease-spring),
+    left 0.88s var(--ease-spring),
+    top 0.88s var(--ease-spring);
 }
 .prio-guide-tip.open {
   opacity: 1;
@@ -3721,10 +3721,10 @@ html.menu-open .prio-filter.open .prio-filter-panel {
 .prio-guide-tip.step-in .guide-tip-copy,
 .prio-guide-tip.step-in .guide-tip-text,
 .prio-guide-tip.step-in .guide-tip-footer {
-  animation: guideTipIn 0.42s var(--ease-out) both;
+  animation: guideTipIn 0.58s var(--ease-out) both;
 }
-.prio-guide-tip.step-in .guide-tip-text { animation-delay: 0.04s; }
-.prio-guide-tip.step-in .guide-tip-footer { animation-delay: 0.075s; }
+.prio-guide-tip.step-in .guide-tip-text { animation-delay: 0.09s; }
+.prio-guide-tip.step-in .guide-tip-footer { animation-delay: 0.14s; }
 @keyframes guideTipIn {
   from { opacity: 0; transform: translateY(6px) scale(0.985); }
   to { opacity: 1; transform: translateY(0) scale(1); }
@@ -3739,7 +3739,7 @@ html.menu-open .prio-filter.open .prio-filter-panel {
   border-top: 1px solid color-mix(in srgb, #ffd34f 42%, var(--line));
   transform: rotate(45deg);
   pointer-events: none;
-  transition: left 0.58s var(--ease-spring), top 0.58s var(--ease-spring);
+  transition: left 0.88s var(--ease-spring), top 0.88s var(--ease-spring);
 }
 .prio-guide-tip.is-right .guide-tip-arrow { left: -7px !important; transform: translateY(-50%) rotate(-45deg); }
 .prio-guide-tip.is-left .guide-tip-arrow { left: auto !important; right: -7px; transform: translateY(-50%) rotate(135deg); }
@@ -3807,7 +3807,7 @@ html.menu-open .prio-filter.open .prio-filter-panel {
   width: 0;
   border-radius: inherit;
   background: linear-gradient(90deg, var(--primary), #ffd34f);
-  transition: width 0.6s var(--ease-out);
+  transition: width 0.85s var(--ease-out);
 }
 .guide-tip-footer {
   display: flex;
