@@ -1007,6 +1007,7 @@ let tourIndex = 0;
 let tourAnim = null;
 let tourHoleBox = null; // current hole geometry {x,y,w,h,r}
 let tourSettleTimer = null;
+let tourSettling = false;
 
 function onboardingKey() {
   return user?.id ? `prio_onboarding_seen_${user.id}` : "prio_onboarding_seen";
@@ -1117,18 +1118,23 @@ function showTourStep(i, instant = false) {
 
   // let the view render, scroll the target into place, then measure
   clearTimeout(tourSettleTimer);
+  tourSettling = true;
   tourSettleTimer = setTimeout(() => {
     const el = tourFindTarget(step);
     if (el) {
       const pos = window.getComputedStyle(el).position;
       if (pos !== "fixed" && pos !== "sticky") el.scrollIntoView({ behavior: "auto", block: "center", inline: "nearest" });
     }
-    tourSettleTimer = setTimeout(() => placeTourStep(step, el, instant), el ? 160 : 20);
+    tourSettleTimer = setTimeout(() => {
+      tourSettling = false;
+      placeTourStep(step, el, instant, true);
+    }, el ? 160 : 20);
   }, 120);
 }
 
-function placeTourStep(step, el, instant) {
-  // ---- card content ----
+function placeTourStep(step, el, instant, fresh = false) {
+  // ---- card content (skip on scroll/resize reflows so the card doesn't flicker) ----
+  if (fresh) {
   $("tourIcon").textContent = step.icon;
   $("tourTitle").textContent = step.title;
   $("tourText").textContent = step.text;
@@ -1137,6 +1143,7 @@ function placeTourStep(step, el, instant) {
   $("tourBack").style.visibility = tourIndex === 0 ? "hidden" : "visible";
   $("tourNext").textContent =
     tourIndex === 0 ? "Let's go" : tourIndex === TOUR_STEPS.length - 1 ? "Finish" : "Next";
+  }
 
   // ---- hole geometry ----
   let box = null;
@@ -1156,9 +1163,12 @@ function placeTourStep(step, el, instant) {
 
   // ---- card placement ----
   const card = $("tourCard");
-  card.classList.remove("pop", "centered");
-  void card.offsetWidth; // restart entrance animation
-  card.classList.add("pop");
+  card.classList.remove("centered");
+  if (fresh) {
+    card.classList.remove("pop");
+    void card.offsetWidth; // restart entrance animation
+    card.classList.add("pop");
+  }
 
   const mobile = window.innerWidth <= 640;
   if (!box || mobile) {
@@ -1230,10 +1240,10 @@ function moveTourHole(box, instant) {
 }
 
 function tourReflow() {
-  if (!$("tourVeil")?.classList.contains("open")) return;
+  if (!$("tourVeil")?.classList.contains("open") || tourSettling) return;
   const step = TOUR_STEPS[tourIndex];
   const el = tourFindTarget(step);
-  placeTourStep(step, el, true);
+  placeTourStep(step, el, true, false);
 }
 
 // ============================================

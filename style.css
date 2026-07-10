@@ -3639,7 +3639,7 @@ html.menu-open .prio-filter.open .prio-filter-panel {
 #tourVeil {
   position: fixed;
   inset: 0;
-  z-index: 150;
+  z-index: 9999; /* above the mobile menu (9991) and every dropdown */
   opacity: 0;
   pointer-events: none;
   transition: opacity 0.35s ease;
