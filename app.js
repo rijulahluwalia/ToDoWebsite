@@ -136,6 +136,7 @@ async function init() {
   initPullToRefresh();
   loadWeather();
   loadDump();
+  initOnboardingGuide();
 }
 
 async function loadProfile() {
@@ -969,6 +970,8 @@ function wireEvents() {
     e.target.classList.toggle("on", !showing);
   });
 
+  $("openGuideBtn")?.addEventListener("click", () => openOnboardingGuide(true));
+
   $("logoutBtn").addEventListener("click", async () => {
     await db.auth.signOut();
     window.location.href = "index.html";
@@ -980,6 +983,144 @@ function wireEvents() {
   $("reviewSave")?.addEventListener("click", saveSundayReview);
   $("reviewModal")?.addEventListener("click", (e) => { if (e.target.id === "reviewModal") closeSundayReview(); });
   $("themeResetBtn")?.addEventListener("click", () => setTheme(defaultTheme));
+}
+
+
+// ============================================
+// V1.1 · First-run onboarding guide
+// ============================================
+const ONBOARDING_STEPS = [
+  {
+    icon: "✨",
+    title: "Welcome to Prio",
+    text: "Prio brings your tasks, calendar, uni, projects and routines into one clean space.",
+    bullets: ["Plan your day", "Track study and deadlines", "Build routines and habits"]
+  },
+  {
+    icon: "🏠",
+    title: "Home is your daily snapshot",
+    text: "Start here to see your weather, productivity, wins, streaks, reminders and weekly review.",
+    view: "home"
+  },
+  {
+    icon: "✅",
+    title: "Planner keeps tasks organised",
+    text: "Use Daily, Weekly, Monthly, Half-Yearly and Yearly views to plan at the right level.",
+    bullets: ["Add due dates", "Filter by priority", "Use Brain Dump when your head is full"],
+    view: "tasks"
+  },
+  {
+    icon: "📅",
+    title: "Calendar shows what is coming",
+    text: "Tasks, assessments and uni timetable events appear here so you can see your week clearly.",
+    view: "calendar"
+  },
+  {
+    icon: "🎓",
+    title: "Uni tracks your semester",
+    text: "Add subjects, classes, assessments, breakdown steps, semester dates and breaks.",
+    view: "uni"
+  },
+  {
+    icon: "📂",
+    title: "Projects break big goals down",
+    text: "Create project sections, steps, notes and deadlines so bigger goals stay manageable.",
+    view: "projects"
+  },
+  {
+    icon: "🔁",
+    title: "Routines create repeatable systems",
+    text: "Build master routines once, then Prio can generate daily routine steps for you.",
+    view: "routines"
+  },
+  {
+    icon: "🎨",
+    title: "Make Prio yours",
+    text: "Use Colours to change priorities, dark mode and your accent colour. Profile lets you update account details.",
+    view: "colors"
+  }
+];
+let onboardingIndex = 0;
+let onboardingManual = false;
+
+function onboardingKey() {
+  return user?.id ? `prio_onboarding_seen_${user.id}` : "prio_onboarding_seen";
+}
+
+function initOnboardingGuide() {
+  ensureOnboardingGuide();
+  const seen = localStorage.getItem(onboardingKey());
+  if (!seen) setTimeout(() => openOnboardingGuide(false), 650);
+}
+
+function ensureOnboardingGuide() {
+  if ($("onboardingGuide")) return;
+  const guide = document.createElement("div");
+  guide.className = "onboarding-backdrop";
+  guide.id = "onboardingGuide";
+  guide.innerHTML = `
+    <div class="onboarding-card" role="dialog" aria-modal="true" aria-labelledby="guideTitle">
+      <button class="guide-x" id="guideClose" aria-label="Close guide">×</button>
+      <div class="guide-progress" id="guideProgress"></div>
+      <div class="guide-icon" id="guideIcon">✨</div>
+      <p class="guide-kicker">Prio guide</p>
+      <h2 id="guideTitle"></h2>
+      <p class="guide-text" id="guideText"></p>
+      <ul class="guide-bullets" id="guideBullets"></ul>
+      <div class="guide-dots" id="guideDots"></div>
+      <div class="guide-actions">
+        <button class="btn-cancel" id="guideSkip">Skip</button>
+        <button class="btn-ghost" id="guideBack">Back</button>
+        <button class="btn-primary" id="guideNext">Next</button>
+      </div>
+    </div>`;
+  document.body.appendChild(guide);
+
+  $("guideClose").addEventListener("click", closeOnboardingGuide);
+  $("guideSkip").addEventListener("click", finishOnboardingGuide);
+  $("guideBack").addEventListener("click", () => {
+    if (onboardingIndex > 0) { onboardingIndex--; renderOnboardingStep(); }
+  });
+  $("guideNext").addEventListener("click", () => {
+    if (onboardingIndex >= ONBOARDING_STEPS.length - 1) return finishOnboardingGuide();
+    onboardingIndex++;
+    renderOnboardingStep();
+  });
+  guide.addEventListener("click", (e) => { if (e.target.id === "onboardingGuide") closeOnboardingGuide(); });
+}
+
+function openOnboardingGuide(manual = false) {
+  onboardingManual = manual;
+  onboardingIndex = 0;
+  ensureOnboardingGuide();
+  $("onboardingGuide").classList.add("open");
+  document.body.classList.add("guide-open");
+  renderOnboardingStep();
+}
+
+function closeOnboardingGuide() {
+  $("onboardingGuide")?.classList.remove("open");
+  document.body.classList.remove("guide-open");
+  if (!onboardingManual) localStorage.setItem(onboardingKey(), "1");
+}
+
+function finishOnboardingGuide() {
+  localStorage.setItem(onboardingKey(), "1");
+  closeOnboardingGuide();
+  toast("You're ready to use Prio ✨");
+}
+
+function renderOnboardingStep() {
+  const step = ONBOARDING_STEPS[onboardingIndex];
+  if (step.view && !onboardingManual) switchView(step.view);
+  $("guideIcon").textContent = step.icon;
+  $("guideTitle").textContent = step.title;
+  $("guideText").textContent = step.text;
+  $("guideBullets").innerHTML = (step.bullets || []).map((b) => `<li>${esc(b)}</li>`).join("");
+  $("guideProgress").style.setProperty("--guide-progress", `${((onboardingIndex + 1) / ONBOARDING_STEPS.length) * 100}%`);
+  $("guideDots").innerHTML = ONBOARDING_STEPS.map((_, i) => `<i class="${i === onboardingIndex ? "active" : ""}"></i>`).join("");
+  $("guideBack").disabled = onboardingIndex === 0;
+  $("guideNext").textContent = onboardingIndex === ONBOARDING_STEPS.length - 1 ? "Get started" : "Next";
 }
 
 // ============================================
