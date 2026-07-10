@@ -987,61 +987,76 @@ function wireEvents() {
 
 
 // ============================================
-// V1.1 · First-run Prio tips
+// V1.1 · First-run Prio guided tips
 // ============================================
 const ONBOARDING_STEPS = [
   {
     icon: "✨",
     title: "Welcome to Prio",
-    text: "Your tasks, calendar, uni, projects and routines now live in one place.",
-    view: "home"
+    text: "This quick tour highlights the main areas without blocking your whole screen.",
+    view: "home",
+    target: "#homeLogoBtn"
   },
   {
     icon: "🏠",
-    title: "Home",
-    text: "Your daily snapshot: productivity, wins, streaks, reminders and weekly review.",
-    view: "home"
+    title: "Home dashboard",
+    text: "Your snapshot for the day: weather, productivity, wins, streaks and reminders.",
+    view: "home",
+    target: "#view-home .hero"
   },
   {
     icon: "✅",
     title: "Planner",
-    text: "Plan daily, weekly, monthly and yearly tasks. Use Filter to focus by priority.",
-    view: "tasks"
+    text: "Plan tasks across daily, weekly, monthly, half-yearly and yearly views.",
+    view: "tasks",
+    target: "#plannerTabs"
+  },
+  {
+    icon: "🔎",
+    title: "Filter tasks",
+    text: "Use this to focus on priorities, completed tasks or everything at once.",
+    view: "tasks",
+    target: "#filterTrigger"
   },
   {
     icon: "📅",
     title: "Calendar",
-    text: "Tasks, assessments and uni timetable events appear here automatically.",
-    view: "calendar"
+    text: "Tasks, uni assessments and timetable classes appear here automatically.",
+    view: "calendar",
+    target: "#view-calendar .card"
   },
   {
     icon: "🎓",
     title: "Uni",
-    text: "Track subjects, classes, assessments, semester dates and breaks.",
-    view: "uni"
+    text: "Track subjects, semester dates, breaks, classes, assessments and progress.",
+    view: "uni",
+    target: "#view-uni .semester-overview-card, #view-uni .uni-hero, #view-uni"
   },
   {
     icon: "📂",
     title: "Projects",
-    text: "Break bigger goals into sections, steps, notes and deadlines.",
-    view: "projects"
+    text: "Break bigger goals into sections, items, notes and deadlines.",
+    view: "projects",
+    target: "#view-projects"
   },
   {
     icon: "🔁",
     title: "Routines",
-    text: "Build repeatable systems and check off today’s routine steps.",
-    view: "routines"
+    text: "Build repeatable routines and check off today’s steps.",
+    view: "routines",
+    target: "#view-routines"
   },
   {
     icon: "🎨",
-    title: "Personalise",
-    text: "Change colours, priorities, dark mode and profile details whenever you like.",
-    view: "colors"
+    title: "Personalise Prio",
+    text: "Change colours, dark mode, themes and profile settings whenever you like.",
+    view: "colors",
+    target: "#view-colors"
   }
 ];
 let onboardingIndex = 0;
 let onboardingManual = false;
-let onboardingAutoTimer = null;
+let onboardingPositionTimer = null;
 
 function onboardingKey() {
   return user?.id ? `prio_onboarding_seen_${user.id}` : "prio_onboarding_seen";
@@ -1050,37 +1065,38 @@ function onboardingKey() {
 function initOnboardingGuide() {
   ensureOnboardingGuide();
   const seen = localStorage.getItem(onboardingKey());
-  if (!seen) setTimeout(() => openOnboardingGuide(false), 850);
+  if (!seen) setTimeout(() => openOnboardingGuide(false), 900);
 }
 
 function ensureOnboardingGuide() {
   if ($("onboardingGuide")) return;
   const tip = document.createElement("div");
-  tip.className = "prio-tip";
+  tip.className = "prio-guide-tip";
   tip.id = "onboardingGuide";
   tip.setAttribute("aria-live", "polite");
   tip.innerHTML = `
-    <div class="tip-progress" id="guideProgress"></div>
-    <div class="tip-main">
-      <div class="tip-icon" id="guideIcon">✨</div>
-      <div class="tip-copy">
-        <p class="tip-kicker">Prio tip</p>
+    <div class="guide-tip-arrow" id="guideArrow"></div>
+    <div class="guide-tip-head">
+      <div class="guide-tip-icon" id="guideIcon">✨</div>
+      <div class="guide-tip-copy">
+        <p class="guide-tip-kicker">Prio guide</p>
         <h2 id="guideTitle"></h2>
-        <p class="tip-text" id="guideText"></p>
       </div>
-      <button class="tip-x" id="guideClose" aria-label="Close tip">×</button>
+      <button class="guide-tip-x" id="guideClose" aria-label="Close guide">×</button>
     </div>
-    <div class="tip-footer">
-      <div class="tip-dots" id="guideDots"></div>
-      <div class="tip-actions">
-        <button class="tip-btn ghost" id="guideSkip">Skip</button>
-        <button class="tip-btn ghost" id="guideBack">Back</button>
-        <button class="tip-btn primary" id="guideNext">Next</button>
+    <p class="guide-tip-text" id="guideText"></p>
+    <div class="guide-tip-progress"><span id="guideProgress"></span></div>
+    <div class="guide-tip-footer">
+      <span class="guide-tip-count" id="guideCount"></span>
+      <div class="guide-tip-actions">
+        <button class="guide-tip-btn ghost" id="guideSkip">Skip</button>
+        <button class="guide-tip-btn ghost" id="guideBack">Back</button>
+        <button class="guide-tip-btn primary" id="guideNext">Next</button>
       </div>
     </div>`;
   document.body.appendChild(tip);
 
-  $("guideClose").addEventListener("click", closeOnboardingGuide);
+  $("guideClose").addEventListener("click", finishOnboardingGuide);
   $("guideSkip").addEventListener("click", finishOnboardingGuide);
   $("guideBack").addEventListener("click", () => {
     if (onboardingIndex > 0) { onboardingIndex--; renderOnboardingStep(); }
@@ -1090,53 +1106,135 @@ function ensureOnboardingGuide() {
     onboardingIndex++;
     renderOnboardingStep();
   });
+
+  window.addEventListener("resize", positionOnboardingTip, { passive: true });
+  window.addEventListener("scroll", () => {
+    if (!$('onboardingGuide')?.classList.contains('open')) return;
+    clearTimeout(onboardingPositionTimer);
+    onboardingPositionTimer = setTimeout(positionOnboardingTip, 40);
+  }, true);
 }
 
 function openOnboardingGuide(manual = false) {
   onboardingManual = manual;
   onboardingIndex = 0;
   ensureOnboardingGuide();
-  clearTimeout(onboardingAutoTimer);
   $("onboardingGuide").classList.add("open");
   renderOnboardingStep();
 }
 
-function closeOnboardingGuide() {
-  clearTimeout(onboardingAutoTimer);
-  $("onboardingGuide")?.classList.remove("open");
-  if (!onboardingManual) localStorage.setItem(onboardingKey(), "1");
+function closeOnboardingGuide(markSeen = false) {
+  clearOnboardingHighlight();
+  $("onboardingGuide")?.classList.remove("open", "is-left", "is-right", "is-top", "is-bottom", "step-in");
+  if (markSeen) localStorage.setItem(onboardingKey(), "1");
 }
 
 function finishOnboardingGuide() {
-  localStorage.setItem(onboardingKey(), "1");
-  closeOnboardingGuide();
+  closeOnboardingGuide(true);
   toast("Guide saved — you can reopen it from Profile ✨");
+}
+
+function findOnboardingTarget(selector) {
+  if (!selector) return null;
+  const selectors = selector.split(",").map((x) => x.trim()).filter(Boolean);
+  for (const sel of selectors) {
+    const el = document.querySelector(sel);
+    if (!el) continue;
+    const rect = el.getBoundingClientRect();
+    const style = window.getComputedStyle(el);
+    if (rect.width > 0 && rect.height > 0 && style.visibility !== "hidden" && style.display !== "none") return el;
+  }
+  return null;
+}
+
+function clearOnboardingHighlight() {
+  document.querySelectorAll(".guide-highlight").forEach((el) => el.classList.remove("guide-highlight"));
+  document.documentElement.classList.remove("guide-active");
 }
 
 function renderOnboardingStep() {
   const step = ONBOARDING_STEPS[onboardingIndex];
+  setMenu(false);
   if (step.view) switchView(step.view);
-
-  const tip = $("onboardingGuide");
-  tip.classList.remove("step-in");
-  void tip.offsetWidth;
-  tip.classList.add("step-in");
+  closePlannerFilter?.();
 
   $("guideIcon").textContent = step.icon;
   $("guideTitle").textContent = step.title;
   $("guideText").textContent = step.text;
-  $("guideProgress").style.setProperty("--guide-progress", `${((onboardingIndex + 1) / ONBOARDING_STEPS.length) * 100}%`);
-  $("guideDots").innerHTML = ONBOARDING_STEPS.map((_, i) => `<i class="${i === onboardingIndex ? "active" : ""}"></i>`).join("");
+  $("guideProgress").style.width = `${((onboardingIndex + 1) / ONBOARDING_STEPS.length) * 100}%`;
+  $("guideCount").textContent = `${onboardingIndex + 1} of ${ONBOARDING_STEPS.length}`;
   $("guideBack").disabled = onboardingIndex === 0;
-  $("guideNext").textContent = onboardingIndex === ONBOARDING_STEPS.length - 1 ? "Done" : "Next";
+  $("guideNext").textContent = onboardingIndex === ONBOARDING_STEPS.length - 1 ? "Finish" : "Next";
 
-  clearTimeout(onboardingAutoTimer);
-  if (!onboardingManual && onboardingIndex < ONBOARDING_STEPS.length - 1) {
-    onboardingAutoTimer = setTimeout(() => {
-      if (!$("onboardingGuide")?.classList.contains("open")) return;
-      onboardingIndex++;
-      renderOnboardingStep();
-    }, 5200);
+  const tip = $("onboardingGuide");
+  tip.classList.remove("step-in", "is-left", "is-right", "is-top", "is-bottom");
+  void tip.offsetWidth;
+  tip.classList.add("step-in");
+
+  clearOnboardingHighlight();
+  document.documentElement.classList.add("guide-active");
+
+  requestAnimationFrame(() => {
+    const target = findOnboardingTarget(step.target) || document.querySelector(`#view-${step.view}`) || $("homeLogoBtn");
+    if (target) {
+      target.classList.add("guide-highlight");
+      target.scrollIntoView({ behavior: "smooth", block: "center", inline: "nearest" });
+    }
+    setTimeout(positionOnboardingTip, 360);
+  });
+}
+
+function positionOnboardingTip() {
+  const tip = $("onboardingGuide");
+  if (!tip || !tip.classList.contains("open")) return;
+  const step = ONBOARDING_STEPS[onboardingIndex];
+  const target = findOnboardingTarget(step.target) || document.querySelector(`#view-${step.view}`) || $("homeLogoBtn");
+  if (!target) return;
+
+  const margin = 12;
+  const gap = 14;
+  const vw = window.innerWidth;
+  const vh = window.innerHeight;
+  const rect = target.getBoundingClientRect();
+  const tipRect = tip.getBoundingClientRect();
+  const arrow = $("guideArrow");
+
+  tip.classList.remove("is-left", "is-right", "is-top", "is-bottom");
+  let placement = "bottom";
+  if (rect.right + gap + tipRect.width <= vw - margin) placement = "right";
+  else if (rect.left - gap - tipRect.width >= margin) placement = "left";
+  else if (rect.top - gap - tipRect.height >= margin) placement = "top";
+  else placement = "bottom";
+
+  let left, top;
+  if (placement === "right") {
+    left = rect.right + gap;
+    top = rect.top + rect.height / 2 - tipRect.height / 2;
+  } else if (placement === "left") {
+    left = rect.left - tipRect.width - gap;
+    top = rect.top + rect.height / 2 - tipRect.height / 2;
+  } else if (placement === "top") {
+    left = rect.left + rect.width / 2 - tipRect.width / 2;
+    top = rect.top - tipRect.height - gap;
+  } else {
+    left = rect.left + rect.width / 2 - tipRect.width / 2;
+    top = rect.bottom + gap;
+  }
+
+  left = Math.max(margin, Math.min(left, vw - tipRect.width - margin));
+  top = Math.max(margin, Math.min(top, vh - tipRect.height - margin));
+
+  tip.style.left = `${left}px`;
+  tip.style.top = `${top}px`;
+  tip.style.right = "auto";
+  tip.style.bottom = "auto";
+  tip.classList.add(`is-${placement}`);
+
+  if (arrow) {
+    const targetCenterX = rect.left + rect.width / 2;
+    const targetCenterY = rect.top + rect.height / 2;
+    arrow.style.left = `${Math.max(18, Math.min(targetCenterX - left, tipRect.width - 18))}px`;
+    arrow.style.top = `${Math.max(18, Math.min(targetCenterY - top, tipRect.height - 18))}px`;
   }
 }
 

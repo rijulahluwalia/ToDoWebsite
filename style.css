@@ -3634,184 +3634,215 @@ html.menu-open .prio-filter.open .prio-filter-panel {
 }
 
 /* ============================================
-   V1.1 · First-run Prio tips
+   V1.1 · First-run Prio guided tips
    ============================================ */
-.prio-tip {
+.guide-highlight {
+  position: relative;
+  z-index: 145 !important;
+  outline: 3px solid #ffd34f !important;
+  outline-offset: 5px;
+  border-radius: 22px !important;
+  box-shadow:
+    0 0 0 8px rgba(255, 211, 79, 0.16),
+    0 16px 45px rgba(255, 184, 56, 0.26) !important;
+  animation: guideGlow 1.7s ease-in-out infinite;
+}
+@keyframes guideGlow {
+  0%, 100% {
+    outline-color: #ffd34f;
+    box-shadow: 0 0 0 7px rgba(255, 211, 79, 0.14), 0 16px 44px rgba(255, 184, 56, 0.22);
+  }
+  50% {
+    outline-color: #ffe58a;
+    box-shadow: 0 0 0 12px rgba(255, 211, 79, 0.22), 0 22px 60px rgba(255, 184, 56, 0.34);
+  }
+}
+.prio-guide-tip {
   position: fixed;
-  right: 18px;
-  bottom: calc(18px + env(safe-area-inset-bottom));
-  z-index: 155;
-  width: min(420px, calc(100vw - 28px));
-  border-radius: 26px;
-  overflow: hidden;
-  background: color-mix(in srgb, var(--surface) 92%, transparent);
-  border: 1px solid color-mix(in srgb, var(--line) 82%, transparent);
-  box-shadow: 0 22px 70px rgba(23, 27, 54, 0.20);
-  backdrop-filter: blur(18px) saturate(1.18);
+  z-index: 160;
+  width: min(330px, calc(100vw - 24px));
+  border-radius: 22px;
+  padding: 14px;
+  background: color-mix(in srgb, var(--surface) 94%, transparent);
+  border: 1px solid color-mix(in srgb, #ffd34f 54%, var(--line));
+  box-shadow: 0 24px 70px rgba(23, 27, 54, 0.22), 0 0 0 1px rgba(255, 211, 79, 0.16) inset;
+  backdrop-filter: blur(16px) saturate(1.12);
   opacity: 0;
   pointer-events: none;
-  transform: translateY(28px) scale(0.94);
+  transform: translateY(10px) scale(0.965);
   transition:
-    opacity 0.36s var(--ease-out),
-    transform 0.64s var(--ease-spring),
-    box-shadow 0.3s var(--ease-out);
+    opacity 0.32s var(--ease-out),
+    transform 0.62s var(--ease-spring),
+    left 0.62s var(--ease-spring),
+    top 0.62s var(--ease-spring),
+    box-shadow 0.24s var(--ease-out);
 }
-.prio-tip.open {
+.prio-guide-tip.open {
   opacity: 1;
   pointer-events: auto;
   transform: translateY(0) scale(1);
 }
-.prio-tip.step-in .tip-icon,
-.prio-tip.step-in .tip-copy {
-  animation: tipSoftIn 0.46s var(--ease-out) both;
+.prio-guide-tip.step-in .guide-tip-icon,
+.prio-guide-tip.step-in .guide-tip-copy,
+.prio-guide-tip.step-in .guide-tip-text,
+.prio-guide-tip.step-in .guide-tip-footer {
+  animation: guideTipIn 0.46s var(--ease-out) both;
 }
-.prio-tip.step-in .tip-copy { animation-delay: 0.04s; }
-@keyframes tipSoftIn {
-  from { opacity: 0; transform: translateY(8px) scale(0.985); }
+.prio-guide-tip.step-in .guide-tip-text { animation-delay: 0.045s; }
+.prio-guide-tip.step-in .guide-tip-footer { animation-delay: 0.08s; }
+@keyframes guideTipIn {
+  from { opacity: 0; transform: translateY(7px) scale(0.985); }
   to { opacity: 1; transform: translateY(0) scale(1); }
 }
-.tip-progress {
-  height: 4px;
-  background: color-mix(in srgb, var(--primary) 10%, transparent);
+.guide-tip-arrow {
+  position: absolute;
+  width: 14px;
+  height: 14px;
+  border-radius: 4px;
+  background: inherit;
+  border-left: 1px solid color-mix(in srgb, #ffd34f 54%, var(--line));
+  border-top: 1px solid color-mix(in srgb, #ffd34f 54%, var(--line));
+  transform: rotate(45deg);
+  pointer-events: none;
+  transition: left 0.62s var(--ease-spring), top 0.62s var(--ease-spring);
 }
-.tip-progress::after {
-  content: "";
-  display: block;
-  width: var(--guide-progress, 12.5%);
-  height: 100%;
-  border-radius: 0 999px 999px 0;
-  background: linear-gradient(90deg, var(--primary), var(--accent));
-  transition: width 0.65s var(--ease-out);
-}
-.tip-main {
+.prio-guide-tip.is-right .guide-tip-arrow { left: -7px !important; transform: translateY(-50%) rotate(-45deg); }
+.prio-guide-tip.is-left .guide-tip-arrow { left: auto !important; right: -7px; transform: translateY(-50%) rotate(135deg); }
+.prio-guide-tip.is-top .guide-tip-arrow { top: auto !important; bottom: -7px; transform: translateX(-50%) rotate(-135deg); }
+.prio-guide-tip.is-bottom .guide-tip-arrow { top: -7px !important; transform: translateX(-50%) rotate(45deg); }
+.guide-tip-head {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr) auto;
-  gap: 13px;
   align-items: start;
-  padding: 18px 16px 12px;
+  gap: 10px;
 }
-.tip-icon {
-  width: 46px;
-  height: 46px;
+.guide-tip-icon {
+  width: 38px;
+  height: 38px;
   display: grid;
   place-items: center;
-  border-radius: 18px;
-  font-size: 1.35rem;
-  background: color-mix(in srgb, var(--primary) 12%, var(--surface));
-  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--primary) 14%, transparent);
+  border-radius: 15px;
+  font-size: 1.12rem;
+  background: linear-gradient(135deg, rgba(255, 211, 79, 0.26), color-mix(in srgb, var(--primary) 12%, var(--surface)));
+  box-shadow: inset 0 0 0 1px rgba(255, 211, 79, 0.24);
 }
-.tip-copy { min-width: 0; }
-.tip-kicker {
-  margin: 0 0 3px;
-  color: var(--primary);
-  font-weight: 900;
-  letter-spacing: 0.08em;
+.guide-tip-copy { min-width: 0; }
+.guide-tip-kicker {
+  margin: 0 0 2px;
+  color: color-mix(in srgb, var(--primary) 72%, #b97900);
+  font-size: 0.66rem;
+  font-weight: 950;
   text-transform: uppercase;
-  font-size: 0.7rem;
+  letter-spacing: 0.08em;
 }
-.prio-tip h2 {
-  font-size: 1.02rem;
-  line-height: 1.1;
-  margin: 0 0 5px;
-}
-.tip-text {
+.prio-guide-tip h2 {
   margin: 0;
+  font-size: 0.98rem;
+  line-height: 1.12;
+}
+.guide-tip-text {
+  margin: 10px 2px 12px;
   color: var(--ink-soft);
-  font-size: 0.88rem;
+  font-size: 0.85rem;
   line-height: 1.38;
 }
-.tip-x {
-  width: 34px;
-  height: 34px;
-  border-radius: 13px;
+.guide-tip-x {
+  width: 30px;
+  height: 30px;
+  border-radius: 12px;
   display: grid;
   place-items: center;
-  font-size: 1.18rem;
-  font-weight: 900;
-  line-height: 1;
+  font-size: 1.05rem;
+  font-weight: 950;
   color: var(--ink-soft);
-  background: color-mix(in srgb, var(--bg) 88%, transparent);
+  background: color-mix(in srgb, var(--bg) 78%, transparent);
   transition: transform 0.22s var(--ease-spring), background 0.2s, color 0.2s;
 }
-.tip-x:hover { transform: scale(1.06); background: var(--primary-soft); color: var(--primary); }
-.tip-footer {
+.guide-tip-x:hover { transform: scale(1.06); background: var(--primary-soft); color: var(--primary); }
+.guide-tip-progress {
+  height: 5px;
+  border-radius: 999px;
+  overflow: hidden;
+  background: color-mix(in srgb, var(--ink-soft) 13%, transparent);
+  margin-bottom: 11px;
+}
+.guide-tip-progress span {
+  display: block;
+  height: 100%;
+  width: 0;
+  border-radius: inherit;
+  background: linear-gradient(90deg, var(--primary), #ffd34f);
+  transition: width 0.65s var(--ease-out);
+}
+.guide-tip-footer {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 10px;
-  padding: 0 16px 16px;
 }
-.tip-dots {
+.guide-tip-count {
+  color: var(--ink-soft);
+  font-size: 0.72rem;
+  font-weight: 900;
+  white-space: nowrap;
+}
+.guide-tip-actions {
   display: flex;
-  gap: 5px;
-  min-width: 0;
-  flex-wrap: wrap;
-}
-.tip-dots i {
-  width: 6px;
-  height: 6px;
-  border-radius: 999px;
-  background: color-mix(in srgb, var(--ink-soft) 24%, transparent);
-  transition: width 0.32s var(--ease-spring), background 0.2s;
-}
-.tip-dots i.active {
-  width: 20px;
-  background: var(--primary);
-}
-.tip-actions {
-  display: flex;
-  gap: 7px;
   align-items: center;
+  gap: 6px;
   flex-shrink: 0;
 }
-.tip-btn {
-  height: 34px;
-  padding: 0 12px;
+.guide-tip-btn {
+  height: 32px;
+  padding: 0 11px;
   border-radius: 999px;
-  font-weight: 900;
-  font-size: 0.78rem;
+  font-size: 0.75rem;
+  font-weight: 950;
   transition: transform 0.22s var(--ease-spring), background 0.2s, color 0.2s, opacity 0.2s;
 }
-.tip-btn:active { transform: scale(0.96); }
-.tip-btn.ghost {
-  background: color-mix(in srgb, var(--bg) 82%, transparent);
+.guide-tip-btn:active { transform: scale(0.96); }
+.guide-tip-btn.ghost {
+  background: color-mix(in srgb, var(--bg) 78%, transparent);
   color: var(--ink-soft);
 }
-.tip-btn.ghost:hover { color: var(--ink); background: var(--primary-soft); }
-.tip-btn.primary {
+.guide-tip-btn.ghost:hover { color: var(--ink); background: var(--primary-soft); }
+.guide-tip-btn.primary {
   background: var(--primary);
   color: #fff;
-  box-shadow: 0 10px 22px color-mix(in srgb, var(--primary) 26%, transparent);
+  box-shadow: 0 10px 22px color-mix(in srgb, var(--primary) 24%, transparent);
 }
-.tip-btn.primary:hover { transform: translateY(-1px); background: var(--primary-deep); }
-.tip-actions button:disabled { opacity: 0.38; pointer-events: none; }
-body.dark .prio-tip {
-  background: color-mix(in srgb, var(--surface) 88%, transparent);
-  border-color: rgba(255,255,255,0.08);
-  box-shadow: 0 24px 80px rgba(0,0,0,0.48);
+.guide-tip-btn.primary:hover { transform: translateY(-1px); background: var(--primary-deep); }
+.guide-tip-actions button:disabled { opacity: 0.38; pointer-events: none; }
+body.dark .prio-guide-tip,
+:root[data-theme="dark"] .prio-guide-tip {
+  background: color-mix(in srgb, var(--surface) 90%, transparent);
+  border-color: rgba(255, 211, 79, 0.36);
+  box-shadow: 0 26px 80px rgba(0,0,0,0.5), 0 0 0 1px rgba(255, 211, 79, 0.12) inset;
 }
-body.dark .tip-icon,
-body.dark .tip-x,
-body.dark .tip-btn.ghost {
-  background: rgba(255,255,255,0.055);
+body.dark .guide-tip-x,
+body.dark .guide-tip-btn.ghost,
+:root[data-theme="dark"] .guide-tip-x,
+:root[data-theme="dark"] .guide-tip-btn.ghost {
+  background: rgba(255,255,255,0.06);
 }
 @media (max-width: 640px) {
-  .prio-tip {
-    left: 12px;
-    right: 12px;
-    bottom: calc(12px + env(safe-area-inset-bottom));
-    width: auto;
-    border-radius: 24px;
+  .guide-highlight {
+    outline-width: 2px !important;
+    outline-offset: 4px;
+    border-radius: 18px !important;
   }
-  .tip-main { padding: 16px 14px 10px; gap: 11px; }
-  .tip-icon { width: 42px; height: 42px; border-radius: 16px; }
-  .tip-footer { padding: 0 14px 14px; }
-  .tip-btn { height: 32px; padding: 0 10px; font-size: 0.74rem; }
+  .prio-guide-tip {
+    width: min(318px, calc(100vw - 22px));
+    border-radius: 20px;
+    padding: 12px;
+  }
+  .guide-tip-icon { width: 35px; height: 35px; border-radius: 13px; }
+  .guide-tip-text { font-size: 0.82rem; margin: 8px 1px 10px; }
+  .guide-tip-btn { height: 30px; padding: 0 9px; font-size: 0.72rem; }
 }
-@media (max-width: 370px) {
-  .tip-main { grid-template-columns: auto minmax(0, 1fr); }
-  .tip-x { grid-column: 2; grid-row: 1; justify-self: end; margin-bottom: -34px; }
-  .tip-footer { align-items: flex-start; flex-direction: column; }
-  .tip-actions { width: 100%; justify-content: flex-end; }
+@media (max-width: 360px) {
+  .prio-guide-tip { width: calc(100vw - 18px); padding: 11px; }
+  .guide-tip-head { gap: 8px; }
+  .guide-tip-actions { gap: 5px; }
+  .guide-tip-btn { padding: 0 8px; }
 }
-
