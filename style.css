@@ -719,7 +719,7 @@ input, select, textarea { font-family: inherit; font-size: 1rem; color: var(--in
   backdrop-filter: blur(4px);
   display: none;
   place-items: center;
-  z-index: 60;
+  z-index: 500; /* above planner filter (80) + its panel (200) */
   padding: 20px;
 }
 .modal-backdrop.open { display: grid; animation: fadeIn 0.25s; }
@@ -835,7 +835,7 @@ input, select, textarea { font-family: inherit; font-size: 1rem; color: var(--in
   border-radius: 999px;
   font-weight: 600;
   font-size: 0.9rem;
-  z-index: 100;
+  z-index: 700; /* toasts stay visible above modals */
   opacity: 0;
   transition: all 0.4s var(--ease-spring);
   pointer-events: none;
@@ -1580,7 +1580,7 @@ input, select, textarea { font-family: inherit; font-size: 1rem; color: var(--in
 /* ============================================
    PRIO · soft mobile form polish
    ============================================ */
-#datePickerModal { z-index: 140; }
+#datePickerModal { z-index: 620; } /* above .modal-backdrop (500) */
 #datePickerModal .modal { box-shadow: 0 28px 80px rgba(23, 27, 54, 0.28); }
 .modal-backdrop.open { animation: fadeIn 0.22s var(--ease-out); }
 #datePickerModal.open .date-picker-modal { animation: datePickerPop 0.34s var(--ease-spring); }
@@ -3789,3 +3789,10 @@ body.dark .tour-card,
 @media (prefers-reduced-motion: reduce) {
   #tourVeil.open .tour-ring { animation: none; }
 }
+
+/* ============================================
+   Modal stacking guard
+   When a modal is open, planner chrome must not float above it.
+   ============================================ */
+body.modal-open .planner-filter-wrap { z-index: 1 !important; }
+body.modal-open .prio-filter-panel { display: none !important; }

@@ -2950,3 +2950,34 @@ function saveSundayReview() {
   closeSundayReview();
   toast("Sunday review saved ✨");
 }
+
+// ============================================
+// Modal stacking guard
+// Any .modal-backdrop gaining/losing .open toggles body.modal-open, so
+// planner chrome (Filter button, dropdown panels) can never float above
+// a modal. One observer covers every modal — current and future — so no
+// individual open/close call site can forget to do this.
+// ============================================
+(function watchModals() {
+  const sync = () => {
+    const anyOpen = !!document.querySelector(".modal-backdrop.open");
+    document.body.classList.toggle("modal-open", anyOpen);
+    // a dropdown left hanging open would still sit over the form
+    if (anyOpen && typeof closePlannerFilter === "function") closePlannerFilter();
+  };
+
+  const observe = () => {
+    document.querySelectorAll(".modal-backdrop").forEach((m) => {
+      if (m._stackWatched) return;
+      m._stackWatched = true;
+      new MutationObserver(sync).observe(m, { attributes: true, attributeFilter: ["class"] });
+    });
+    sync();
+  };
+
+  if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", observe);
+  else observe();
+
+  // catch modals added to the DOM later
+  new MutationObserver(observe).observe(document.body, { childList: true, subtree: true });
+})();
