@@ -4618,3 +4618,8 @@ body.modal-open .prio-filter-panel { display: none !important; }
   .gcal-auto-row .ev-toggle span { width: 28px; height: 28px; }
   .gcal-auto-row .ev-toggle.on span { transform: translateX(24px); }
 }
+
+.gcal-warn.good {
+  background: color-mix(in srgb, var(--green) 12%, transparent);
+  color: color-mix(in srgb, var(--green) 75%, var(--ink));
+}

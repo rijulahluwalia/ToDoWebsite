@@ -3867,7 +3867,9 @@ const GCAL_SCOPE = "https://www.googleapis.com/auth/calendar.events";
 const GCAL_TOKEN_KEY = "prio_gcal_token";
 const GCAL_API = "https://www.googleapis.com/calendar/v3";
 
-let gcalLinks = [];   // rows from gcal_links for this user
+let gcalLinks = [];        // rows from gcal_links for this user
+let gcalHasRefresh = false; // do we have a stored refresh token?
+let gcalRefreshing = null;  // in-flight refresh promise, prevents stampedes
 
 // ---------- token handling ----------
 function gcalSaveToken(token, expiresInSec = 3600) {
@@ -3894,18 +3896,76 @@ function gcalClearToken() {
 }
 
 function gcalConnected() {
-  return !!gcalGetToken();
+  // a stored refresh token counts as connected — we can always mint a
+  // fresh access token on demand
+  return !!gcalGetToken() || gcalHasRefresh;
 }
 
 // Called on every app load: Supabase puts provider_token on the session
 // right after the OAuth redirect. Grab it before it's lost.
 function gcalCaptureToken(session) {
+  let got = false;
   if (session?.provider_token) {
     gcalSaveToken(session.provider_token);
     setTimeout(gcalResumeAfterReconnect, 500);
-    return true;
+    got = true;
   }
-  return false;
+  // Google sends provider_refresh_token ONLY on the initial consent, and
+  // it never reappears on later session refreshes — so store it now or
+  // lose the ability to stay connected.
+  if (session?.provider_refresh_token) {
+    gcalStoreRefreshToken(session.provider_refresh_token);
+  }
+  return got;
+}
+
+// Save the long-lived token so the server can mint fresh ones later.
+async function gcalStoreRefreshToken(refreshToken) {
+  try {
+    await db.from("google_tokens").upsert({
+      user_id: user.id,
+      refresh_token: refreshToken,
+      scope: GCAL_SCOPE,
+      connected_at: new Date().toISOString(),
+    }, { onConflict: "user_id" });
+    gcalHasRefresh = true;
+    renderGcalStatus();
+  } catch (e) {
+    console.warn("Couldn't store Google refresh token — run schema-update-6.sql", e);
+  }
+}
+
+// Ask the server for a fresh access token. Returns true on success.
+async function gcalRefreshAccessToken() {
+  if (gcalRefreshing) return gcalRefreshing;      // don't stampede
+  gcalRefreshing = (async () => {
+    try {
+      const { data: sess } = await db.auth.getSession();
+      const jwt = sess?.session?.access_token;
+      if (!jwt) return false;
+
+      const res = await fetch("/api/google-refresh", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: "Bearer " + jwt },
+      });
+      const data = await res.json();
+
+      if (!res.ok) {
+        if (data.error === "REVOKED" || data.error === "NO_REFRESH_TOKEN") {
+          gcalHasRefresh = false;
+        }
+        return false;
+      }
+      gcalSaveToken(data.access_token, data.expires_in);
+      renderGcalStatus();
+      return true;
+    } catch {
+      return false;
+    } finally {
+      setTimeout(() => { gcalRefreshing = null; }, 0);
+    }
+  })();
+  return gcalRefreshing;
 }
 
 async function gcalConnect() {
@@ -3920,16 +3980,25 @@ async function gcalConnect() {
   if (error) toast("Couldn't open Google sign-in — " + error.message);
 }
 
-function gcalDisconnect() {
+async function gcalDisconnect() {
   gcalClearToken();
+  try { await db.from("google_tokens").delete().eq("user_id", user.id); } catch {}
+  gcalHasRefresh = false;
   renderGcalStatus();
   toast("Google Calendar disconnected");
 }
 
 // ---------- API helper ----------
-async function gcalFetch(path, options = {}) {
-  const token = gcalGetToken();
-  if (!token) throw new Error("NOT_CONNECTED");
+async function gcalFetch(path, options = {}, isRetry = false) {
+  let token = gcalGetToken();
+
+  // No usable token? Try to mint one silently before giving up.
+  if (!token) {
+    if (!isRetry && gcalHasRefresh && await gcalRefreshAccessToken()) {
+      token = gcalGetToken();
+    }
+    if (!token) throw new Error("NOT_CONNECTED");
+  }
 
   const res = await fetch(GCAL_API + path, {
     ...options,
@@ -3942,6 +4011,11 @@ async function gcalFetch(path, options = {}) {
 
   if (res.status === 401 || res.status === 403) {
     gcalClearToken();
+    // one silent retry with a fresh token — this is what removes the
+    // hourly reconnect for the user
+    if (!isRetry && gcalHasRefresh && await gcalRefreshAccessToken()) {
+      return gcalFetch(path, options, true);
+    }
     renderGcalStatus();
     throw new Error("TOKEN_EXPIRED");
   }
@@ -3957,6 +4031,14 @@ async function gcalFetch(path, options = {}) {
 async function loadGcalLinks() {
   const { data } = await db.from("gcal_links").select("*").eq("user_id", user.id);
   gcalLinks = data || [];
+  // does this user have a stored refresh token? (the token itself is
+  // never sent to the browser — this only returns true/false)
+  try {
+    const { data: has } = await db.rpc("has_google_token");
+    gcalHasRefresh = !!has;
+  } catch {
+    gcalHasRefresh = false;   // schema-update-6.sql not run yet
+  }
 }
 
 function gcalLinkFor(type, id) {
@@ -4119,10 +4201,21 @@ function renderGcalStatus() {
   [$("gcalDot"), $("gcalDot2")].forEach((d) => {
     if (d) d.className = "gcal-dot " + (connected ? "on" : "off");
   });
+  const staysConnected = gcalHasRefresh;
   [$("gcalLabel"), $("gcalLabel2")].forEach((l) => {
-    if (l) l.textContent = connected ? "Connected" : "Not connected";
+    if (l) l.textContent = !connected ? "Not connected"
+      : staysConnected ? "Connected — stays signed in" : "Connected";
   });
-  if (connectBtn) connectBtn.textContent = connected ? "Reconnect" : "Connect Google Calendar";
+  const warn = $("gcalWarn");
+  if (warn) {
+    warn.textContent = staysConnected
+      ? "Prio keeps your Google session alive automatically, so you shouldn't need to reconnect."
+      : "Google sign-ins last about an hour. If syncing stops working, tap Reconnect.";
+    warn.classList.toggle("good", staysConnected);
+  }
+  if (connectBtn) connectBtn.textContent = connected
+    ? (gcalHasRefresh ? "Re-authorise Google" : "Reconnect")
+    : "Connect Google Calendar";
   if (disconnectBtn) disconnectBtn.style.display = connected ? "" : "none";
   if (syncBtn) syncBtn.disabled = !connected;
   if (count) {
