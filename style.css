@@ -4312,3 +4312,57 @@ body.modal-open .prio-filter-panel { display: none !important; }
 .ia-av.ok { background: linear-gradient(135deg, #2fbf71, #18c2c2); }
 .ia-av.no { background: linear-gradient(135deg, #f0455a, #ff6fae); }
 #iaResponseActions .btn-primary { width: 100%; }
+
+/* ============================================
+   Calendar day panel — mobile layout
+   The date and its two actions were wrapping onto three rows and the
+   empty state ate half the screen. Keep the actions on one line and
+   tighten the vertical rhythm.
+   ============================================ */
+@media (max-width: 640px) {
+  #dayPanel .section-head {
+    flex-wrap: nowrap;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 12px;
+  }
+  #dayPanel .section-head h3 {
+    font-size: 1rem;
+    min-width: 0;
+    flex: 1;
+    line-height: 1.25;
+  }
+  .day-actions {
+    flex-wrap: nowrap;
+    gap: 6px;
+    flex-shrink: 0;
+  }
+  .day-actions .btn-ghost {
+    padding: 9px 12px;
+    font-size: 0.8rem;
+    min-height: 40px;
+    white-space: nowrap;
+    border-radius: 12px;
+  }
+  /* a compact empty state instead of a half-screen one */
+  #dayPanel .empty { padding: 22px 16px; }
+  #dayPanel .empty .emoji { font-size: 1.8rem; margin-bottom: 6px; }
+  #dayPanel .empty { font-size: 0.88rem; }
+}
+
+/* very narrow phones: icons carry the meaning, labels shorten */
+@media (max-width: 380px) {
+  .day-actions .btn-ghost { padding: 9px 10px; font-size: 0.76rem; }
+}
+
+/* Calendar grid must never exceed its container on narrow phones.
+   Grid columns default to min-content, so cell contents can push the
+   whole row wider than the screen — minmax(0,1fr) prevents that. */
+.cal-grid { grid-template-columns: repeat(7, minmax(0, 1fr)); }
+.cal-day, .cal-dow { min-width: 0; }
+
+@media (max-width: 380px) {
+  .cal-grid { gap: 4px; }
+  .cal-day { border-radius: 10px; font-size: 0.78rem; }
+  .cal-dots i { width: 5px; height: 5px; }
+}
