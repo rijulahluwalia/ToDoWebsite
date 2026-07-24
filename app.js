@@ -137,10 +137,12 @@ async function init() {
   wireUniEvents();
   wireEventEvents();
   wireTimePickerEvents();
+  wireInviteAlert();
   initPullToRefresh();
   loadWeather();
   loadDump();
   initOnboardingGuide();
+  checkNewInvites();
 }
 
 async function loadProfile() {
@@ -3057,6 +3059,14 @@ async function loadEvents() {
   const extra = myInvites.map((i) => i.events).filter(Boolean);
   const seen = new Set(owned.map((e) => e.id));
   events = [...owned, ...extra.filter((e) => e && !seen.has(e.id))];
+
+  // resolve who sent each invite, so the notification can name them
+  const inviterIds = [...new Set(myInvites.map((i) => i.inviter_id).filter(Boolean))];
+  if (inviterIds.length) {
+    const { data: profs } = await db.from("profiles").select("id, display_name").in("id", inviterIds);
+    const nameOf = Object.fromEntries((profs || []).map((p) => [p.id, p.display_name || "A Prio user"]));
+    myInvites.forEach((i) => { i.inviter_name = nameOf[i.inviter_id] || "A Prio user"; });
+  }
 }
 
 function eventDateStr(ev) {
@@ -3565,4 +3575,125 @@ function wireTimePickerEvents() {
 
   document.querySelectorAll(".time-stepper [data-step]").forEach((b) =>
     b.addEventListener("click", () => stepTime(b.dataset.step, Number(b.dataset.dir))));
+}
+
+// ============================================
+// Invite notification
+// Shows pending invites once each, on app open. Seen invite ids are kept
+// in localStorage per user, so an invite never nags twice — but a brand
+// new one always surfaces.
+// ============================================
+let iaQueue = [];
+let iaIndex = 0;
+
+function iaSeenKey() {
+  return `prio_seen_invites_${user?.id || "anon"}`;
+}
+function iaGetSeen() {
+  try { return new Set(JSON.parse(localStorage.getItem(iaSeenKey()) || "[]")); }
+  catch { return new Set(); }
+}
+function iaMarkSeen(ids) {
+  const seen = iaGetSeen();
+  ids.forEach((id) => seen.add(id));
+  // keep the list from growing forever
+  const trimmed = [...seen].slice(-200);
+  localStorage.setItem(iaSeenKey(), JSON.stringify(trimmed));
+}
+
+function checkNewInvites() {
+  const seen = iaGetSeen();
+  const now = new Date();
+  iaQueue = myInvites.filter((i) => {
+    if (i.status !== "pending") return false;      // already answered
+    if (seen.has(i.id)) return false;              // already shown
+    const ev = i.events || events.find((e) => e.id === i.event_id);
+    if (!ev) return false;
+    // don't announce events that have already been and gone
+    const end = new Date(ev.ends_at || ev.starts_at);
+    if (!ev.all_day && end < now) return false;
+    return true;
+  });
+  if (!iaQueue.length) return;
+  iaIndex = 0;
+  // Don't collide with the onboarding tour or the splash. If the tour is
+  // running, wait for it to finish before surfacing invites.
+  const tourRunning = () => !!document.getElementById("tourVeil")?.classList.contains("open");
+  const start = () => {
+    if (tourRunning()) return setTimeout(start, 1200);
+    showInviteAlert();
+  };
+  setTimeout(start, 1000);
+}
+
+function showInviteAlert() {
+  const inv = iaQueue[iaIndex];
+  if (!inv) return closeInviteAlert();
+  const ev = inv.events || events.find((e) => e.id === inv.event_id);
+  if (!ev) return iaNext();
+
+  const from = inv.inviter_name || "A Prio user";
+  $("iaFrom").textContent = from;
+  $("iaAvatar").textContent = from.charAt(0).toUpperCase();
+  $("iaTitle").textContent = ev.title;
+
+  // heading shows position when there are several waiting
+  $("iaHeading").textContent = iaQueue.length > 1
+    ? `New invitation (${iaIndex + 1} of ${iaQueue.length})`
+    : "New invitation";
+  $("iaBadge").textContent = iaQueue.length - iaIndex;
+  $("iaBadge").style.display = iaQueue.length > 1 ? "grid" : "none";
+
+  const start = new Date(ev.starts_at);
+  const dayLabel = start.toLocaleDateString("en-AU", { weekday: "long", day: "numeric", month: "long" });
+  const today = todayStr();
+  const evDay = eventDateStr(ev);
+  const tomorrow = new Date(); tomorrow.setDate(tomorrow.getDate() + 1);
+  const tomorrowStr = `${tomorrow.getFullYear()}-${String(tomorrow.getMonth() + 1).padStart(2, "0")}-${String(tomorrow.getDate()).padStart(2, "0")}`;
+  const prefix = evDay === today ? "Today · " : evDay === tomorrowStr ? "Tomorrow · " : "";
+  $("iaWhen").textContent = prefix + dayLabel;
+
+  $("iaTime").textContent = eventTimeLabel(ev);
+  $("iaTimeRow").style.display = "";
+
+  if (ev.location) { $("iaPlace").textContent = ev.location; $("iaPlaceRow").style.display = ""; }
+  else $("iaPlaceRow").style.display = "none";
+
+  if (ev.notes) { $("iaNotes").textContent = ev.notes; $("iaNotesRow").style.display = ""; }
+  else $("iaNotesRow").style.display = "none";
+
+  $("inviteAlertModal").classList.add("open");
+}
+
+function iaNext() {
+  iaIndex++;
+  if (iaIndex >= iaQueue.length) return closeInviteAlert();
+  showInviteAlert();
+}
+
+function closeInviteAlert() {
+  // everything we showed counts as seen, answered or not
+  iaMarkSeen(iaQueue.map((i) => i.id));
+  $("inviteAlertModal")?.classList.remove("open");
+  iaQueue = [];
+  iaIndex = 0;
+}
+
+async function iaRespond(status) {
+  const inv = iaQueue[iaIndex];
+  if (inv) {
+    iaMarkSeen([inv.id]);
+    await respondInvite(inv.event_id, status);
+  }
+  iaNext();
+}
+
+function wireInviteAlert() {
+  $("iaAccept")?.addEventListener("click", () => iaRespond("accepted"));
+  $("iaDecline")?.addEventListener("click", () => iaRespond("declined"));
+  $("iaLater")?.addEventListener("click", iaNext);
+  $("iaClose")?.addEventListener("click", closeInviteAlert);
+  $("inviteAlertModal")?.addEventListener("click", (e) => {
+    if (e.target.id === "inviteAlertModal") closeInviteAlert();
+  });
 }

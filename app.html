@@ -516,6 +516,49 @@
 
 
   <!-- Modern date picker modal -->
+  <!-- Invite notification (shown once per new invite, on app open) -->
+  <div class="modal-backdrop" id="inviteAlertModal">
+    <div class="modal invite-alert-modal">
+      <div class="ia-top">
+        <span class="ia-badge" id="iaBadge">1</span>
+        <div>
+          <p class="modal-kicker">You're invited</p>
+          <h2 id="iaHeading">New invitation</h2>
+        </div>
+        <button class="icon-btn" id="iaClose" aria-label="Close">&times;</button>
+      </div>
+
+      <div class="ia-card">
+        <p class="ia-from"><span class="ia-av" id="iaAvatar">?</span><span id="iaFrom">Someone</span> invited you to</p>
+        <h3 class="ia-title" id="iaTitle"></h3>
+        <ul class="ia-details">
+          <li id="iaWhenRow">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><rect x="3" y="5" width="18" height="16" rx="3"/><path d="M8 3v4M16 3v4M3 10h18"/></svg>
+            <span id="iaWhen"></span>
+          </li>
+          <li id="iaTimeRow">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3.5 2"/></svg>
+            <span id="iaTime"></span>
+          </li>
+          <li id="iaPlaceRow">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M12 21s7-5.5 7-11a7 7 0 10-14 0c0 5.5 7 11 7 11z"/><circle cx="12" cy="10" r="2.5"/></svg>
+            <span id="iaPlace"></span>
+          </li>
+          <li id="iaNotesRow">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M5 4h14v16H5z"/><path d="M9 9h6M9 13h6M9 17h3"/></svg>
+            <span id="iaNotes"></span>
+          </li>
+        </ul>
+      </div>
+
+      <div class="ia-actions">
+        <button class="btn-cancel" id="iaDecline">Can't make it</button>
+        <button class="btn-primary" id="iaAccept">I'm going</button>
+      </div>
+      <button class="ia-later" id="iaLater">Decide later</button>
+    </div>
+  </div>
+
   <div class="modal-backdrop" id="timePickerModal">
     <div class="modal time-picker-modal">
       <div class="date-picker-top">
