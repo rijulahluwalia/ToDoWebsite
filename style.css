@@ -3796,3 +3796,180 @@ body.dark .tour-card,
    ============================================ */
 body.modal-open .planner-filter-wrap { z-index: 1 !important; }
 body.modal-open .prio-filter-panel { display: none !important; }
+
+/* ============================================
+   Phase 4 · Calendar events + invites
+   ============================================ */
+.day-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+
+.calendar-event-list { margin-bottom: 16px; }
+.calendar-event-list h4 {
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+  margin-bottom: 10px;
+}
+
+.calendar-event {
+  position: relative;
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  background: var(--surface);
+  border-radius: var(--radius);
+  padding: 14px 14px 14px 20px;
+  box-shadow: var(--shadow);
+  margin-bottom: 10px;
+  overflow: hidden;
+  animation: taskIn 0.35s var(--ease-spring) both;
+  transition: transform 0.2s var(--ease-out), box-shadow 0.2s;
+}
+.calendar-event:hover { transform: translateY(-2px); box-shadow: var(--shadow-lift); }
+.calendar-event::before {
+  content: "";
+  position: absolute;
+  left: 0; top: 0; bottom: 0;
+  width: 5px;
+  background: var(--event-color, var(--primary));
+  border-radius: 0 4px 4px 0;
+}
+.ev-emoji { font-size: 1.15rem; flex-shrink: 0; margin-top: 1px; }
+.ev-body { flex: 1; min-width: 0; }
+.ev-body strong { display: block; font-size: 0.95rem; word-break: break-word; }
+.ev-body p { font-size: 0.8rem; color: var(--ink-soft); margin-top: 3px; word-break: break-word; }
+.ev-guests { color: var(--primary) !important; font-weight: 600; }
+.ev-notes { opacity: 0.85; }
+.ev-actions { display: flex; gap: 2px; flex-shrink: 0; }
+.ev-actions .icon-btn.ok:hover { background: #e2f8ec; color: #1a8a52; }
+.ev-actions .icon-btn.no:hover { background: #ffe9ec; color: var(--danger); }
+.ev-actions .icon-btn.gcal:hover { background: #e2f8ec; color: #1a8a52; }
+
+.ev-status {
+  display: inline-block;
+  font-size: 0.64rem;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  padding: 2px 8px;
+  border-radius: 999px;
+  vertical-align: middle;
+  margin-left: 6px;
+  background: var(--primary-soft);
+  color: var(--primary);
+}
+.ev-status.accepted { background: #e2f8ec; color: #1a8a52; }
+.ev-status.declined { background: #ffe9ec; color: var(--danger); }
+
+/* ---- event modal fields ---- */
+.ev-row { display: flex; gap: 12px; }
+.ev-row .field { flex: 1; }
+.ev-row input[type="date"], .ev-row input[type="time"] {
+  width: 100%;
+  border: 2px solid transparent;
+  background: var(--bg);
+  border-radius: var(--radius-sm);
+  padding: 12px 14px;
+  outline: none;
+  transition: border-color 0.2s, background 0.2s;
+}
+.ev-row input[type="date"]:focus, .ev-row input[type="time"]:focus {
+  border-color: var(--primary);
+  background: var(--surface);
+}
+.ev-allday { flex: 0 0 auto; display: flex; flex-direction: column; }
+.ev-toggle {
+  width: 54px; height: 30px;
+  border-radius: 999px;
+  background: var(--line);
+  position: relative;
+  transition: background 0.28s var(--ease-out);
+  flex-shrink: 0;
+}
+.ev-toggle span {
+  position: absolute;
+  top: 3px; left: 3px;
+  width: 24px; height: 24px;
+  border-radius: 50%;
+  background: var(--surface);
+  box-shadow: 0 2px 6px rgba(23,27,54,0.25);
+  transition: transform 0.32s var(--ease-spring);
+}
+.ev-toggle.on { background: var(--primary); }
+.ev-toggle.on span { transform: translateX(24px); }
+
+/* ---- people search ---- */
+.invite-results {
+  margin-top: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-height: 210px;
+  overflow-y: auto;
+}
+.invite-hint { font-size: 0.82rem; color: var(--ink-soft); padding: 8px 4px; }
+.invite-result {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 9px 12px;
+  border-radius: var(--radius-sm);
+  background: var(--bg);
+  text-align: left;
+  font-weight: 600;
+  font-size: 0.9rem;
+  transition: all 0.2s var(--ease-spring);
+  animation: taskIn 0.25s var(--ease-spring) both;
+}
+.invite-result:hover { background: var(--primary-soft); transform: translateX(3px); }
+.invite-result span:nth-child(2) { flex: 1; min-width: 0; }
+.invite-add { font-size: 0.75rem; font-weight: 800; color: var(--primary); white-space: nowrap; }
+
+.invite-av {
+  width: 30px; height: 30px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--primary), #8a63ff);
+  color: #fff;
+  display: grid;
+  place-items: center;
+  font-size: 0.82rem;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+.invite-av.sm { width: 22px; height: 22px; font-size: 0.68rem; }
+
+.invite-chips { display: flex; flex-wrap: wrap; gap: 7px; margin-top: 10px; }
+.invite-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 5px 8px 5px 5px;
+  border-radius: 999px;
+  background: var(--primary-soft);
+  color: var(--ink);
+  font-size: 0.83rem;
+  font-weight: 600;
+  animation: taskIn 0.3s var(--ease-spring) both;
+}
+.invite-chip em { font-style: normal; font-size: 0.7rem; opacity: 0.7; }
+.invite-chip.accepted { background: #e2f8ec; }
+.invite-chip.declined { background: #ffe9ec; }
+.invite-chip button {
+  width: 18px; height: 18px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  font-size: 0.62rem;
+  color: var(--ink-soft);
+  transition: all 0.18s;
+}
+.invite-chip button:hover { background: var(--danger); color: #fff; }
+
+@media (max-width: 640px) {
+  .ev-row { flex-wrap: wrap; }
+  .ev-allday { flex-direction: row; align-items: center; gap: 10px; }
+  .calendar-event { padding-left: 16px; }
+  .ev-actions { flex-wrap: wrap; justify-content: flex-end; max-width: 84px; }
+}

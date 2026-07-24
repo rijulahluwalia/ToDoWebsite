@@ -124,6 +124,8 @@ async function init() {
   await loadRoutines();
   await loadUni();
   await ensureTodayRoutines();
+  try { await loadEvents(); await cacheInviteNames(); }
+  catch (e) { console.warn("Events unavailable — run schema-update-4.sql", e); }
 
   renderGreeting();
   renderQuote();
@@ -133,6 +135,7 @@ async function init() {
   wirePhase2Events();
   wireDatePickerEvents();
   wireUniEvents();
+  wireEventEvents();
   initPullToRefresh();
   loadWeather();
   loadDump();
@@ -771,9 +774,11 @@ function renderCalendar() {
     const dayTasks = tasks.filter((t) => t.due_date === iso);
     const breakInfo = uniBreakForDate(iso);
     const uniItems = breakInfo ? [] : uniCalendarItemsForDate(iso);
+    const dayEvents = eventsForDate(iso);
     const dots = [
       ...dayTasks.map((t) => ({ color: prioById(t.priority_id)?.color || "#c3c8dd" })),
       ...(breakInfo ? [{ color: "#2fbf71" }] : uniItems.map((u) => ({ color: u.type === "assessment" ? "#ffb938" : u.color }))),
+      ...dayEvents.map((e) => ({ color: e.color || "#4353ff" })),
     ].slice(0, 5).map((dot, i) => `<i style="background:${dot.color};animation-delay:${i * 0.06}s"></i>`).join("");
     const cls = ["cal-day", iso === today ? "today" : "", iso === selectedDate ? "selected" : "", breakInfo ? "semester-break" : ""].join(" ");
     html += `<button class="${cls}" data-date="${iso}" title="${breakInfo ? esc(breakInfo.label || 'Semester break') : ''}"><span>${d}</span><span class="cal-dots">${dots}</span></button>`;
@@ -814,17 +819,24 @@ function renderDayPanel() {
         return `<div class="calendar-uni-event class" style="--subject-color:${esc(ev.color)}"><span>🎓</span><div><strong>${esc(ev.subject?.code || ev.subject?.name || "Subject")} · ${esc(c.class_type || "Class")}</strong><p>${time} · ${esc(c.room || "Room TBA")}</p></div></div>`;
       }).join("")}
     </div>` : "";
+  const eventsHtml = eventsPanelHTML(selectedDate);
   panel.innerHTML = `
     <div class="section-head">
       <h3>${pretty}</h3>
-      <button class="btn-ghost" id="addOnDay">+ Add task this day</button>
+      <div class="day-actions">
+        <button class="btn-ghost" id="addEventOnDay">+ Event</button>
+        <button class="btn-ghost" id="addOnDay">+ Task</button>
+      </div>
     </div>
+    ${eventsHtml}
     ${uniHtml}
     <div class="task-list">${dayTasks.length
       ? dayTasks.map(taskHTML).join("")
-      : (!uniItems.length && !breakInfo ? `<div class="empty"><span class="emoji">🗓️</span>Nothing planned — a rare free day!</div>` : "")}</div>`;
+      : (!uniItems.length && !breakInfo && !eventsHtml ? `<div class="empty"><span class="emoji">🗓️</span>Nothing planned — a rare free day!</div>` : "")}</div>`;
   $("addOnDay").addEventListener("click", () => openModal(null, selectedDate));
+  $("addEventOnDay").addEventListener("click", () => openEventModal(null, selectedDate));
   wireTaskEvents(panel);
+  wireEventPanel(panel);
 }
 
 // ---------- colour lab (priorities) ----------
@@ -2981,3 +2993,361 @@ function saveSundayReview() {
   // catch modals added to the DOM later
   new MutationObserver(observe).observe(document.body, { childList: true, subtree: true });
 })();
+
+// ============================================
+// Phase 4 · Calendar events + invites
+// Events the user owns AND events they've been invited to both appear
+// on the calendar. Times are stored as timestamptz so an invite sent
+// from Sydney reads correctly wherever the invitee is.
+// ============================================
+let events = [];          // events I own or am invited to
+let myInvites = [];       // invites addressed to me
+let eventInvitees = [];   // people staged in the open modal [{id, display_name}]
+let editingEventId = null;
+let inviteSearchTimer = null;
+
+async function loadEvents() {
+  const [{ data: ev }, { data: inv }] = await Promise.all([
+    db.from("events").select("*").order("starts_at"),
+    db.from("event_invites").select("*, events(*)").eq("invitee_id", user.id),
+  ]);
+  const owned = ev || [];
+  myInvites = inv || [];
+  // merge invited events that RLS returned via the join
+  const extra = myInvites.map((i) => i.events).filter(Boolean);
+  const seen = new Set(owned.map((e) => e.id));
+  events = [...owned, ...extra.filter((e) => e && !seen.has(e.id))];
+}
+
+function eventDateStr(ev) {
+  const d = new Date(ev.starts_at);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+
+function eventsForDate(iso) {
+  return events.filter((e) => eventDateStr(e) === iso)
+    .sort((a, b) => new Date(a.starts_at) - new Date(b.starts_at));
+}
+
+function eventTimeLabel(ev) {
+  if (ev.all_day) return "All day";
+  const f = (t) => new Date(t).toLocaleTimeString("en-AU", { hour: "numeric", minute: "2-digit" });
+  return ev.ends_at ? `${f(ev.starts_at)} – ${f(ev.ends_at)}` : f(ev.starts_at);
+}
+
+function myInviteFor(eventId) {
+  return myInvites.find((i) => i.event_id === eventId) || null;
+}
+
+// ---------- modal ----------
+function openEventModal(eventId = null, presetDate = null) {
+  editingEventId = eventId;
+  const ev = eventId ? events.find((x) => x.id === eventId) : null;
+  const owned = !ev || ev.owner_id === user.id;
+  if (ev && !owned) return toast("Only the organiser can edit this event");
+
+  $("eventModalTitle").textContent = ev ? "Edit event" : "New event";
+  $("eventTitle").value = ev ? ev.title : "";
+  $("eventLocation").value = ev ? ev.location || "" : "";
+  $("eventNotes").value = ev ? ev.notes || "" : "";
+
+  if (ev) {
+    const s = new Date(ev.starts_at);
+    $("eventDate").value = eventDateStr(ev);
+    $("eventStart").value = `${String(s.getHours()).padStart(2, "0")}:${String(s.getMinutes()).padStart(2, "0")}`;
+    if (ev.ends_at) {
+      const e = new Date(ev.ends_at);
+      $("eventEnd").value = `${String(e.getHours()).padStart(2, "0")}:${String(e.getMinutes()).padStart(2, "0")}`;
+    }
+    setAllDay(!!ev.all_day);
+  } else {
+    $("eventDate").value = presetDate || selectedDate || todayStr();
+    $("eventStart").value = "09:00";
+    $("eventEnd").value = "10:00";
+    setAllDay(false);
+  }
+
+  // staged invitees
+  eventInvitees = [];
+  $("inviteSearch").value = "";
+  $("inviteResults").innerHTML = "";
+  renderInviteChips();
+  if (ev) loadExistingInvitees(ev.id);
+
+  $("eventModal").classList.add("open");
+  setTimeout(() => $("eventTitle").focus(), 250);
+}
+
+function closeEventModal() {
+  $("eventModal").classList.remove("open");
+  editingEventId = null;
+  eventInvitees = [];
+}
+
+function setAllDay(on) {
+  const btn = $("eventAllDay");
+  btn.classList.toggle("on", on);
+  btn.setAttribute("aria-checked", on ? "true" : "false");
+  $("eventTimeRow").style.display = on ? "none" : "";
+}
+
+async function loadExistingInvitees(eventId) {
+  const { data } = await db.from("event_invites").select("invitee_id, status").eq("event_id", eventId);
+  if (!data?.length) return;
+  const ids = data.map((d) => d.invitee_id);
+  const { data: profs } = await db.from("profiles").select("id, display_name").in("id", ids);
+  eventInvitees = (profs || []).map((p) => ({
+    ...p,
+    status: data.find((d) => d.invitee_id === p.id)?.status || "pending",
+    existing: true,
+  }));
+  renderInviteChips();
+}
+
+// ---------- people search ----------
+function runInviteSearch() {
+  const q = $("inviteSearch").value.trim();
+  const box = $("inviteResults");
+  if (q.length < 2) { box.innerHTML = ""; return; }
+  box.innerHTML = `<div class="invite-hint">Searching…</div>`;
+
+  clearTimeout(inviteSearchTimer);
+  inviteSearchTimer = setTimeout(async () => {
+    const { data, error } = await db.rpc("search_people", { q });
+    if (error) { box.innerHTML = `<div class="invite-hint">Search unavailable — run schema-update-4.sql</div>`; return; }
+    const results = (data || []).filter((p) => !eventInvitees.some((i) => i.id === p.id));
+    if (!results.length) { box.innerHTML = `<div class="invite-hint">No one found on Prio matching that.</div>`; return; }
+    box.innerHTML = results.map((p) => `
+      <button type="button" class="invite-result" data-id="${p.id}" data-name="${esc(p.display_name || "Prio user")}">
+        <span class="invite-av">${esc((p.display_name || "?").charAt(0).toUpperCase())}</span>
+        <span>${esc(p.display_name || "Prio user")}</span>
+        <span class="invite-add">+ Invite</span>
+      </button>`).join("");
+    box.querySelectorAll(".invite-result").forEach((b) =>
+      b.addEventListener("click", () => {
+        eventInvitees.push({ id: b.dataset.id, display_name: b.dataset.name });
+        $("inviteSearch").value = "";
+        box.innerHTML = "";
+        renderInviteChips();
+      }));
+  }, 280);
+}
+
+function renderInviteChips() {
+  const wrap = $("inviteChips");
+  if (!eventInvitees.length) { wrap.innerHTML = ""; return; }
+  wrap.innerHTML = eventInvitees.map((p) => {
+    const badge = p.status === "accepted" ? "✓" : p.status === "declined" ? "✕" : "•";
+    return `<span class="invite-chip ${p.status || ""}" data-id="${p.id}">
+      <span class="invite-av sm">${esc((p.display_name || "?").charAt(0).toUpperCase())}</span>
+      ${esc(p.display_name || "Prio user")}
+      <em title="${p.status || "not yet invited"}">${badge}</em>
+      <button type="button" aria-label="Remove">✕</button>
+    </span>`;
+  }).join("");
+  wrap.querySelectorAll(".invite-chip button").forEach((b) =>
+    b.addEventListener("click", (e) => {
+      const id = e.target.closest(".invite-chip").dataset.id;
+      eventInvitees = eventInvitees.filter((p) => p.id !== id);
+      renderInviteChips();
+    }));
+}
+
+// ---------- save ----------
+async function saveEvent() {
+  const title = $("eventTitle").value.trim();
+  if (!title) return toast("Give your event a name");
+  const date = $("eventDate").value;
+  if (!date) return toast("Pick a date for the event");
+
+  const allDay = $("eventAllDay").classList.contains("on");
+  const startTime = allDay ? "00:00" : ($("eventStart").value || "09:00");
+  const starts = new Date(`${date}T${startTime}`);
+  let ends = null;
+  if (!allDay && $("eventEnd").value) {
+    ends = new Date(`${date}T${$("eventEnd").value}`);
+    if (ends <= starts) return toast("End time must be after the start time");
+  }
+
+  const payload = {
+    owner_id: user.id,
+    title,
+    notes: $("eventNotes").value.trim() || null,
+    location: $("eventLocation").value.trim() || null,
+    starts_at: starts.toISOString(),
+    ends_at: ends ? ends.toISOString() : null,
+    all_day: allDay,
+  };
+
+  const btn = $("eventSave");
+  btn.disabled = true;
+  try {
+    let eventId = editingEventId;
+    if (eventId) {
+      const { error } = await db.from("events").update(payload).eq("id", eventId);
+      if (error) throw error;
+    } else {
+      const { data, error } = await db.from("events").insert(payload).select().single();
+      if (error) throw error;
+      eventId = data.id;
+    }
+
+    // sync invites: add new ones, remove any that were taken off
+    const { data: current } = await db.from("event_invites").select("invitee_id").eq("event_id", eventId);
+    const currentIds = (current || []).map((c) => c.invitee_id);
+    const wantIds = eventInvitees.map((p) => p.id);
+
+    const toAdd = wantIds.filter((id) => !currentIds.includes(id));
+    const toRemove = currentIds.filter((id) => !wantIds.includes(id));
+
+    if (toAdd.length) {
+      await db.from("event_invites").insert(toAdd.map((id) => ({
+        event_id: eventId, invitee_id: id, inviter_id: user.id, status: "pending",
+      })));
+    }
+    if (toRemove.length) {
+      await db.from("event_invites").delete().eq("event_id", eventId).in("invitee_id", toRemove);
+    }
+
+    await loadEvents();
+    renderCalendar();
+    closeEventModal();
+    toast(editingEventId ? "Event updated 🗓️" : (toAdd.length ? `Event created · ${toAdd.length} invited 🗓️` : "Event created 🗓️"));
+  } catch (err) {
+    toast(err.message?.includes("events") ? "Couldn't save — run schema-update-4.sql" : "Couldn't save — try again");
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+async function deleteEvent(id) {
+  const ev = events.find((e) => e.id === id);
+  if (!ev) return;
+  if (ev.owner_id !== user.id) return toast("Only the organiser can delete this");
+  if (!confirm(`Delete "${ev.title}"? Guests will lose the invite too.`)) return;
+  await db.from("events").delete().eq("id", id);
+  events = events.filter((e) => e.id !== id);
+  renderCalendar();
+  toast("Event deleted");
+}
+
+async function respondInvite(eventId, status) {
+  const inv = myInviteFor(eventId);
+  if (!inv) return;
+  const { error } = await db.from("event_invites").update({ status }).eq("id", inv.id);
+  if (error) return toast("Couldn't update — try again");
+  inv.status = status;
+  renderCalendar();
+  toast(status === "accepted" ? "You're going ✓" : "Invite declined");
+}
+
+// ---------- Google Calendar ----------
+function eventToGoogle(id) {
+  const ev = events.find((e) => e.id === id);
+  if (!ev) return;
+  // All-day uses LOCAL calendar digits (no timezone); timed uses true UTC.
+  // Getting this wrong shifts events by the whole UTC offset in Google.
+  const stamp = (d, allDay) => {
+    const dt = new Date(d);
+    if (allDay) {
+      return `${dt.getFullYear()}${String(dt.getMonth() + 1).padStart(2, "0")}${String(dt.getDate()).padStart(2, "0")}`;
+    }
+    const iso = dt.toISOString();            // always UTC, e.g. 2026-08-14T23:30:00.000Z
+    return iso.slice(0, 19).replace(/[-:]/g, "") + "Z";
+  };
+  let dates;
+  if (ev.all_day) {
+    const end = new Date(ev.starts_at);
+    end.setDate(end.getDate() + 1);
+    dates = `${stamp(ev.starts_at, true)}/${stamp(end, true)}`;
+  } else {
+    const end = ev.ends_at || new Date(new Date(ev.starts_at).getTime() + 3600000);
+    dates = `${stamp(ev.starts_at)}/${stamp(end)}`;
+  }
+  const guestNames = eventInviteNames(ev.id);
+  const details = [ev.notes, guestNames ? `With: ${guestNames}` : "", "— added from Prio"].filter(Boolean).join("\n");
+  const url = "https://calendar.google.com/calendar/render?action=TEMPLATE" +
+    `&text=${encodeURIComponent(ev.title)}` +
+    `&dates=${dates}` +
+    `&details=${encodeURIComponent(details)}` +
+    (ev.location ? `&location=${encodeURIComponent(ev.location)}` : "");
+  window.open(url, "_blank");
+  toast("Opening Google Calendar 📅");
+}
+
+let inviteNameCache = {};
+function eventInviteNames(eventId) {
+  return (inviteNameCache[eventId] || []).join(", ");
+}
+
+async function cacheInviteNames() {
+  const ids = events.map((e) => e.id);
+  if (!ids.length) return;
+  const { data } = await db.from("event_invites").select("event_id, invitee_id, status").in("event_id", ids);
+  if (!data?.length) return;
+  const people = [...new Set(data.map((d) => d.invitee_id))];
+  const { data: profs } = await db.from("profiles").select("id, display_name").in("id", people);
+  const nameOf = Object.fromEntries((profs || []).map((p) => [p.id, p.display_name || "Prio user"]));
+  inviteNameCache = {};
+  data.forEach((d) => {
+    (inviteNameCache[d.event_id] ||= []).push(nameOf[d.invitee_id] || "Prio user");
+  });
+}
+
+// ---------- render into the day panel ----------
+function eventsPanelHTML(iso) {
+  const list = eventsForDate(iso);
+  if (!list.length) return "";
+  return `
+    <div class="calendar-event-list">
+      <h4>Events</h4>
+      ${list.map((ev) => {
+        const mine = ev.owner_id === user.id;
+        const inv = myInviteFor(ev.id);
+        const guests = eventInviteNames(ev.id);
+        const statusChip = !mine && inv
+          ? `<span class="ev-status ${inv.status}">${inv.status === "accepted" ? "Going" : inv.status === "declined" ? "Declined" : "Invited"}</span>` : "";
+        return `
+        <div class="calendar-event" data-id="${ev.id}" style="--event-color:${esc(ev.color || "#4353ff")}">
+          <span class="ev-emoji">${ev.all_day ? "📌" : "🗓️"}</span>
+          <div class="ev-body">
+            <strong>${esc(ev.title)} ${statusChip}</strong>
+            <p>${esc(eventTimeLabel(ev))}${ev.location ? " · " + esc(ev.location) : ""}</p>
+            ${guests ? `<p class="ev-guests">👥 ${esc(guests)}</p>` : ""}
+            ${ev.notes ? `<p class="ev-notes">${esc(ev.notes)}</p>` : ""}
+          </div>
+          <div class="ev-actions">
+            ${!mine && inv && inv.status !== "accepted" ? `<button class="icon-btn ok" title="Accept">✓</button>` : ""}
+            ${!mine && inv && inv.status !== "declined" ? `<button class="icon-btn no" title="Decline">✕</button>` : ""}
+            <button class="icon-btn gcal" title="Add to Google Calendar">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="5" width="18" height="16" rx="3"/><path d="M8 3v4M16 3v4M3 10h18M12 14v4M10 16h4"/></svg>
+            </button>
+            ${mine ? `<button class="icon-btn edit" title="Edit"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 20l4-1L20 7l-3-3L5 16l-1 4z"/></svg></button>
+            <button class="icon-btn del" title="Delete"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 7h16M9 7V5a1 1 0 011-1h4a1 1 0 011 1v2m-9 0l1 13h8l1-13"/></svg></button>` : ""}
+          </div>
+        </div>`;
+      }).join("")}
+    </div>`;
+}
+
+function wireEventPanel(scope) {
+  scope.querySelectorAll(".calendar-event").forEach((el) => {
+    const id = el.dataset.id;
+    el.querySelector(".gcal")?.addEventListener("click", () => eventToGoogle(id));
+    el.querySelector(".edit")?.addEventListener("click", () => openEventModal(id));
+    el.querySelector(".del")?.addEventListener("click", () => deleteEvent(id));
+    el.querySelector(".ok")?.addEventListener("click", () => respondInvite(id, "accepted"));
+    el.querySelector(".no")?.addEventListener("click", () => respondInvite(id, "declined"));
+  });
+}
+
+// ---------- wiring ----------
+function wireEventEvents() {
+  $("eventCancel")?.addEventListener("click", closeEventModal);
+  $("eventSave")?.addEventListener("click", saveEvent);
+  $("eventModal")?.addEventListener("click", (e) => { if (e.target.id === "eventModal") closeEventModal(); });
+  $("eventTitle")?.addEventListener("keydown", (e) => { if (e.key === "Enter") saveEvent(); });
+  $("eventAllDay")?.addEventListener("click", () => setAllDay(!$("eventAllDay").classList.contains("on")));
+  $("inviteSearch")?.addEventListener("input", runInviteSearch);
+  $("inviteSearch")?.addEventListener("keydown", (e) => { if (e.key === "Enter") e.preventDefault(); });
+}

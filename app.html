@@ -292,6 +292,64 @@
   </div>
 
   <!-- Task modal -->
+  <!-- Event modal (calendar events + invites) -->
+  <div class="modal-backdrop" id="eventModal">
+    <div class="modal">
+      <h2 id="eventModalTitle">New event</h2>
+
+      <div class="field">
+        <label for="eventTitle">Event</label>
+        <div class="input-shell"><input type="text" id="eventTitle" placeholder="e.g. Coffee with Rij" maxlength="120" /></div>
+      </div>
+
+      <div class="ev-row">
+        <div class="field">
+          <label for="eventDate">Date</label>
+          <input type="date" id="eventDate" />
+        </div>
+        <div class="field ev-allday">
+          <label for="eventAllDay">All day</label>
+          <button type="button" class="ev-toggle" id="eventAllDay" role="switch" aria-checked="false"><span></span></button>
+        </div>
+      </div>
+
+      <div class="ev-row" id="eventTimeRow">
+        <div class="field">
+          <label for="eventStart">Starts</label>
+          <input type="time" id="eventStart" value="09:00" />
+        </div>
+        <div class="field">
+          <label for="eventEnd">Ends</label>
+          <input type="time" id="eventEnd" value="10:00" />
+        </div>
+      </div>
+
+      <div class="field">
+        <label for="eventLocation">Location (optional)</label>
+        <div class="input-shell"><input type="text" id="eventLocation" placeholder="e.g. Circular Quay" maxlength="160" /></div>
+      </div>
+
+      <div class="field">
+        <label for="eventNotes">Notes (optional)</label>
+        <textarea id="eventNotes" placeholder="Any details…"></textarea>
+      </div>
+
+      <div class="field">
+        <label for="inviteSearch">Invite people on Prio</label>
+        <div class="input-shell">
+          <input type="text" id="inviteSearch" placeholder="Search by name — at least 2 letters" autocomplete="off" />
+        </div>
+        <div class="invite-results" id="inviteResults"></div>
+        <div class="invite-chips" id="inviteChips"></div>
+      </div>
+
+      <div class="modal-actions">
+        <button class="btn-cancel" id="eventCancel">Cancel</button>
+        <button class="btn-primary" id="eventSave">Save event</button>
+      </div>
+    </div>
+  </div>
+
   <div class="modal-backdrop" id="taskModal">
     <div class="modal">
       <h2 id="modalTitle">New task</h2>
