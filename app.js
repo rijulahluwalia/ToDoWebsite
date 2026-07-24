@@ -115,6 +115,9 @@ async function init() {
   const { data } = await db.auth.getSession();
   if (!data.session) { window.location.href = "index.html"; return; }
   user = data.session.user;
+  // Supabase exposes Google's token here right after the OAuth redirect.
+  // It's not stored anywhere, so grab it now or it's gone.
+  gcalCaptureToken(data.session);
 
   await loadProfile();
   await loadPriorities();
@@ -126,6 +129,8 @@ async function init() {
   await ensureTodayRoutines();
   try { await loadEvents(); await cacheInviteNames(); }
   catch (e) { console.warn("Events unavailable — run schema-update-4.sql", e); }
+  try { await loadGcalLinks(); }
+  catch (e) { console.warn("Google Calendar links unavailable — run schema-update-5.sql", e); }
 
   renderGreeting();
   renderQuote();
@@ -137,6 +142,8 @@ async function init() {
   wireUniEvents();
   wireEventEvents();
   wireTimePickerEvents();
+  wireGcalEvents();
+  renderGcalStatus();
   wireInviteAlert();
   initPullToRefresh();
   loadWeather();
@@ -533,7 +540,11 @@ function wireTaskEvents(scope) {
     el.querySelector(".del").addEventListener("click", () => removeTask(id, el));
     el.querySelector(".edit").addEventListener("click", () => openModal(id));
     const gcal = el.querySelector(".gcal");
-    if (gcal) gcal.addEventListener("click", () => openGoogleCalendar(id));
+    if (gcal) gcal.addEventListener("click", () => {
+      const t = tasks.find((x) => x.id === id);
+      if (gcalConnected() && t) gcalSyncOne("task", t);
+      else openGoogleCalendar(id);
+    });
     el.querySelector(".task-body").addEventListener("click", () => openModal(id));
   });
 }
@@ -3364,6 +3375,10 @@ async function deleteEvent(id) {
   if (!ev) return;
   if (ev.owner_id !== user.id) return toast("Only the organiser can delete this");
   if (!confirm(`Delete "${ev.title}"? Guests will lose the invite too.`)) return;
+  // clean up the Google copy too, so no orphan is left behind
+  if (gcalConnected() && gcalLinkFor("event", id)) {
+    try { await gcalRemove("event", id); } catch { /* non-fatal */ }
+  }
   await db.from("events").delete().eq("id", id);
   events = events.filter((e) => e.id !== id);
   renderCalendar();
@@ -3472,7 +3487,11 @@ function eventsPanelHTML(iso) {
 function wireEventPanel(scope) {
   scope.querySelectorAll(".calendar-event").forEach((el) => {
     const id = el.dataset.id;
-    el.querySelector(".gcal")?.addEventListener("click", () => eventToGoogle(id));
+    el.querySelector(".gcal")?.addEventListener("click", () => {
+      const ev = events.find((x) => x.id === id);
+      if (gcalConnected() && ev) gcalSyncOne("event", ev);
+      else eventToGoogle(id);   // fall back to the manual "add to calendar" link
+    });
     el.querySelector(".edit")?.addEventListener("click", () => openEventModal(id));
     el.querySelector(".del")?.addEventListener("click", () => deleteEvent(id));
     el.querySelector(".ok")?.addEventListener("click", () => respondInvite(id, "accepted"));
@@ -3820,4 +3839,290 @@ function wireInviteAlert() {
   $("inviteAlertModal")?.addEventListener("click", (e) => {
     if (e.target.id === "inviteAlertModal") closeInviteAlert();
   });
+}
+
+// ============================================
+// Phase 5 · Google Calendar sync
+//
+// How the token works (important):
+// Supabase returns Google's access token as session.provider_token, but
+// deliberately does NOT store it — provider tokens grant access to
+// sensitive third-party data. Google also expires it after ~1 hour.
+// So we keep it in sessionStorage for this browser session and, when it
+// expires, ask the user to reconnect rather than failing silently.
+// ============================================
+const GCAL_SCOPE = "https://www.googleapis.com/auth/calendar.events";
+const GCAL_TOKEN_KEY = "prio_gcal_token";
+const GCAL_API = "https://www.googleapis.com/calendar/v3";
+
+let gcalLinks = [];   // rows from gcal_links for this user
+
+// ---------- token handling ----------
+function gcalSaveToken(token, expiresInSec = 3600) {
+  if (!token) return;
+  const payload = { token, expires: Date.now() + (expiresInSec * 1000) - 60000 }; // 1 min safety margin
+  try { sessionStorage.setItem(GCAL_TOKEN_KEY, JSON.stringify(payload)); } catch {}
+}
+
+function gcalGetToken() {
+  try {
+    const raw = sessionStorage.getItem(GCAL_TOKEN_KEY);
+    if (!raw) return null;
+    const { token, expires } = JSON.parse(raw);
+    if (!token || Date.now() > expires) {
+      sessionStorage.removeItem(GCAL_TOKEN_KEY);
+      return null;
+    }
+    return token;
+  } catch { return null; }
+}
+
+function gcalClearToken() {
+  try { sessionStorage.removeItem(GCAL_TOKEN_KEY); } catch {}
+}
+
+function gcalConnected() {
+  return !!gcalGetToken();
+}
+
+// Called on every app load: Supabase puts provider_token on the session
+// right after the OAuth redirect. Grab it before it's lost.
+function gcalCaptureToken(session) {
+  if (session?.provider_token) {
+    gcalSaveToken(session.provider_token);
+    return true;
+  }
+  return false;
+}
+
+async function gcalConnect() {
+  const { error } = await db.auth.signInWithOAuth({
+    provider: "google",
+    options: {
+      scopes: GCAL_SCOPE,
+      redirectTo: window.location.origin + "/app.html",
+      queryParams: { access_type: "offline", prompt: "consent" },
+    },
+  });
+  if (error) toast("Couldn't open Google sign-in — " + error.message);
+}
+
+function gcalDisconnect() {
+  gcalClearToken();
+  renderGcalStatus();
+  toast("Google Calendar disconnected");
+}
+
+// ---------- API helper ----------
+async function gcalFetch(path, options = {}) {
+  const token = gcalGetToken();
+  if (!token) throw new Error("NOT_CONNECTED");
+
+  const res = await fetch(GCAL_API + path, {
+    ...options,
+    headers: {
+      Authorization: "Bearer " + token,
+      "Content-Type": "application/json",
+      ...(options.headers || {}),
+    },
+  });
+
+  if (res.status === 401 || res.status === 403) {
+    gcalClearToken();
+    renderGcalStatus();
+    throw new Error("TOKEN_EXPIRED");
+  }
+  if (!res.ok) {
+    let msg = "Google Calendar error " + res.status;
+    try { const j = await res.json(); msg = j.error?.message || msg; } catch {}
+    throw new Error(msg);
+  }
+  return res.status === 204 ? null : res.json();
+}
+
+// ---------- links ----------
+async function loadGcalLinks() {
+  const { data } = await db.from("gcal_links").select("*").eq("user_id", user.id);
+  gcalLinks = data || [];
+}
+
+function gcalLinkFor(type, id) {
+  return gcalLinks.find((l) => l.source_type === type && l.source_id === id) || null;
+}
+
+// ---------- payload builders ----------
+// Google wants either {date} for all-day or {dateTime,timeZone} for timed.
+function gcalTimeFields(startISO, endISO, allDay) {
+  const tz = Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
+  if (allDay) {
+    const d = new Date(startISO);
+    const ymd = (x) => `${x.getFullYear()}-${String(x.getMonth() + 1).padStart(2, "0")}-${String(x.getDate()).padStart(2, "0")}`;
+    const endDay = new Date(startISO);
+    endDay.setDate(endDay.getDate() + 1);       // Google's all-day end is exclusive
+    return { start: { date: ymd(d) }, end: { date: ymd(endDay) } };
+  }
+  const end = endISO || new Date(new Date(startISO).getTime() + 3600000).toISOString();
+  return {
+    start: { dateTime: new Date(startISO).toISOString(), timeZone: tz },
+    end: { dateTime: new Date(end).toISOString(), timeZone: tz },
+  };
+}
+
+function gcalEventPayload(ev) {
+  const guests = eventInviteNames(ev.id);
+  const description = [ev.notes, guests ? `With: ${guests}` : "", "— synced from Prio"]
+    .filter(Boolean).join("\n");
+  return {
+    summary: ev.title,
+    description,
+    ...(ev.location ? { location: ev.location } : {}),
+    ...gcalTimeFields(ev.starts_at, ev.ends_at, ev.all_day),
+  };
+}
+
+function gcalTaskPayload(t) {
+  const p = prioById(t.priority_id);
+  const description = [t.notes, p ? `Priority: ${p.name}` : "", "— synced from Prio"]
+    .filter(Boolean).join("\n");
+  // tasks have a due date but no time → all-day entry
+  return {
+    summary: t.title,
+    description,
+    ...gcalTimeFields(t.due_date + "T00:00:00", null, true),
+  };
+}
+
+// ---------- push one item ----------
+async function gcalPush(type, item, { silent = false } = {}) {
+  const payload = type === "event" ? gcalEventPayload(item) : gcalTaskPayload(item);
+  const link = gcalLinkFor(type, item.id);
+
+  let googleId;
+  if (link) {
+    // update in place — no duplicates on re-sync
+    try {
+      const res = await gcalFetch(`/calendars/primary/events/${encodeURIComponent(link.google_event_id)}`, {
+        method: "PATCH", body: JSON.stringify(payload),
+      });
+      googleId = res.id;
+    } catch (err) {
+      if (String(err.message).includes("404") || String(err.message).includes("Not Found")) {
+        // deleted on Google's side — recreate and relink
+        const res = await gcalFetch("/calendars/primary/events", { method: "POST", body: JSON.stringify(payload) });
+        googleId = res.id;
+      } else throw err;
+    }
+  } else {
+    const res = await gcalFetch("/calendars/primary/events", { method: "POST", body: JSON.stringify(payload) });
+    googleId = res.id;
+  }
+
+  const row = {
+    user_id: user.id, source_type: type, source_id: item.id,
+    google_event_id: googleId, google_calendar_id: "primary",
+    synced_at: new Date().toISOString(),
+  };
+  await db.from("gcal_links").upsert(row, { onConflict: "user_id,source_type,source_id" });
+
+  const existing = gcalLinkFor(type, item.id);
+  if (existing) Object.assign(existing, row);
+  else gcalLinks.push(row);
+
+  if (!silent) toast("Synced to Google Calendar ✓");
+  return googleId;
+}
+
+async function gcalRemove(type, id) {
+  const link = gcalLinkFor(type, id);
+  if (!link) return;
+  try {
+    await gcalFetch(`/calendars/primary/events/${encodeURIComponent(link.google_event_id)}`, { method: "DELETE" });
+  } catch (err) {
+    // already gone on Google's side is fine
+    if (!String(err.message).includes("410") && !String(err.message).includes("404")) throw err;
+  }
+  await db.from("gcal_links").delete().eq("user_id", user.id)
+    .eq("source_type", type).eq("source_id", id);
+  gcalLinks = gcalLinks.filter((l) => !(l.source_type === type && l.source_id === id));
+}
+
+// ---------- user-facing actions ----------
+async function gcalSyncOne(type, item) {
+  if (!gcalConnected()) return gcalPromptConnect();
+  try {
+    await gcalPush(type, item);
+    renderCalendar();
+    renderGcalStatus();
+  } catch (err) {
+    gcalHandleError(err);
+  }
+}
+
+async function gcalSyncAll() {
+  if (!gcalConnected()) return gcalPromptConnect();
+  const btn = $("gcalSyncAllBtn");
+  if (btn) { btn.disabled = true; btn.textContent = "Syncing…"; }
+
+  // upcoming events I own + tasks with a due date, from today onward
+  const today = todayStr();
+  const mine = events.filter((e) => e.owner_id === user.id && eventDateStr(e) >= today);
+  const dated = tasks.filter((t) => !t.completed && t.due_date && t.due_date >= today);
+
+  let ok = 0, failed = 0;
+  for (const ev of mine) {
+    try { await gcalPush("event", ev, { silent: true }); ok++; }
+    catch (err) { failed++; if (err.message === "TOKEN_EXPIRED") break; }
+  }
+  for (const t of dated) {
+    try { await gcalPush("task", t, { silent: true }); ok++; }
+    catch (err) { failed++; if (err.message === "TOKEN_EXPIRED") break; }
+  }
+
+  if (btn) { btn.disabled = false; btn.textContent = "Sync everything"; }
+  renderGcalStatus();
+  renderCalendar();
+
+  if (!gcalConnected()) return gcalPromptConnect();
+  toast(failed ? `Synced ${ok}, ${failed} failed` : `Synced ${ok} item${ok === 1 ? "" : "s"} to Google ✓`);
+}
+
+function gcalHandleError(err) {
+  if (err.message === "NOT_CONNECTED" || err.message === "TOKEN_EXPIRED") return gcalPromptConnect();
+  toast(err.message || "Google Calendar sync failed");
+}
+
+function gcalPromptConnect() {
+  $("gcalModal")?.classList.add("open");
+  renderGcalStatus();
+}
+
+// ---------- UI ----------
+function renderGcalStatus() {
+  const connected = gcalConnected();
+  const connectBtn = $("gcalConnectBtn"), disconnectBtn = $("gcalDisconnectBtn"),
+        syncBtn = $("gcalSyncAllBtn"), count = $("gcalCount");
+
+  // status appears in two places (profile card + modal)
+  [$("gcalDot"), $("gcalDot2")].forEach((d) => {
+    if (d) d.className = "gcal-dot " + (connected ? "on" : "off");
+  });
+  [$("gcalLabel"), $("gcalLabel2")].forEach((l) => {
+    if (l) l.textContent = connected ? "Connected" : "Not connected";
+  });
+  if (connectBtn) connectBtn.textContent = connected ? "Reconnect" : "Connect Google Calendar";
+  if (disconnectBtn) disconnectBtn.style.display = connected ? "" : "none";
+  if (syncBtn) syncBtn.disabled = !connected;
+  if (count) {
+    const n = gcalLinks.length;
+    count.textContent = n ? `${n} item${n === 1 ? "" : "s"} linked to your Google Calendar` : "Nothing synced yet";
+  }
+}
+
+function wireGcalEvents() {
+  $("gcalConnectBtn")?.addEventListener("click", gcalConnect);
+  $("gcalDisconnectBtn")?.addEventListener("click", gcalDisconnect);
+  $("gcalSyncAllBtn")?.addEventListener("click", gcalSyncAll);
+  $("gcalOpenBtn")?.addEventListener("click", () => { $("gcalModal")?.classList.add("open"); renderGcalStatus(); });
+  $("gcalClose")?.addEventListener("click", () => $("gcalModal")?.classList.remove("open"));
+  $("gcalModal")?.addEventListener("click", (e) => { if (e.target.id === "gcalModal") $("gcalModal").classList.remove("open"); });
 }

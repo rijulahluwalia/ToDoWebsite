@@ -242,6 +242,16 @@
         </div>
 
         <div class="card">
+          <h3>Google Calendar</h3>
+          <div class="gcal-status">
+            <span class="gcal-dot off" id="gcalDot"></span>
+            <span id="gcalLabel">Not connected</span>
+          </div>
+          <p style="font-size:0.8rem;color:var(--ink-soft);margin:8px 0 14px" id="gcalCount">Nothing synced yet</p>
+          <button class="btn-primary" id="gcalOpenBtn">Manage sync</button>
+        </div>
+
+        <div class="card">
           <h3>New password</h3>
           <div class="field">
             <div class="input-shell">
@@ -559,6 +569,48 @@
         <button class="btn-primary" id="iaGotIt">Got it</button>
       </div>
       <button class="ia-later" id="iaLater">Decide later</button>
+    </div>
+  </div>
+
+  <!-- Google Calendar sync -->
+  <div class="modal-backdrop" id="gcalModal">
+    <div class="modal gcal-modal">
+      <div class="ia-top">
+        <span class="gcal-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><rect x="3" y="5" width="18" height="16" rx="3"/><path d="M8 3v4M16 3v4M3 10h18"/></svg>
+        </span>
+        <div>
+          <p class="modal-kicker">Google Calendar</p>
+          <h2>Sync your plans</h2>
+        </div>
+        <button class="icon-btn" id="gcalClose" aria-label="Close">&times;</button>
+      </div>
+
+      <div class="gcal-state">
+        <span class="gcal-dot off" id="gcalDot2"></span>
+        <span id="gcalLabel2">Not connected</span>
+      </div>
+
+      <p class="gcal-note">
+        Prio can push your events and dated tasks straight into Google Calendar,
+        so reminders and notifications come through on your phone.
+      </p>
+
+      <ul class="gcal-points">
+        <li>Events you organise, with time, location and guest names</li>
+        <li>Tasks with a due date, as all-day entries</li>
+        <li>Re-syncing updates the same entry — no duplicates</li>
+      </ul>
+
+      <p class="gcal-warn" id="gcalWarn">
+        Google sign-ins last about an hour. If syncing stops working, tap Reconnect.
+      </p>
+
+      <div class="gcal-actions">
+        <button class="btn-primary" id="gcalConnectBtn">Connect Google Calendar</button>
+        <button class="btn-ghost" id="gcalSyncAllBtn" disabled>Sync everything</button>
+        <button class="btn-cancel" id="gcalDisconnectBtn" style="display:none">Disconnect</button>
+      </div>
     </div>
   </div>
 
