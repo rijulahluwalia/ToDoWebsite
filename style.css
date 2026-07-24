@@ -4306,3 +4306,9 @@ body.modal-open .prio-filter-panel { display: none !important; }
   /* keep the dismiss link a comfortable tap target */
   .ia-later { min-height: 44px; margin-top: 8px; }
 }
+
+/* response variant of the invite notification */
+.ia-from em { font-style: normal; }
+.ia-av.ok { background: linear-gradient(135deg, #2fbf71, #18c2c2); }
+.ia-av.no { background: linear-gradient(135deg, #f0455a, #ff6fae); }
+#iaResponseActions .btn-primary { width: 100%; }

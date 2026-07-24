@@ -3044,6 +3044,7 @@ function saveSundayReview() {
 // ============================================
 let events = [];          // events I own or am invited to
 let myInvites = [];       // invites addressed to me
+let responsesToMe = [];   // accept/decline replies on events I own
 let eventInvitees = [];   // people staged in the open modal [{id, display_name}]
 let editingEventId = null;
 let inviteSearchTimer = null;
@@ -3066,6 +3067,25 @@ async function loadEvents() {
     const { data: profs } = await db.from("profiles").select("id, display_name").in("id", inviterIds);
     const nameOf = Object.fromEntries((profs || []).map((p) => [p.id, p.display_name || "A Prio user"]));
     myInvites.forEach((i) => { i.inviter_name = nameOf[i.inviter_id] || "A Prio user"; });
+  }
+
+  // Responses to invites *I* sent, so the organiser hears back.
+  const myEventIds = owned.map((e) => e.id);
+  responsesToMe = [];
+  if (myEventIds.length) {
+    const { data: resp } = await db.from("event_invites")
+      .select("*").in("event_id", myEventIds).neq("status", "pending");
+    const rows = (resp || []).filter((r) => r.invitee_id !== user.id);
+    if (rows.length) {
+      const ids = [...new Set(rows.map((r) => r.invitee_id))];
+      const { data: pf } = await db.from("profiles").select("id, display_name").in("id", ids);
+      const who = Object.fromEntries((pf || []).map((p) => [p.id, p.display_name || "A Prio user"]));
+      responsesToMe = rows.map((r) => ({
+        ...r,
+        person_name: who[r.invitee_id] || "A Prio user",
+        event: owned.find((e) => e.id === r.event_id) || null,
+      })).filter((r) => r.event);
+    }
   }
 }
 
@@ -3604,16 +3624,29 @@ function iaMarkSeen(ids) {
 function checkNewInvites() {
   const seen = iaGetSeen();
   const now = new Date();
-  iaQueue = myInvites.filter((i) => {
+
+  const stillUpcoming = (ev) => {
+    if (!ev) return false;
+    if (ev.all_day) return true;
+    return new Date(ev.ends_at || ev.starts_at) >= now;
+  };
+
+  // invites addressed to me, awaiting an answer
+  const incoming = myInvites.filter((i) => {
     if (i.status !== "pending") return false;      // already answered
     if (seen.has(i.id)) return false;              // already shown
     const ev = i.events || events.find((e) => e.id === i.event_id);
-    if (!ev) return false;
-    // don't announce events that have already been and gone
-    const end = new Date(ev.ends_at || ev.starts_at);
-    if (!ev.all_day && end < now) return false;
-    return true;
-  });
+    return stillUpcoming(ev);
+  }).map((i) => ({ kind: "invite", data: i }));
+
+  // replies to invites I sent — keyed by status so a change re-notifies
+  const replies = responsesToMe.filter((r) => {
+    const key = `resp:${r.id}:${r.status}`;
+    if (seen.has(key)) return false;
+    return stillUpcoming(r.event);
+  }).map((r) => ({ kind: "response", data: r }));
+
+  iaQueue = [...incoming, ...replies];
   if (!iaQueue.length) return;
   iaIndex = 0;
   // Don't collide with the onboarding tour or the splash. If the tour is
@@ -3627,20 +3660,39 @@ function checkNewInvites() {
 }
 
 function showInviteAlert() {
-  const inv = iaQueue[iaIndex];
-  if (!inv) return closeInviteAlert();
-  const ev = inv.events || events.find((e) => e.id === inv.event_id);
+  const entry = iaQueue[iaIndex];
+  if (!entry) return closeInviteAlert();
+
+  const isResponse = entry.kind === "response";
+  const rec = entry.data;
+  const ev = isResponse
+    ? rec.event
+    : (rec.events || events.find((e) => e.id === rec.event_id));
   if (!ev) return iaNext();
 
-  const from = inv.inviter_name || "A Prio user";
+  // who + what the card is about
+  const from = isResponse ? rec.person_name : (rec.inviter_name || "A Prio user");
+  const accepted = isResponse && rec.status === "accepted";
   $("iaFrom").textContent = from;
   $("iaAvatar").textContent = from.charAt(0).toUpperCase();
+  $("iaAvatar").className = "ia-av" + (isResponse ? (accepted ? " ok" : " no") : "");
   $("iaTitle").textContent = ev.title;
+  $("iaVerb").textContent = isResponse
+    ? (accepted ? "is going to" : "can't make")
+    : "invited you to";
+
+  // swap the footer controls
+  $("iaInviteActions").style.display = isResponse ? "none" : "";
+  $("iaResponseActions").style.display = isResponse ? "" : "none";
+  $("iaLater").style.display = isResponse ? "none" : "";
+  document.querySelector("#inviteAlertModal .modal-kicker").textContent =
+    isResponse ? (accepted ? "Good news" : "Heads up") : "You're invited";
 
   // heading shows position when there are several waiting
+  const label = isResponse ? "Invite update" : "New invitation";
   $("iaHeading").textContent = iaQueue.length > 1
-    ? `New invitation (${iaIndex + 1} of ${iaQueue.length})`
-    : "New invitation";
+    ? `${label} (${iaIndex + 1} of ${iaQueue.length})`
+    : label;
   $("iaBadge").textContent = iaQueue.length - iaIndex;
   $("iaBadge").style.display = iaQueue.length > 1 ? "grid" : "none";
 
@@ -3671,19 +3723,25 @@ function iaNext() {
   showInviteAlert();
 }
 
+function iaKeyOf(entry) {
+  return entry.kind === "response"
+    ? `resp:${entry.data.id}:${entry.data.status}`
+    : entry.data.id;
+}
+
 function closeInviteAlert() {
   // everything we showed counts as seen, answered or not
-  iaMarkSeen(iaQueue.map((i) => i.id));
+  iaMarkSeen(iaQueue.map(iaKeyOf));
   $("inviteAlertModal")?.classList.remove("open");
   iaQueue = [];
   iaIndex = 0;
 }
 
 async function iaRespond(status) {
-  const inv = iaQueue[iaIndex];
-  if (inv) {
-    iaMarkSeen([inv.id]);
-    await respondInvite(inv.event_id, status);
+  const entry = iaQueue[iaIndex];
+  if (entry && entry.kind === "invite") {
+    iaMarkSeen([entry.data.id]);
+    await respondInvite(entry.data.event_id, status);
   }
   iaNext();
 }
@@ -3692,6 +3750,11 @@ function wireInviteAlert() {
   $("iaAccept")?.addEventListener("click", () => iaRespond("accepted"));
   $("iaDecline")?.addEventListener("click", () => iaRespond("declined"));
   $("iaLater")?.addEventListener("click", iaNext);
+  $("iaGotIt")?.addEventListener("click", () => {
+    const entry = iaQueue[iaIndex];
+    if (entry) iaMarkSeen([iaKeyOf(entry)]);
+    iaNext();
+  });
   $("iaClose")?.addEventListener("click", closeInviteAlert);
   $("inviteAlertModal")?.addEventListener("click", (e) => {
     if (e.target.id === "inviteAlertModal") closeInviteAlert();

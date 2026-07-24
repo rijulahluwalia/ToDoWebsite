@@ -529,7 +529,7 @@
       </div>
 
       <div class="ia-card">
-        <p class="ia-from"><span class="ia-av" id="iaAvatar">?</span><span id="iaFrom">Someone</span> invited you to</p>
+        <p class="ia-from"><span class="ia-av" id="iaAvatar">?</span><span id="iaFrom">Someone</span> <em id="iaVerb">invited you to</em></p>
         <h3 class="ia-title" id="iaTitle"></h3>
         <ul class="ia-details">
           <li id="iaWhenRow">
@@ -551,9 +551,12 @@
         </ul>
       </div>
 
-      <div class="ia-actions">
+      <div class="ia-actions" id="iaInviteActions">
         <button class="btn-cancel" id="iaDecline">Can't make it</button>
         <button class="btn-primary" id="iaAccept">I'm going</button>
+      </div>
+      <div class="ia-actions" id="iaResponseActions" style="display:none">
+        <button class="btn-primary" id="iaGotIt">Got it</button>
       </div>
       <button class="ia-later" id="iaLater">Decide later</button>
     </div>
