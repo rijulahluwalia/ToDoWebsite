@@ -4710,3 +4710,76 @@ body.modal-open .prio-filter-panel { display: none !important; }
   .delete-modal .modal-actions { flex-direction: column-reverse; }
   .delete-modal .modal-actions button { width: 100%; min-height: 46px; }
 }
+
+/* ============================================
+   Sign in with Google
+   ============================================ */
+.btn-google {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 13px 18px;
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  border: 2px solid var(--line);
+  font-weight: 700;
+  font-size: 0.95rem;
+  color: var(--ink);
+  transition: all 0.2s var(--ease-spring);
+  min-height: 50px;
+}
+.btn-google:hover:not(:disabled) {
+  border-color: var(--primary);
+  background: var(--primary-soft);
+  transform: translateY(-1px);
+  box-shadow: 0 8px 18px rgba(23, 27, 54, 0.07);
+}
+.btn-google:active { transform: scale(0.98); }
+.btn-google:disabled { opacity: 0.6; cursor: wait; }
+.btn-google .g-logo { width: 19px; height: 19px; flex-shrink: 0; }
+
+.auth-divider {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 18px 0;
+  color: var(--ink-soft);
+  font-size: 0.78rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+.auth-divider::before,
+.auth-divider::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: var(--line);
+}
+
+/* profile note for Google-managed accounts */
+.google-managed {
+  font-size: 0.8rem;
+  color: var(--ink-soft);
+  margin-top: 10px;
+  line-height: 1.5;
+}
+.g-chip {
+  display: inline-block;
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  padding: 3px 8px;
+  border-radius: 999px;
+  background: var(--primary-soft);
+  color: var(--primary);
+  margin-right: 4px;
+}
+
+:root[data-theme="dark"] .btn-google {
+  background: rgba(255,255,255,0.05);
+  border-color: rgba(255,255,255,0.14);
+}

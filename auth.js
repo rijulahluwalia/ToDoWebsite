@@ -62,6 +62,8 @@ function setMode(next) {
     : "Log in to pick up where you left off.";
   submitBtn.textContent = signup ? "Create account" : "Log in";
   passwordInput.autocomplete = signup ? "new-password" : "current-password";
+  const gLabel = document.getElementById("googleAuthLabel");
+  if (gLabel) gLabel.textContent = signup ? "Sign up with Google" : "Continue with Google";
   hideMsg();
 }
 
@@ -134,10 +136,40 @@ async function handleSubmit() {
   }
 }
 
+// ---------- sign in with Google ----------
+// Deliberately requests NO calendar scope. Signing in only needs identity;
+// calendar access is a separate opt-in inside the app, so new users aren't
+// asked to hand over their calendar before they've even seen Prio.
+async function handleGoogleAuth() {
+  if (!hasSupabase) {
+    return showMsg("Supabase config is missing. Add/restore config.js, then redeploy.", "error");
+  }
+  const btn = document.getElementById("googleAuthBtn");
+  const label = document.getElementById("googleAuthLabel");
+  btn.disabled = true;
+  if (label) label.textContent = "Opening Google…";
+
+  try {
+    sessionStorage.setItem("showSplash", "1");
+    const { error } = await db.auth.signInWithOAuth({
+      provider: "google",
+      options: { redirectTo: window.location.origin + "/app.html" },
+    });
+    if (error) throw error;
+    // browser redirects to Google from here
+  } catch (err) {
+    sessionStorage.removeItem("showSplash");
+    showMsg(err.message || "Couldn't open Google sign-in. Try again.", "error");
+    btn.disabled = false;
+    if (label) label.textContent = "Continue with Google";
+  }
+}
+
 // Wire buttons first, before any Supabase call.
 tabLogin.addEventListener("click", () => setMode("login"));
 tabSignup.addEventListener("click", () => setMode("signup"));
 togglePw.addEventListener("click", togglePassword);
+document.getElementById("googleAuthBtn")?.addEventListener("click", handleGoogleAuth);
 submitBtn.addEventListener("click", handleSubmit);
 [emailInput, passwordInput, displayNameInput].forEach((el) => {
   el.addEventListener("keydown", (e) => { if (e.key === "Enter") handleSubmit(); });

@@ -155,8 +155,17 @@ async function init() {
 
 async function loadProfile() {
   const { data } = await db.from("profiles").select("*").eq("id", user.id).maybeSingle();
-  profile = data || { id: user.id, display_name: user.email.split("@")[0] };
+  // Google puts the person's name in metadata as full_name / name
+  const meta = user.user_metadata || {};
+  const fallbackName = meta.display_name || meta.full_name || meta.name || user.email.split("@")[0];
+  profile = data || { id: user.id, display_name: fallbackName };
   if (!data) await db.from("profiles").upsert(profile);
+}
+
+// Did this account sign up with Google rather than a password?
+function isGoogleAccount() {
+  const ids = user?.identities || [];
+  return ids.some((i) => i.provider === "google") && !ids.some((i) => i.provider === "email");
 }
 
 async function loadPriorities() {
@@ -982,6 +991,22 @@ async function addPriority() {
 function renderProfileForm() {
   $("profileName").value = profile.display_name || "";
   $("profileEmail").value = user.email || "";
+
+  // A Google-only account has no Prio password, and its email is managed
+  // by Google — so hide those cards rather than showing dead controls.
+  if (isGoogleAccount()) {
+    const pwCard = $("profilePassword")?.closest(".card");
+    if (pwCard) pwCard.style.display = "none";
+    const emailCard = $("profileEmail")?.closest(".card");
+    if (emailCard && !emailCard.querySelector(".google-managed")) {
+      $("profileEmail").disabled = true;
+      $("saveEmailBtn").style.display = "none";
+      const note = document.createElement("p");
+      note.className = "google-managed";
+      note.innerHTML = '<span class="g-chip">Google account</span> Your email is managed by Google.';
+      emailCard.appendChild(note);
+    }
+  }
 }
 
 async function saveName() {
