@@ -4783,3 +4783,56 @@ body.modal-open .prio-filter-panel { display: none !important; }
   background: rgba(255,255,255,0.05);
   border-color: rgba(255,255,255,0.14);
 }
+
+/* ============================================
+   Dark mode · search box
+   A blanket ":root[data-theme=dark] input" rule gives every input its own
+   background + border. Inside .search-shell the pill already provides
+   those, so the input must stay transparent or you get a box in a box.
+   ============================================ */
+:root[data-theme="dark"] .search-shell {
+  background: rgba(255, 255, 255, 0.055);
+  border-color: rgba(255, 255, 255, 0.08);
+}
+:root[data-theme="dark"] .search-shell:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+:root[data-theme="dark"] .search-shell:focus-within {
+  background: rgba(255, 255, 255, 0.06);
+  border-color: var(--primary) !important;
+}
+:root[data-theme="dark"] .search-shell input,
+:root[data-theme="dark"] .search-shell input:focus {
+  background: transparent !important;
+  border: 0 !important;
+  box-shadow: none !important;
+}
+/* same fix for the date/time shells, which wrap an input the same way */
+:root[data-theme="dark"] .date-shell input.pretty-date-input {
+  background: transparent !important;
+  border: 0 !important;
+  box-shadow: none !important;
+}
+
+/* remove-invite button */
+.ev-actions .icon-btn.leave:hover { background: #ffe9ec; color: var(--danger); }
+:root[data-theme="dark"] .ev-actions .icon-btn.leave:hover {
+  background: color-mix(in srgb, var(--danger) 22%, transparent);
+}
+
+.ia-remove {
+  display: block;
+  width: 100%;
+  margin-top: 4px;
+  padding: 8px;
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--ink-soft);
+  border-radius: var(--radius-sm);
+  transition: all 0.2s;
+}
+.ia-remove:hover { background: #ffe9ec; color: var(--danger); }
+:root[data-theme="dark"] .ia-remove:hover {
+  background: color-mix(in srgb, var(--danger) 20%, transparent);
+}
+@media (max-width: 640px) { .ia-remove { min-height: 44px; } }

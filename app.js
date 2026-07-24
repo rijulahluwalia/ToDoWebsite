@@ -3433,6 +3433,27 @@ async function respondInvite(eventId, status) {
   toast(status === "accepted" ? "You're going ✓" : "Invite declined");
 }
 
+// Remove an invite you received. This deletes only YOUR invite row —
+// the organiser's event is untouched, and other guests are unaffected.
+async function leaveEvent(eventId, { skipConfirm = false } = {}) {
+  const inv = myInviteFor(eventId);
+  if (!inv) return;
+  const ev = events.find((e) => e.id === eventId);
+  if (!skipConfirm &&
+      !confirm(`Remove "${ev?.title || "this event"}" from your calendar? The organiser keeps the event.`)) return;
+
+  const { error } = await db.from("event_invites").delete().eq("id", inv.id);
+  if (error) return toast("Couldn't remove — try again");
+
+  // drop it locally, plus any Google copy this user synced
+  myInvites = myInvites.filter((i) => i.id !== inv.id);
+  events = events.filter((e) => e.id !== eventId);
+  gcalAutoRemove("event", eventId);
+
+  renderCalendar();
+  toast("Removed from your calendar");
+}
+
 // ---------- Google Calendar ----------
 function eventToGoogle(id) {
   const ev = events.find((e) => e.id === id);
@@ -3511,6 +3532,7 @@ function eventsPanelHTML(iso) {
           <div class="ev-actions">
             ${!mine && inv && inv.status !== "accepted" ? `<button class="icon-btn ok" title="Accept">✓</button>` : ""}
             ${!mine && inv && inv.status !== "declined" ? `<button class="icon-btn no" title="Decline">✕</button>` : ""}
+            ${!mine && inv ? `<button class="icon-btn leave" title="Remove from my calendar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 7h16M9 7V5a1 1 0 011-1h4a1 1 0 011 1v2m-9 0l1 13h8l1-13"/></svg></button>` : ""}
             <button class="icon-btn gcal" title="Add to Google Calendar">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="5" width="18" height="16" rx="3"/><path d="M8 3v4M16 3v4M3 10h18M12 14v4M10 16h4"/></svg>
             </button>
@@ -3534,6 +3556,7 @@ function wireEventPanel(scope) {
     el.querySelector(".del")?.addEventListener("click", () => deleteEvent(id));
     el.querySelector(".ok")?.addEventListener("click", () => respondInvite(id, "accepted"));
     el.querySelector(".no")?.addEventListener("click", () => respondInvite(id, "declined"));
+    el.querySelector(".leave")?.addEventListener("click", () => leaveEvent(id));
   });
 }
 
@@ -3803,6 +3826,7 @@ function showInviteAlert() {
   $("iaInviteActions").style.display = isResponse ? "none" : "";
   $("iaResponseActions").style.display = isResponse ? "" : "none";
   $("iaLater").style.display = isResponse ? "none" : "";
+  $("iaRemove").style.display = isResponse ? "none" : "";
   document.querySelector("#inviteAlertModal .modal-kicker").textContent =
     isResponse ? (accepted ? "Good news" : "Heads up") : "You're invited";
 
@@ -3868,6 +3892,14 @@ function wireInviteAlert() {
   $("iaAccept")?.addEventListener("click", () => iaRespond("accepted"));
   $("iaDecline")?.addEventListener("click", () => iaRespond("declined"));
   $("iaLater")?.addEventListener("click", iaNext);
+  $("iaRemove")?.addEventListener("click", async () => {
+    const entry = iaQueue[iaIndex];
+    if (entry?.kind === "invite") {
+      iaMarkSeen([entry.data.id]);
+      await leaveEvent(entry.data.event_id, { skipConfirm: true });
+    }
+    iaNext();
+  });
   $("iaGotIt")?.addEventListener("click", () => {
     const entry = iaQueue[iaIndex];
     if (entry) iaMarkSeen([iaKeyOf(entry)]);
