@@ -2936,6 +2936,18 @@ function getUpcomingReminders() {
     .sort((a, b) => (a.date || "9999").localeCompare(b.date || "9999"))
     .slice(0, 5);
 }
+// Trim long titles so they stay on one line and never squeeze the
+// due badge. Cuts on a word boundary when there's a sensible one.
+function shortTitle(text, max = 40) {
+  const t = String(text || "").trim();
+  if (t.length <= max) return t;
+  // prefer breaking at a word, but only if that keeps most of the allowance
+  const cut = t.slice(0, max);
+  const lastSpace = cut.lastIndexOf(" ");
+  const useWord = lastSpace >= max - 12;
+  return (useWord ? cut.slice(0, lastSpace) : cut).trimEnd() + "…";
+}
+
 function renderPhase4() {
   const root = $("phase4Root");
   if (!root) return;
@@ -2953,7 +2965,7 @@ function renderPhase4() {
       <div class="phase4-panel">
         <div class="phase4-mini-head"><span>🔔 Reminder hub</span><strong>${reminders.length}</strong></div>
         <div class="reminder-list">
-          ${reminders.length ? reminders.map((r) => { const badge = dueBadge(r.date); return `<div class="reminder-row"><div><b>${esc(r.title)}</b><span>${esc(r.type)} · ${esc(r.meta)}</span></div><em class="due-badge ${badge.cls}">${badge.text}</em></div>`; }).join("") : `<div class="empty slim"><span class="emoji">✨</span>No upcoming due dates.</div>`}
+          ${reminders.length ? reminders.map((r) => { const badge = dueBadge(r.date); return `<div class="reminder-row"><div class="reminder-main"><b title="${esc(r.title)}">${esc(shortTitle(r.title))}</b><span>${esc(r.type)} · ${esc(r.meta)}</span></div><em class="due-badge ${badge.cls}">${badge.text}</em></div>`; }).join("") : `<div class="empty slim"><span class="emoji">✨</span>No upcoming due dates.</div>`}
         </div>
       </div>
     </div>`;

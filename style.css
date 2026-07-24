@@ -4366,3 +4366,33 @@ body.modal-open .prio-filter-panel { display: none !important; }
   .cal-day { border-radius: 10px; font-size: 0.78rem; }
   .cal-dots i { width: 5px; height: 5px; }
 }
+
+/* ============================================
+   Reminder hub — keep titles on one line so the
+   due badge always has room and rows stay even.
+   ============================================ */
+.reminder-main {
+  min-width: 0;        /* lets the flex child shrink instead of shoving the badge */
+  flex: 1 1 auto;
+  overflow: hidden;
+}
+.reminder-row b,
+.reminder-row .reminder-main span {
+  display: block;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.reminder-row .due-badge { flex: 0 0 auto; max-width: none; }
+
+@media (max-width: 640px) {
+  /* titles are single-line now, so keep badge beside the text instead of
+     stacking — halves the row height */
+  .reminder-row {
+    flex-direction: row;
+    align-items: center;
+    gap: 10px;
+  }
+  .reminder-row .due-badge { margin-top: 0; align-self: center; font-size: 0.72rem; }
+  .reminder-row b { font-size: 0.86rem; }
+}
