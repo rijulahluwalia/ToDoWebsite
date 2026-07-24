@@ -2454,7 +2454,14 @@ function toISODate(d) {
 }
 function prettyDateValue(iso) {
   const d = parseISODate(iso);
-  return d ? d.toLocaleDateString("en-AU", { weekday: "short", day: "numeric", month: "short", year: "numeric" }) : "";
+  if (!d) return "";
+  // Drop the year when it's the current year — keeps the field uncluttered
+  // and stops long dates from clipping in narrow columns.
+  const sameYear = d.getFullYear() === new Date().getFullYear();
+  return d.toLocaleDateString("en-AU", {
+    weekday: "short", day: "numeric", month: "short",
+    ...(sameYear ? {} : { year: "numeric" }),
+  });
 }
 function setDateInput(id, iso) {
   const el = $(id);
@@ -3085,7 +3092,7 @@ function openEventModal(eventId = null, presetDate = null) {
   // staged invitees
   eventInvitees = [];
   $("inviteSearch").value = "";
-  $("inviteResults").innerHTML = "";
+  clearInviteSearch();
   renderInviteChips();
   if (ev) loadExistingInvitees(ev.id);
 
@@ -3142,10 +3149,15 @@ function runInviteSearch() {
       b.addEventListener("click", () => {
         eventInvitees.push({ id: b.dataset.id, display_name: b.dataset.name });
         $("inviteSearch").value = "";
-        box.innerHTML = "";
+        clearInviteSearch();
         renderInviteChips();
       }));
   }, 280);
+}
+
+function clearInviteSearch() {
+  $("inviteResults").innerHTML = "";
+  $("inviteSearchShell")?.classList.remove("has-value");
 }
 
 function renderInviteChips() {
@@ -3364,8 +3376,19 @@ function wireEventEvents() {
   $("eventModal")?.addEventListener("click", (e) => { if (e.target.id === "eventModal") closeEventModal(); });
   $("eventTitle")?.addEventListener("keydown", (e) => { if (e.key === "Enter") saveEvent(); });
   $("eventAllDay")?.addEventListener("click", () => setAllDay(!$("eventAllDay").classList.contains("on")));
-  $("inviteSearch")?.addEventListener("input", runInviteSearch);
-  $("inviteSearch")?.addEventListener("keydown", (e) => { if (e.key === "Enter") e.preventDefault(); });
+  $("inviteSearch")?.addEventListener("input", () => {
+    $("inviteSearchShell")?.classList.toggle("has-value", !!$("inviteSearch").value);
+    runInviteSearch();
+  });
+  $("inviteSearch")?.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") e.preventDefault();
+    if (e.key === "Escape") { $("inviteSearch").value = ""; clearInviteSearch(); }
+  });
+  $("inviteClear")?.addEventListener("click", () => {
+    $("inviteSearch").value = "";
+    clearInviteSearch();
+    $("inviteSearch").focus();
+  });
 }
 
 // ============================================

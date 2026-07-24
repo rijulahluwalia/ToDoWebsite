@@ -345,8 +345,14 @@
 
       <div class="field">
         <label for="inviteSearch">Invite people on Prio</label>
-        <div class="input-shell">
-          <input type="text" id="inviteSearch" placeholder="Search by name — at least 2 letters" autocomplete="off" />
+        <div class="search-shell" id="inviteSearchShell">
+          <span class="search-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>
+          </span>
+          <input type="search" id="inviteSearch" placeholder="Search people by name…" autocomplete="off" />
+          <button type="button" class="search-clear" id="inviteClear" aria-label="Clear search">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>
+          </button>
         </div>
         <div class="invite-results" id="inviteResults"></div>
         <div class="invite-chips" id="inviteChips"></div>
