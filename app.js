@@ -557,6 +557,7 @@ async function toggleTask(id, el) {
   const { error } = await db.from("tasks").update({ completed: t.completed, completed_at: t.completed_at }).eq("id", id);
   if (error) { t.completed = !t.completed; el.classList.toggle("done"); return toast("Couldn't save — try again"); }
   if (t.completed) toast("Nice one ✓");
+  gcalAutoSync("task", t);   // completed -> removed from Google, reopened -> re-added
   setTimeout(() => { renderTasks(); renderCalendar(); renderDashboard(); }, 500);
 }
 
@@ -565,6 +566,7 @@ async function removeTask(id, el) {
   const { error } = await db.from("tasks").delete().eq("id", id);
   if (error) { el.classList.remove("leaving"); return toast("Couldn't delete — try again"); }
   tasks = tasks.filter((t) => t.id !== id);
+  gcalAutoRemove("task", id);
   setTimeout(() => { renderTasks(); renderCalendar(); renderDashboard(); }, 350);
   toast("Task removed");
 }
@@ -615,12 +617,19 @@ async function saveTask() {
   btn.disabled = false;
   if (error) return toast("Couldn't save — try again");
   const wasEditing = !!editingTaskId;
+  const savedId = editingTaskId;
   await loadTasks();
   renderTasks();
   renderCalendar();
   renderDashboard();
   closeModal();
   toast(wasEditing ? "Task updated" : "Task added ✨");
+
+  // push to Google in the background — never blocks the save
+  const saved = wasEditing
+    ? tasks.find((t) => t.id === savedId)
+    : tasks.find((t) => t.title === payload.title && t.due_date === payload.due_date);
+  if (saved) gcalAutoSync("task", saved);
 }
 
 // ---------- calendar ----------
@@ -3360,9 +3369,14 @@ async function saveEvent() {
     }
 
     await loadEvents();
+    await cacheInviteNames();   // so guest names make it into the Google entry
     renderCalendar();
     closeEventModal();
     toast(editingEventId ? "Event updated 🗓️" : (toAdd.length ? `Event created · ${toAdd.length} invited 🗓️` : "Event created 🗓️"));
+
+    // background push to Google
+    const savedEvent = events.find((e) => e.id === eventId);
+    if (savedEvent) gcalAutoSync("event", savedEvent);
   } catch (err) {
     toast(err.message?.includes("events") ? "Couldn't save — run schema-update-4.sql" : "Couldn't save — try again");
   } finally {
@@ -3376,9 +3390,7 @@ async function deleteEvent(id) {
   if (ev.owner_id !== user.id) return toast("Only the organiser can delete this");
   if (!confirm(`Delete "${ev.title}"? Guests will lose the invite too.`)) return;
   // clean up the Google copy too, so no orphan is left behind
-  if (gcalConnected() && gcalLinkFor("event", id)) {
-    try { await gcalRemove("event", id); } catch { /* non-fatal */ }
-  }
+  gcalAutoRemove("event", id);
   await db.from("events").delete().eq("id", id);
   events = events.filter((e) => e.id !== id);
   renderCalendar();
@@ -3890,6 +3902,7 @@ function gcalConnected() {
 function gcalCaptureToken(session) {
   if (session?.provider_token) {
     gcalSaveToken(session.provider_token);
+    setTimeout(gcalResumeAfterReconnect, 500);
     return true;
   }
   return false;
@@ -4116,13 +4129,127 @@ function renderGcalStatus() {
     const n = gcalLinks.length;
     count.textContent = n ? `${n} item${n === 1 ? "" : "s"} linked to your Google Calendar` : "Nothing synced yet";
   }
+  const auto = $("gcalAutoToggle");
+  if (auto) {
+    const on = gcalAutoOn();
+    auto.classList.toggle("on", on);
+    auto.setAttribute("aria-checked", on ? "true" : "false");
+    auto.disabled = !connected;
+    auto.style.opacity = connected ? "" : "0.4";
+  }
 }
 
 function wireGcalEvents() {
   $("gcalConnectBtn")?.addEventListener("click", gcalConnect);
+  $("gcalAutoToggle")?.addEventListener("click", () => {
+    if (!gcalConnected()) return;
+    gcalSetAuto(!gcalAutoOn());
+  });
   $("gcalDisconnectBtn")?.addEventListener("click", gcalDisconnect);
   $("gcalSyncAllBtn")?.addEventListener("click", gcalSyncAll);
   $("gcalOpenBtn")?.addEventListener("click", () => { $("gcalModal")?.classList.add("open"); renderGcalStatus(); });
   $("gcalClose")?.addEventListener("click", () => $("gcalModal")?.classList.remove("open"));
   $("gcalModal")?.addEventListener("click", (e) => { if (e.target.id === "gcalModal") $("gcalModal").classList.remove("open"); });
+}
+
+// ============================================
+// Phase 5b · Auto-sync to Google Calendar
+//
+// Once connected, Prio pushes changes automatically instead of making
+// the user tap sync every time. Design rules:
+//  - never block saving: sync runs AFTER the item is safely in Supabase
+//  - never lose data to a Google outage: failures are silent + queued
+//  - never spam the API: changes are debounced and de-duplicated
+// ============================================
+const GCAL_AUTO_KEY = "prio_gcal_auto";
+let gcalQueue = new Map();     // "type:id" -> item, pending push
+let gcalQueueTimer = null;
+let gcalSyncing = false;
+
+function gcalAutoOn() {
+  // default ON once connected — that's the point of connecting
+  const raw = localStorage.getItem(GCAL_AUTO_KEY);
+  return raw === null ? true : raw === "1";
+}
+function gcalSetAuto(on) {
+  localStorage.setItem(GCAL_AUTO_KEY, on ? "1" : "0");
+  renderGcalStatus();
+  toast(on ? "Auto-sync on — changes go to Google automatically" : "Auto-sync off");
+  if (on) gcalFlushQueue();
+}
+
+// Should this item go to Google at all?
+function gcalShouldSync(type, item) {
+  if (!item) return false;
+  if (type === "event") return item.owner_id === user.id;
+  // tasks: only dated, incomplete ones are useful in a calendar
+  return !!item.due_date && !item.completed;
+}
+
+// Queue a change. Safe to call on every save — it de-dupes by id.
+function gcalAutoSync(type, item) {
+  if (!gcalAutoOn() || !gcalConnected()) return;
+  if (!gcalShouldSync(type, item)) {
+    // no longer syncable (completed, date removed) → clean up any Google copy
+    if (gcalLinkFor(type, item?.id)) gcalAutoRemove(type, item.id);
+    return;
+  }
+  gcalQueue.set(`${type}:${item.id}`, { type, item });
+  clearTimeout(gcalQueueTimer);
+  // small delay so rapid edits collapse into one API call
+  gcalQueueTimer = setTimeout(gcalFlushQueue, 700);
+}
+
+function gcalAutoRemove(type, id) {
+  if (!gcalConnected() || !gcalLinkFor(type, id)) return;
+  gcalQueue.delete(`${type}:${id}`);
+  gcalRemove(type, id).catch(() => { /* silent — deleting locally already worked */ });
+}
+
+async function gcalFlushQueue() {
+  if (gcalSyncing || !gcalQueue.size) return;
+  if (!gcalAutoOn() || !gcalConnected()) return;
+
+  gcalSyncing = true;
+  gcalShowSyncing(true);
+
+  const batch = [...gcalQueue.values()];
+  gcalQueue.clear();
+  let expired = false;
+
+  for (const { type, item } of batch) {
+    try {
+      await gcalPush(type, item, { silent: true });
+    } catch (err) {
+      if (err.message === "TOKEN_EXPIRED" || err.message === "NOT_CONNECTED") {
+        // put the rest back and stop — we'll retry after reconnecting
+        gcalQueue.set(`${type}:${item.id}`, { type, item });
+        expired = true;
+        break;
+      }
+      // any other failure: drop it rather than blocking the user
+      console.warn("Google sync failed for", type, item.id, err.message);
+    }
+  }
+
+  gcalSyncing = false;
+  gcalShowSyncing(false);
+  renderGcalStatus();
+
+  if (expired) {
+    toast("Google sign-in expired — reconnect to resume syncing");
+    gcalPromptConnect();
+  }
+}
+
+// subtle activity indicator, no interruption
+function gcalShowSyncing(on) {
+  const pill = $("gcalSyncingPill");
+  if (pill) pill.classList.toggle("show", on);
+  [$("gcalDot"), $("gcalDot2")].forEach((d) => d && d.classList.toggle("syncing", on));
+}
+
+// After reconnecting, push anything that was waiting.
+function gcalResumeAfterReconnect() {
+  if (gcalConnected() && gcalQueue.size) setTimeout(gcalFlushQueue, 400);
 }

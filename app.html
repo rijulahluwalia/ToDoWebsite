@@ -248,6 +248,7 @@
             <span id="gcalLabel">Not connected</span>
           </div>
           <p style="font-size:0.8rem;color:var(--ink-soft);margin:8px 0 14px" id="gcalCount">Nothing synced yet</p>
+          <span class="gcal-syncing-pill" id="gcalSyncingPill">Syncing…</span>
           <button class="btn-primary" id="gcalOpenBtn">Manage sync</button>
         </div>
 
@@ -601,6 +602,14 @@
         <li>Tasks with a due date, as all-day entries</li>
         <li>Re-syncing updates the same entry — no duplicates</li>
       </ul>
+
+      <div class="gcal-auto-row">
+        <div>
+          <strong>Auto-sync</strong>
+          <p>Push changes to Google as you make them</p>
+        </div>
+        <button type="button" class="ev-toggle" id="gcalAutoToggle" role="switch" aria-checked="true"><span></span></button>
+      </div>
 
       <p class="gcal-warn" id="gcalWarn">
         Google sign-ins last about an hour. If syncing stops working, tap Reconnect.

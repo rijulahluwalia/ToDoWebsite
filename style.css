@@ -4574,3 +4574,47 @@ body.modal-open .prio-filter-panel { display: none !important; }
 .gcal-actions { display: flex; flex-direction: column; gap: 8px; }
 .gcal-actions button { width: 100%; min-height: 46px; }
 .gcal-actions .btn-ghost:disabled { opacity: 0.45; cursor: not-allowed; }
+
+/* ---- auto-sync toggle + activity indicator ---- */
+.gcal-auto-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  background: var(--bg);
+  border-radius: 14px;
+  padding: 12px 14px;
+  margin-bottom: 14px;
+}
+.gcal-auto-row strong { font-size: 0.9rem; display: block; }
+.gcal-auto-row p { font-size: 0.78rem; color: var(--ink-soft); margin-top: 2px; }
+.gcal-auto-row .ev-toggle { flex-shrink: 0; }
+
+.gcal-dot.syncing {
+  animation: gcalPulse 1s ease-in-out infinite;
+}
+@keyframes gcalPulse {
+  0%, 100% { transform: scale(1); opacity: 1; }
+  50% { transform: scale(1.35); opacity: 0.55; }
+}
+
+.gcal-syncing-pill {
+  display: none;
+  font-size: 0.74rem;
+  font-weight: 700;
+  color: var(--primary);
+  background: var(--primary-soft);
+  border-radius: 999px;
+  padding: 5px 12px;
+  margin-bottom: 12px;
+  width: fit-content;
+}
+.gcal-syncing-pill.show { display: block; animation: fadeUp 0.25s var(--ease-out); }
+
+@media (max-width: 640px) {
+  /* toggle needs a comfortable tap target */
+  .gcal-auto-row { padding: 14px; }
+  .gcal-auto-row .ev-toggle { width: 58px; height: 34px; }
+  .gcal-auto-row .ev-toggle span { width: 28px; height: 28px; }
+  .gcal-auto-row .ev-toggle.on span { transform: translateX(24px); }
+}
