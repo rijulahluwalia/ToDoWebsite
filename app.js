@@ -136,6 +136,7 @@ async function init() {
   wireDatePickerEvents();
   wireUniEvents();
   wireEventEvents();
+  wireTimePickerEvents();
   initPullToRefresh();
   loadWeather();
   loadDump();
@@ -2461,10 +2462,22 @@ function setDateInput(id, iso) {
   el.dataset.iso = iso || "";
   el.value = prettyDateValue(iso);
 }
+const DATE_PICKER_KICKERS = {
+  eventDate: "Event date",
+  taskDate: "Due date",
+  pitemDate: "Deadline",
+  uniAssessmentDate: "Due date",
+  semesterStartDate: "Semester starts",
+  semesterEndDate: "Semester ends",
+  semesterBreakStart: "Break starts",
+  semesterBreakEnd: "Break ends",
+};
 function openDatePicker(targetId) {
   datePickerTargetId = targetId;
   const current = parseISODate($(targetId)?.dataset.iso || $(targetId)?.value);
   datePickerCursor = current || new Date();
+  const kicker = document.querySelector("#datePickerModal .modal-kicker");
+  if (kicker) kicker.textContent = DATE_PICKER_KICKERS[targetId] || "Date";
   renderDatePicker();
   $("datePickerModal").classList.add("open");
 }
@@ -3053,17 +3066,19 @@ function openEventModal(eventId = null, presetDate = null) {
 
   if (ev) {
     const s = new Date(ev.starts_at);
-    $("eventDate").value = eventDateStr(ev);
-    $("eventStart").value = `${String(s.getHours()).padStart(2, "0")}:${String(s.getMinutes()).padStart(2, "0")}`;
+    setDateInput("eventDate", eventDateStr(ev));
+    setTimeInput("eventStart", `${String(s.getHours()).padStart(2, "0")}:${String(s.getMinutes()).padStart(2, "0")}`);
     if (ev.ends_at) {
       const e = new Date(ev.ends_at);
-      $("eventEnd").value = `${String(e.getHours()).padStart(2, "0")}:${String(e.getMinutes()).padStart(2, "0")}`;
+      setTimeInput("eventEnd", `${String(e.getHours()).padStart(2, "0")}:${String(e.getMinutes()).padStart(2, "0")}`);
+    } else {
+      setTimeInput("eventEnd", "");
     }
     setAllDay(!!ev.all_day);
   } else {
-    $("eventDate").value = presetDate || selectedDate || todayStr();
-    $("eventStart").value = "09:00";
-    $("eventEnd").value = "10:00";
+    setDateInput("eventDate", presetDate || selectedDate || todayStr());
+    setTimeInput("eventStart", "09:00");
+    setTimeInput("eventEnd", "10:00");
     setAllDay(false);
   }
 
@@ -3157,15 +3172,16 @@ function renderInviteChips() {
 async function saveEvent() {
   const title = $("eventTitle").value.trim();
   if (!title) return toast("Give your event a name");
-  const date = $("eventDate").value;
+  const date = $("eventDate").dataset.iso || "";
   if (!date) return toast("Pick a date for the event");
 
   const allDay = $("eventAllDay").classList.contains("on");
-  const startTime = allDay ? "00:00" : ($("eventStart").value || "09:00");
+  const startTime = allDay ? "00:00" : (getTimeInput("eventStart") || "09:00");
   const starts = new Date(`${date}T${startTime}`);
   let ends = null;
-  if (!allDay && $("eventEnd").value) {
-    ends = new Date(`${date}T${$("eventEnd").value}`);
+  const endTime = getTimeInput("eventEnd");
+  if (!allDay && endTime) {
+    ends = new Date(`${date}T${endTime}`);
     if (ends <= starts) return toast("End time must be after the start time");
   }
 
@@ -3350,4 +3366,129 @@ function wireEventEvents() {
   $("eventAllDay")?.addEventListener("click", () => setAllDay(!$("eventAllDay").classList.contains("on")));
   $("inviteSearch")?.addEventListener("input", runInviteSearch);
   $("inviteSearch")?.addEventListener("keydown", (e) => { if (e.key === "Enter") e.preventDefault(); });
+}
+
+// ============================================
+// Phase 4b · Custom time picker
+// Matches the in-app date picker: a readonly text field holds a friendly
+// label while dataset.time keeps the real 24h "HH:MM" value.
+// ============================================
+let timePickerTargetId = null;
+let tpHour = 9;      // 24h
+let tpMinute = 0;
+
+function prettyTimeValue(hhmm) {
+  if (!hhmm) return "";
+  const [h, m] = String(hhmm).split(":").map(Number);
+  if (isNaN(h) || isNaN(m)) return "";
+  const ap = h < 12 ? "am" : "pm";
+  const h12 = h % 12 === 0 ? 12 : h % 12;
+  return `${h12}:${String(m).padStart(2, "0")} ${ap}`;
+}
+
+function setTimeInput(id, hhmm) {
+  const el = $(id);
+  if (!el) return;
+  el.dataset.time = hhmm || "";
+  el.value = prettyTimeValue(hhmm);
+}
+
+function getTimeInput(id) {
+  return $(id)?.dataset.time || "";
+}
+
+function openTimePicker(targetId, kicker = "Time") {
+  timePickerTargetId = targetId;
+  const current = getTimeInput(targetId);
+  const [h, m] = (current || "09:00").split(":").map(Number);
+  tpHour = isNaN(h) ? 9 : h;
+  tpMinute = isNaN(m) ? 0 : m;
+  $("timePickerKicker").textContent = kicker;
+  renderTimePicker();
+  $("timePickerModal").classList.add("open");
+}
+
+function closeTimePicker() {
+  $("timePickerModal")?.classList.remove("open");
+  timePickerTargetId = null;
+}
+
+function renderTimePicker() {
+  const ap = tpHour < 12 ? "am" : "pm";
+  const h12 = tpHour % 12 === 0 ? 12 : tpHour % 12;
+  $("timeReadout").textContent = `${h12}:${String(tpMinute).padStart(2, "0")} ${ap}`;
+
+  // hours 1–12
+  $("hourCol").innerHTML = Array.from({ length: 12 }, (_, i) => {
+    const label = i + 1;
+    return `<button type="button" class="${label === h12 ? "on" : ""}" data-h="${label}">${label}</button>`;
+  }).join("");
+
+  // minutes in 5-minute steps
+  $("minuteCol").innerHTML = Array.from({ length: 12 }, (_, i) => {
+    const mm = i * 5;
+    return `<button type="button" class="${mm === tpMinute ? "on" : ""}" data-m="${mm}">${String(mm).padStart(2, "0")}</button>`;
+  }).join("");
+
+  $("ampmCol").querySelectorAll("[data-ap]").forEach((b) =>
+    b.classList.toggle("on", b.dataset.ap === ap));
+
+  $("hourCol").querySelectorAll("[data-h]").forEach((b) =>
+    b.addEventListener("click", () => {
+      const h = Number(b.dataset.h) % 12;
+      tpHour = (tpHour < 12) ? h : h + 12;
+      renderTimePicker();
+      scrollTimeColsIntoView();
+    }));
+  $("minuteCol").querySelectorAll("[data-m]").forEach((b) =>
+    b.addEventListener("click", () => { tpMinute = Number(b.dataset.m); renderTimePicker(); scrollTimeColsIntoView(); }));
+
+  $("quickTimeRow").querySelectorAll("[data-qt]").forEach((b) => {
+    b.onclick = () => {
+      const [h, m] = b.dataset.qt.split(":").map(Number);
+      tpHour = h; tpMinute = m;
+      renderTimePicker();
+      scrollTimeColsIntoView();
+    };
+  });
+}
+
+function scrollTimeColsIntoView() {
+  ["hourCol", "minuteCol"].forEach((id) => {
+    const on = $(id)?.querySelector(".on");
+    if (on) on.scrollIntoView({ block: "nearest" });
+  });
+}
+
+function confirmTimePicker() {
+  if (timePickerTargetId) {
+    const hhmm = `${String(tpHour).padStart(2, "0")}:${String(tpMinute).padStart(2, "0")}`;
+    setTimeInput(timePickerTargetId, hhmm);
+    // keep end after start automatically
+    if (timePickerTargetId === "eventStart") {
+      const end = getTimeInput("eventEnd");
+      if (end && end <= hhmm) {
+        const nh = Math.min(23, tpHour + 1);
+        setTimeInput("eventEnd", `${String(nh).padStart(2, "0")}:${String(tpMinute).padStart(2, "0")}`);
+      }
+    }
+  }
+  closeTimePicker();
+}
+
+function wireTimePickerEvents() {
+  $("eventStart")?.addEventListener("click", () => openTimePicker("eventStart", "Start time"));
+  $("eventEnd")?.addEventListener("click", () => openTimePicker("eventEnd", "End time"));
+  $("eventDate")?.addEventListener("click", () => openDatePicker("eventDate"));
+  $("timePickerClose")?.addEventListener("click", closeTimePicker);
+  $("timePickerCancel")?.addEventListener("click", closeTimePicker);
+  $("timePickerSet")?.addEventListener("click", confirmTimePicker);
+  $("timePickerModal")?.addEventListener("click", (e) => { if (e.target.id === "timePickerModal") closeTimePicker(); });
+  $("ampmCol")?.querySelectorAll("[data-ap]").forEach((b) =>
+    b.addEventListener("click", () => {
+      const wantPm = b.dataset.ap === "pm";
+      if (wantPm && tpHour < 12) tpHour += 12;
+      if (!wantPm && tpHour >= 12) tpHour -= 12;
+      renderTimePicker();
+    }));
 }

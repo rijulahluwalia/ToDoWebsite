@@ -303,9 +303,12 @@
       </div>
 
       <div class="ev-row">
-        <div class="field">
+        <div class="field date-field">
           <label for="eventDate">Date</label>
-          <input type="date" id="eventDate" />
+          <div class="date-shell">
+            <span class="date-icon">📅</span>
+            <input type="text" id="eventDate" class="pretty-date-input" placeholder="Choose a date" readonly />
+          </div>
         </div>
         <div class="field ev-allday">
           <label for="eventAllDay">All day</label>
@@ -314,13 +317,19 @@
       </div>
 
       <div class="ev-row" id="eventTimeRow">
-        <div class="field">
+        <div class="field date-field">
           <label for="eventStart">Starts</label>
-          <input type="time" id="eventStart" value="09:00" />
+          <div class="date-shell">
+            <span class="date-icon">🕘</span>
+            <input type="text" id="eventStart" class="pretty-date-input" placeholder="Start time" readonly />
+          </div>
         </div>
-        <div class="field">
+        <div class="field date-field">
           <label for="eventEnd">Ends</label>
-          <input type="time" id="eventEnd" value="10:00" />
+          <div class="date-shell">
+            <span class="date-icon">🕙</span>
+            <input type="text" id="eventEnd" class="pretty-date-input" placeholder="End time" readonly />
+          </div>
         </div>
       </div>
 
@@ -501,6 +510,54 @@
 
 
   <!-- Modern date picker modal -->
+  <div class="modal-backdrop" id="timePickerModal">
+    <div class="modal time-picker-modal">
+      <div class="date-picker-top">
+        <div>
+          <p class="modal-kicker" id="timePickerKicker">Start time</p>
+          <h2 id="timePickerTitle">Pick a time</h2>
+        </div>
+        <button class="icon-btn" id="timePickerClose" aria-label="Close time picker">×</button>
+      </div>
+
+      <div class="time-readout">
+        <span id="timeReadout">09:00 am</span>
+      </div>
+
+      <div class="quick-time-row" id="quickTimeRow">
+        <button type="button" data-qt="07:00">7:00 am</button>
+        <button type="button" data-qt="09:00">9:00 am</button>
+        <button type="button" data-qt="12:00">12:00 pm</button>
+        <button type="button" data-qt="15:00">3:00 pm</button>
+        <button type="button" data-qt="18:00">6:00 pm</button>
+        <button type="button" data-qt="20:00">8:00 pm</button>
+      </div>
+
+      <div class="time-columns">
+        <div class="time-col">
+          <span class="time-col-label">Hour</span>
+          <div class="time-scroll" id="hourCol"></div>
+        </div>
+        <div class="time-col">
+          <span class="time-col-label">Minute</span>
+          <div class="time-scroll" id="minuteCol"></div>
+        </div>
+        <div class="time-col ampm">
+          <span class="time-col-label">&nbsp;</span>
+          <div class="time-ampm" id="ampmCol">
+            <button type="button" data-ap="am">AM</button>
+            <button type="button" data-ap="pm">PM</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="modal-actions">
+        <button class="btn-cancel" id="timePickerCancel">Cancel</button>
+        <button class="btn-primary" id="timePickerSet">Set time</button>
+      </div>
+    </div>
+  </div>
+
   <div class="modal-backdrop" id="datePickerModal">
     <div class="modal date-picker-modal">
       <div class="date-picker-top">

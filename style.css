@@ -1580,7 +1580,7 @@ input, select, textarea { font-family: inherit; font-size: 1rem; color: var(--in
 /* ============================================
    PRIO · soft mobile form polish
    ============================================ */
-#datePickerModal { z-index: 620; } /* above .modal-backdrop (500) */
+#datePickerModal, #timePickerModal { z-index: 620; } /* above .modal-backdrop (500) */
 #datePickerModal .modal { box-shadow: 0 28px 80px rgba(23, 27, 54, 0.28); }
 .modal-backdrop.open { animation: fadeIn 0.22s var(--ease-out); }
 #datePickerModal.open .date-picker-modal { animation: datePickerPop 0.34s var(--ease-spring); }
@@ -3972,4 +3972,121 @@ body.modal-open .prio-filter-panel { display: none !important; }
   .ev-allday { flex-direction: row; align-items: center; gap: 10px; }
   .calendar-event { padding-left: 16px; }
   .ev-actions { flex-wrap: wrap; justify-content: flex-end; max-width: 84px; }
+}
+
+/* ============================================
+   Phase 4b · Custom time picker
+   Mirrors the in-app date picker styling.
+   ============================================ */
+.time-picker-modal { max-width: 400px; }
+
+.time-readout {
+  text-align: center;
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 2.1rem;
+  letter-spacing: -0.02em;
+  color: var(--primary);
+  padding: 10px 0 16px;
+  animation: fadeUp 0.3s var(--ease-out);
+}
+
+.quick-time-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+  margin-bottom: 16px;
+}
+.quick-time-row button {
+  padding: 8px 13px;
+  border-radius: 999px;
+  background: var(--bg);
+  font-weight: 700;
+  font-size: 0.78rem;
+  color: var(--ink-soft);
+  transition: all 0.22s var(--ease-spring);
+}
+.quick-time-row button:hover {
+  background: var(--primary-soft);
+  color: var(--primary);
+  transform: translateY(-2px);
+}
+
+.time-columns {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 6px;
+}
+.time-col { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+.time-col.ampm { flex: 0 0 76px; }
+.time-col-label {
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+  margin-bottom: 7px;
+  text-align: center;
+}
+
+.time-scroll {
+  height: 176px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  padding: 5px;
+  background: var(--bg);
+  border-radius: var(--radius-sm);
+  scrollbar-width: thin;
+}
+.time-scroll::-webkit-scrollbar { width: 5px; }
+.time-scroll::-webkit-scrollbar-thumb {
+  background: var(--line);
+  border-radius: 999px;
+}
+.time-scroll button {
+  padding: 9px 0;
+  border-radius: 10px;
+  font-weight: 700;
+  font-size: 0.92rem;
+  color: var(--ink-soft);
+  transition: all 0.18s var(--ease-spring);
+  flex-shrink: 0;
+}
+.time-scroll button:hover { background: var(--surface); color: var(--ink); }
+.time-scroll button.on {
+  background: var(--primary);
+  color: #fff;
+  transform: scale(1.04);
+  box-shadow: 0 6px 14px color-mix(in srgb, var(--primary) 32%, transparent);
+}
+
+.time-ampm {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  padding: 5px;
+  background: var(--bg);
+  border-radius: var(--radius-sm);
+}
+.time-ampm button {
+  padding: 13px 0;
+  border-radius: 10px;
+  font-weight: 800;
+  font-size: 0.85rem;
+  color: var(--ink-soft);
+  transition: all 0.2s var(--ease-spring);
+}
+.time-ampm button:hover { background: var(--surface); color: var(--ink); }
+.time-ampm button.on {
+  background: var(--primary);
+  color: #fff;
+  box-shadow: 0 6px 14px color-mix(in srgb, var(--primary) 32%, transparent);
+}
+
+@media (max-width: 640px) {
+  .time-readout { font-size: 1.8rem; }
+  .time-scroll { height: 150px; }
+  .quick-time-row button { font-size: 0.74rem; padding: 7px 11px; }
 }
