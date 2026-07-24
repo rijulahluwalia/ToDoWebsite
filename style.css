@@ -771,14 +771,18 @@ input, select, textarea { font-family: inherit; font-size: 1rem; color: var(--in
   background: #fff;
 }
 .date-icon {
-  width: 34px; height: 34px;
+  width: 22px; height: 22px;
   display: grid;
   place-items: center;
-  border-radius: 12px;
-  background: var(--surface);
-  box-shadow: inset 0 0 0 1px var(--line);
   flex-shrink: 0;
+  color: var(--ink-soft);
+  background: none;
+  box-shadow: none;
+  transition: color 0.2s;
 }
+.date-icon svg { width: 19px; height: 19px; display: block; }
+.date-shell:hover .date-icon,
+.date-shell:focus-within .date-icon { color: var(--primary); }
 .modal input[type="date"] {
   width: 100%;
   border: none;
@@ -1882,8 +1886,8 @@ input, select, textarea { font-family: inherit; font-size: 1rem; color: var(--in
 }
 .date-shell:active { transform: scale(0.99); }
 .date-icon {
-  background: #fff;
-  box-shadow: 0 8px 18px rgba(67, 83, 255, 0.10), inset 0 0 0 1px var(--line);
+  background: none;
+  box-shadow: none;
 }
 .pretty-date-input,
 .date-shell input.pretty-date-input,
@@ -3975,118 +3979,135 @@ body.modal-open .prio-filter-panel { display: none !important; }
 }
 
 /* ============================================
-   Phase 4b · Custom time picker
-   Mirrors the in-app date picker styling.
+   Phase 4b · Custom time picker (typed entry)
    ============================================ */
-.time-picker-modal { max-width: 400px; }
+.time-picker-modal { max-width: 380px; }
 
-.time-readout {
+.time-entry {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 20px 0 10px;
+}
+
+.time-num {
+  width: 82px;
+  height: 76px;
+  border: 2px solid transparent;
+  border-radius: 18px;
+  background: var(--bg);
   text-align: center;
   font-family: var(--font-display);
   font-weight: 700;
   font-size: 2.1rem;
-  letter-spacing: -0.02em;
-  color: var(--primary);
-  padding: 10px 0 16px;
-  animation: fadeUp 0.3s var(--ease-out);
+  color: var(--ink);
+  outline: none;
+  padding: 0;
+  transition: border-color 0.2s, background 0.2s, box-shadow 0.2s;
+  -moz-appearance: textfield;
+  caret-color: var(--primary);
+}
+.time-num::-webkit-outer-spin-button,
+.time-num::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+.time-num:hover { background: var(--primary-soft); }
+.time-num:focus {
+  border-color: var(--primary);
+  background: var(--surface);
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--primary) 16%, transparent);
 }
 
-.quick-time-row {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 7px;
-  margin-bottom: 16px;
-}
-.quick-time-row button {
-  padding: 8px 13px;
-  border-radius: 999px;
-  background: var(--bg);
+.time-colon {
+  font-family: var(--font-display);
   font-weight: 700;
-  font-size: 0.78rem;
+  font-size: 1.9rem;
+  color: var(--ink-soft);
+  margin-top: -4px;
+}
+
+.time-ampm-switch {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  margin-left: 6px;
+}
+.time-ampm-switch button {
+  width: 58px;
+  padding: 10px 0;
+  border-radius: 12px;
+  background: var(--bg);
+  font-weight: 800;
+  font-size: 0.8rem;
+  letter-spacing: 0.04em;
   color: var(--ink-soft);
   transition: all 0.22s var(--ease-spring);
 }
-.quick-time-row button:hover {
-  background: var(--primary-soft);
-  color: var(--primary);
-  transform: translateY(-2px);
+.time-ampm-switch button:hover { background: var(--primary-soft); color: var(--primary); }
+.time-ampm-switch button.on {
+  background: var(--primary);
+  color: #fff;
+  box-shadow: 0 6px 14px color-mix(in srgb, var(--primary) 30%, transparent);
 }
 
-.time-columns {
-  display: flex;
-  gap: 10px;
-  margin-bottom: 6px;
+.time-help {
+  text-align: center;
+  font-size: 0.78rem;
+  color: var(--ink-soft);
+  margin-bottom: 14px;
 }
-.time-col { flex: 1; display: flex; flex-direction: column; min-width: 0; }
-.time-col.ampm { flex: 0 0 76px; }
-.time-col-label {
-  font-size: 0.68rem;
+
+.time-steppers {
+  display: flex;
+  justify-content: center;
+  gap: 30px;
+  margin-bottom: 18px;
+}
+.time-stepper {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+}
+.time-stepper span {
+  font-size: 0.66rem;
   font-weight: 800;
   letter-spacing: 0.08em;
   text-transform: uppercase;
   color: var(--ink-soft);
-  margin-bottom: 7px;
-  text-align: center;
 }
-
-.time-scroll {
-  height: 176px;
-  overflow-y: auto;
-  display: flex;
-  flex-direction: column;
-  gap: 5px;
-  padding: 5px;
+.time-stepper button {
+  width: 46px;
+  height: 34px;
+  border-radius: 11px;
   background: var(--bg);
-  border-radius: var(--radius-sm);
-  scrollbar-width: thin;
-}
-.time-scroll::-webkit-scrollbar { width: 5px; }
-.time-scroll::-webkit-scrollbar-thumb {
-  background: var(--line);
-  border-radius: 999px;
-}
-.time-scroll button {
-  padding: 9px 0;
-  border-radius: 10px;
-  font-weight: 700;
-  font-size: 0.92rem;
   color: var(--ink-soft);
-  transition: all 0.18s var(--ease-spring);
-  flex-shrink: 0;
-}
-.time-scroll button:hover { background: var(--surface); color: var(--ink); }
-.time-scroll button.on {
-  background: var(--primary);
-  color: #fff;
-  transform: scale(1.04);
-  box-shadow: 0 6px 14px color-mix(in srgb, var(--primary) 32%, transparent);
-}
-
-.time-ampm {
-  display: flex;
-  flex-direction: column;
-  gap: 5px;
-  padding: 5px;
-  background: var(--bg);
-  border-radius: var(--radius-sm);
-}
-.time-ampm button {
-  padding: 13px 0;
-  border-radius: 10px;
-  font-weight: 800;
-  font-size: 0.85rem;
-  color: var(--ink-soft);
+  font-size: 0.7rem;
   transition: all 0.2s var(--ease-spring);
 }
-.time-ampm button:hover { background: var(--surface); color: var(--ink); }
-.time-ampm button.on {
+.time-stepper button:hover {
   background: var(--primary);
   color: #fff;
-  box-shadow: 0 6px 14px color-mix(in srgb, var(--primary) 32%, transparent);
+  transform: translateY(-2px);
+}
+.time-stepper button:active { transform: scale(0.92); }
+
+/* ---- mobile ---- */
+@media (max-width: 640px) {
+  .time-picker-modal { max-width: 100%; }
+  .time-entry { gap: 6px; padding: 16px 0 8px; }
+  .time-num { width: 74px; height: 74px; font-size: 1.85rem; }
+  /* AM/PM must clear the 44px touch-target minimum */
+  .time-ampm-switch { gap: 4px; }
+  .time-ampm-switch button { width: 54px; min-height: 44px; padding: 0; }
+  .time-stepper button { width: 54px; height: 44px; }
+  .time-steppers { gap: 24px; margin-bottom: 16px; }
+  .time-help { font-size: 0.74rem; }
 }
 
-@media (max-width: 640px) {
-  .time-readout { font-size: 1.8rem; }
-  .time-scroll { height: 150px; }
-  .quick-time-row button { font-size: 0.74rem; padding: 7px 11px; }
+/* very small phones */
+@media (max-width: 360px) {
+  .time-num { width: 62px; height: 68px; font-size: 1.55rem; }
+  .time-ampm-switch button { width: 48px; min-height: 44px; font-size: 0.74rem; }
+  .time-steppers { gap: 14px; }
+  .time-stepper button { width: 48px; }
 }

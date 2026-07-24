@@ -3369,12 +3369,13 @@ function wireEventEvents() {
 }
 
 // ============================================
-// Phase 4b · Custom time picker
-// Matches the in-app date picker: a readonly text field holds a friendly
-// label while dataset.time keeps the real 24h "HH:MM" value.
+// Phase 4b · Custom time picker (typed entry)
+// Two number fields + AM/PM, matching the in-app date picker's styling.
+// A readonly text field holds a friendly label while dataset.time keeps
+// the real 24h "HH:MM" value.
 // ============================================
 let timePickerTargetId = null;
-let tpHour = 9;      // 24h
+let tpHour = 9;      // 24h internally
 let tpMinute = 0;
 
 function prettyTimeValue(hhmm) {
@@ -3399,13 +3400,16 @@ function getTimeInput(id) {
 
 function openTimePicker(targetId, kicker = "Time") {
   timePickerTargetId = targetId;
-  const current = getTimeInput(targetId);
-  const [h, m] = (current || "09:00").split(":").map(Number);
+  const [h, m] = (getTimeInput(targetId) || "09:00").split(":").map(Number);
   tpHour = isNaN(h) ? 9 : h;
   tpMinute = isNaN(m) ? 0 : m;
   $("timePickerKicker").textContent = kicker;
-  renderTimePicker();
+  syncTimeFields();
   $("timePickerModal").classList.add("open");
+  // don't autofocus on phones — it pops the keyboard over the dialog
+  if (window.innerWidth > 640) {
+    setTimeout(() => { $("timeHourInput").focus(); $("timeHourInput").select(); }, 260);
+  }
 }
 
 function closeTimePicker() {
@@ -3413,58 +3417,54 @@ function closeTimePicker() {
   timePickerTargetId = null;
 }
 
-function renderTimePicker() {
-  const ap = tpHour < 12 ? "am" : "pm";
+// state -> inputs
+function syncTimeFields() {
   const h12 = tpHour % 12 === 0 ? 12 : tpHour % 12;
-  $("timeReadout").textContent = `${h12}:${String(tpMinute).padStart(2, "0")} ${ap}`;
-
-  // hours 1–12
-  $("hourCol").innerHTML = Array.from({ length: 12 }, (_, i) => {
-    const label = i + 1;
-    return `<button type="button" class="${label === h12 ? "on" : ""}" data-h="${label}">${label}</button>`;
-  }).join("");
-
-  // minutes in 5-minute steps
-  $("minuteCol").innerHTML = Array.from({ length: 12 }, (_, i) => {
-    const mm = i * 5;
-    return `<button type="button" class="${mm === tpMinute ? "on" : ""}" data-m="${mm}">${String(mm).padStart(2, "0")}</button>`;
-  }).join("");
-
+  $("timeHourInput").value = String(h12);
+  $("timeMinuteInput").value = String(tpMinute).padStart(2, "0");
   $("ampmCol").querySelectorAll("[data-ap]").forEach((b) =>
-    b.classList.toggle("on", b.dataset.ap === ap));
-
-  $("hourCol").querySelectorAll("[data-h]").forEach((b) =>
-    b.addEventListener("click", () => {
-      const h = Number(b.dataset.h) % 12;
-      tpHour = (tpHour < 12) ? h : h + 12;
-      renderTimePicker();
-      scrollTimeColsIntoView();
-    }));
-  $("minuteCol").querySelectorAll("[data-m]").forEach((b) =>
-    b.addEventListener("click", () => { tpMinute = Number(b.dataset.m); renderTimePicker(); scrollTimeColsIntoView(); }));
-
-  $("quickTimeRow").querySelectorAll("[data-qt]").forEach((b) => {
-    b.onclick = () => {
-      const [h, m] = b.dataset.qt.split(":").map(Number);
-      tpHour = h; tpMinute = m;
-      renderTimePicker();
-      scrollTimeColsIntoView();
-    };
-  });
+    b.classList.toggle("on", b.dataset.ap === (tpHour < 12 ? "am" : "pm")));
 }
 
-function scrollTimeColsIntoView() {
-  ["hourCol", "minuteCol"].forEach((id) => {
-    const on = $(id)?.querySelector(".on");
-    if (on) on.scrollIntoView({ block: "nearest" });
-  });
+// inputs -> state (tolerant: accepts partial typing, clamps on commit)
+function readTimeFields(commit = false) {
+  let h = parseInt($("timeHourInput").value, 10);
+  let m = parseInt($("timeMinuteInput").value, 10);
+  const isPm = $("ampmCol").querySelector('[data-ap="pm"]')?.classList.contains("on");
+
+  if (isNaN(h)) h = 12;
+  if (isNaN(m)) m = 0;
+  h = Math.min(12, Math.max(1, h));
+  m = Math.min(59, Math.max(0, m));
+
+  tpHour = isPm ? (h % 12) + 12 : h % 12;
+  tpMinute = m;
+  if (commit) syncTimeFields();
+}
+
+function stepTime(unit, dir) {
+  if (unit === "h") {
+    tpHour = (tpHour + dir + 24) % 24;
+  } else {
+    // snap to the next/previous clean 5-minute mark so stepping from a
+    // typed value like :07 lands on :10, not :12
+    const cur = tpHour * 60 + tpMinute;
+    let target;
+    if (dir > 0) target = (Math.floor(cur / 5) + 1) * 5;
+    else target = tpMinute % 5 === 0 ? cur - 5 : Math.floor(cur / 5) * 5;
+    target = (target + 1440) % 1440;
+    tpHour = Math.floor(target / 60);
+    tpMinute = target % 60;
+  }
+  syncTimeFields();
 }
 
 function confirmTimePicker() {
+  readTimeFields(true);
   if (timePickerTargetId) {
     const hhmm = `${String(tpHour).padStart(2, "0")}:${String(tpMinute).padStart(2, "0")}`;
     setTimeInput(timePickerTargetId, hhmm);
-    // keep end after start automatically
+    // keep the end time after the start automatically
     if (timePickerTargetId === "eventStart") {
       const end = getTimeInput("eventEnd");
       if (end && end <= hhmm) {
@@ -3480,15 +3480,46 @@ function wireTimePickerEvents() {
   $("eventStart")?.addEventListener("click", () => openTimePicker("eventStart", "Start time"));
   $("eventEnd")?.addEventListener("click", () => openTimePicker("eventEnd", "End time"));
   $("eventDate")?.addEventListener("click", () => openDatePicker("eventDate"));
+
   $("timePickerClose")?.addEventListener("click", closeTimePicker);
   $("timePickerCancel")?.addEventListener("click", closeTimePicker);
   $("timePickerSet")?.addEventListener("click", confirmTimePicker);
   $("timePickerModal")?.addEventListener("click", (e) => { if (e.target.id === "timePickerModal") closeTimePicker(); });
+
+  const hIn = $("timeHourInput"), mIn = $("timeMinuteInput");
+
+  [hIn, mIn].forEach((el, i) => {
+    if (!el) return;
+    el.addEventListener("focus", () => el.select());
+    el.addEventListener("input", () => {
+      // digits only
+      el.value = el.value.replace(/\D/g, "").slice(0, 2);
+      readTimeFields(false);
+      // typing "9" or "10" in hours jumps to minutes automatically
+      if (i === 0 && (el.value.length === 2 || Number(el.value) > 1)) {
+        if (el.value.length >= 1 && Number(el.value) >= 2) mIn.focus();
+        else if (el.value.length === 2) mIn.focus();
+      }
+    });
+    el.addEventListener("blur", () => readTimeFields(true));
+    el.addEventListener("keydown", (e) => {
+      if (e.key === "ArrowUp") { e.preventDefault(); stepTime(i === 0 ? "h" : "m", 1); }
+      else if (e.key === "ArrowDown") { e.preventDefault(); stepTime(i === 0 ? "h" : "m", -1); }
+      else if (e.key === "Enter") { e.preventDefault(); confirmTimePicker(); }
+      else if (e.key === "Escape") closeTimePicker();
+      // typing ":" in the hour box moves to minutes, like a real clock field
+      else if (i === 0 && (e.key === ":" || e.key === ".")) { e.preventDefault(); mIn.focus(); }
+    });
+  });
+
   $("ampmCol")?.querySelectorAll("[data-ap]").forEach((b) =>
     b.addEventListener("click", () => {
       const wantPm = b.dataset.ap === "pm";
       if (wantPm && tpHour < 12) tpHour += 12;
       if (!wantPm && tpHour >= 12) tpHour -= 12;
-      renderTimePicker();
+      syncTimeFields();
     }));
+
+  document.querySelectorAll(".time-stepper [data-step]").forEach((b) =>
+    b.addEventListener("click", () => stepTime(b.dataset.step, Number(b.dataset.dir))));
 }
