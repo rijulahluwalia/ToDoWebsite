@@ -143,6 +143,7 @@ async function init() {
   wireEventEvents();
   wireTimePickerEvents();
   wireGcalEvents();
+  wireDeleteAccount();
   renderGcalStatus();
   wireInviteAlert();
   initPullToRefresh();
@@ -4345,4 +4346,84 @@ function gcalShowSyncing(on) {
 // After reconnecting, push anything that was waiting.
 function gcalResumeAfterReconnect() {
   if (gcalConnected() && gcalQueue.size) setTimeout(gcalFlushQueue, 400);
+}
+
+// ============================================
+// Delete account
+// Irreversible, so: explicit modal, typed email confirmation, and the
+// button stays disabled until the email matches exactly.
+// ============================================
+function openDeleteAccount() {
+  $("deleteConfirmEmail").value = "";
+  $("deleteAccountConfirm").disabled = true;
+  $("deleteAccountModal").classList.add("open");
+  setTimeout(() => $("deleteConfirmEmail").focus(), 250);
+}
+
+function closeDeleteAccount() {
+  $("deleteAccountModal")?.classList.remove("open");
+}
+
+function checkDeleteConfirm() {
+  const typed = ($("deleteConfirmEmail").value || "").trim().toLowerCase();
+  const mine = (user?.email || "").toLowerCase();
+  const match = !!typed && typed === mine;
+  $("deleteAccountConfirm").disabled = !match;
+  $("deleteConfirmEmail").closest(".input-shell")?.classList.toggle("matched", match);
+}
+
+async function confirmDeleteAccount() {
+  const btn = $("deleteAccountConfirm");
+  const typed = ($("deleteConfirmEmail").value || "").trim();
+  if (typed.toLowerCase() !== (user?.email || "").toLowerCase()) return;
+
+  btn.disabled = true;
+  btn.textContent = "Deleting…";
+
+  try {
+    const { data: sess } = await db.auth.getSession();
+    const jwt = sess?.session?.access_token;
+    if (!jwt) throw new Error("Session expired — log in again.");
+
+    const res = await fetch("/api/delete-account", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: "Bearer " + jwt },
+      body: JSON.stringify({ confirm_email: typed }),
+    });
+    const data = await res.json();
+
+    if (!res.ok) {
+      if (data.error === "EMAIL_MISMATCH") throw new Error("That email doesn't match this account.");
+      throw new Error(data.error || "Couldn't delete the account.");
+    }
+
+    // gone — clear everything local and send them out
+    try {
+      sessionStorage.clear();
+      localStorage.removeItem(GCAL_TOKEN_KEY);
+      localStorage.removeItem(GCAL_AUTO_KEY);
+      localStorage.removeItem(onboardingKey());
+    } catch {}
+    await db.auth.signOut();
+    window.location.href = "index.html";
+  } catch (err) {
+    toast(err.message || "Couldn't delete the account");
+    btn.disabled = false;
+    btn.textContent = "Delete forever";
+  }
+}
+
+function wireDeleteAccount() {
+  $("deleteAccountBtn")?.addEventListener("click", openDeleteAccount);
+  $("deleteAccountCancel")?.addEventListener("click", closeDeleteAccount);
+  $("deleteAccountClose")?.addEventListener("click", closeDeleteAccount);
+  $("deleteAccountModal")?.addEventListener("click", (e) => {
+    if (e.target.id === "deleteAccountModal") closeDeleteAccount();
+  });
+  $("deleteConfirmEmail")?.addEventListener("input", checkDeleteConfirm);
+  $("deleteConfirmEmail")?.addEventListener("keydown", (e) => {
+    if (e.key === "Enter" && !$("deleteAccountConfirm").disabled) confirmDeleteAccount();
+    if (e.key === "Escape") closeDeleteAccount();
+  });
+  $("deleteAccountConfirm")?.addEventListener("click", confirmDeleteAccount);
 }

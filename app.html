@@ -274,6 +274,14 @@
           <p style="font-size:0.88rem;color:var(--ink-soft);margin-bottom:14px">Log out of Prio on this device.</p>
           <button class="btn-danger-ghost" id="logoutBtn">Log out</button>
         </div>
+
+        <div class="card danger-card">
+          <h3>Delete account</h3>
+          <p style="font-size:0.88rem;color:var(--ink-soft);margin-bottom:14px">
+            Permanently removes your account and everything in it. This can't be undone.
+          </p>
+          <button class="btn-danger-solid" id="deleteAccountBtn">Delete my account</button>
+        </div>
       </div>
     </section>
   </div>
@@ -574,6 +582,44 @@
   </div>
 
   <!-- Google Calendar sync -->
+  <!-- Delete account confirmation -->
+  <div class="modal-backdrop" id="deleteAccountModal">
+    <div class="modal delete-modal">
+      <div class="ia-top">
+        <span class="delete-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><path d="M12 9v5M12 17.5v.5"/><path d="M10.3 3.9 2.4 17.5A2 2 0 0 0 4.1 20.5h15.8a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/></svg>
+        </span>
+        <div>
+          <p class="modal-kicker">Careful</p>
+          <h2>Delete your account?</h2>
+        </div>
+        <button class="icon-btn" id="deleteAccountClose" aria-label="Close">&times;</button>
+      </div>
+
+      <p class="delete-note">This permanently removes:</p>
+      <ul class="delete-list">
+        <li>All your tasks, habits, streaks and brain dump</li>
+        <li>Your projects, routines and university data</li>
+        <li>Events you created — guests will lose them too</li>
+        <li>Your profile and login</li>
+      </ul>
+
+      <p class="delete-warn">This cannot be undone. There is no way to recover it.</p>
+
+      <div class="field">
+        <label for="deleteConfirmEmail">Type your email to confirm</label>
+        <div class="input-shell">
+          <input type="email" id="deleteConfirmEmail" placeholder="you@email.com" autocomplete="off" />
+        </div>
+      </div>
+
+      <div class="modal-actions">
+        <button class="btn-cancel" id="deleteAccountCancel">Keep my account</button>
+        <button class="btn-danger-solid" id="deleteAccountConfirm" disabled>Delete forever</button>
+      </div>
+    </div>
+  </div>
+
   <div class="modal-backdrop" id="gcalModal">
     <div class="modal gcal-modal">
       <div class="ia-top">
