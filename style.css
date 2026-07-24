@@ -2411,7 +2411,7 @@ input, select, textarea { font-family: inherit; font-size: 1rem; color: var(--in
 
 :root[data-theme="dark"] body {
   background:
-    radial-gradient(circle at 82% 2%, color-mix(in srgb, var(--primary) 18%, transparent), transparent 32%),
+    radial-gradient(circle at 88% 0%, color-mix(in srgb, var(--primary) 8%, transparent), transparent 55%),
     radial-gradient(circle at 7% 0%, rgba(255,185,56,0.08), transparent 24%),
     var(--bg);
 }
@@ -4395,96 +4395,4 @@ body.modal-open .prio-filter-panel { display: none !important; }
   }
   .reminder-row .due-badge { margin-top: 0; align-self: center; font-size: 0.72rem; }
   .reminder-row b { font-size: 0.86rem; }
-}
-
-/* ============================================
-   MOBILE FIX · Reminders & achievements overflow
-   Keeps the entire Phase 4 card inside narrow phone viewports.
-   ============================================ */
-.phase4-card,
-#phase4Root,
-.phase4-grid,
-.phase4-panel,
-.achievement-row,
-.reminder-list,
-.reminder-row {
-  min-width: 0;
-  max-width: 100%;
-}
-
-.phase4-grid {
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr);
-}
-
-.phase4-panel {
-  width: 100%;
-  overflow: hidden;
-}
-
-@media (max-width: 720px) {
-  .phase4-card {
-    overflow: hidden;
-  }
-
-  .phase4-card > .section-head {
-    align-items: flex-start;
-    flex-wrap: wrap;
-  }
-
-  .phase4-card > .section-head h2 {
-    min-width: 0;
-    overflow-wrap: anywhere;
-  }
-
-  .phase4-grid {
-    width: 100%;
-    grid-template-columns: minmax(0, 1fr);
-  }
-
-  .phase4-panel {
-    padding: 14px;
-  }
-
-  .achievement-row {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
-  .achievement {
-    min-width: 0;
-  }
-
-  .achievement span {
-    max-width: 100%;
-    overflow-wrap: anywhere;
-  }
-
-  .reminder-row {
-    width: 100%;
-    min-width: 0;
-    padding: 10px;
-  }
-
-  .reminder-row .due-badge {
-    min-width: 0;
-    max-width: 48%;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
-}
-
-@media (max-width: 430px) {
-  .phase4-card {
-    padding-left: 14px;
-    padding-right: 14px;
-  }
-
-  .phase4-panel {
-    padding: 12px;
-    border-radius: 16px;
-  }
-
-  .reminder-row {
-    gap: 8px;
-  }
 }
