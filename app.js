@@ -510,7 +510,7 @@ function renderTasks() {
   let shown = pool;
   if (activeFilter === "done") shown = pool.filter((t) => t.completed);
   else if (activeFilter !== "all") shown = pool.filter((t) => t.priority_id === activeFilter && !t.completed);
-  else shown = pool.filter((t) => !t.completed);
+  else shown = pool.filter((t) => !t.completed).sort(byPriorityDesc);
 
   if (shown.length === 0) {
     const msg = activeFilter === "done"
@@ -1439,6 +1439,26 @@ function tierOf(task) {
   if (task.priority_id === sorted[0]?.id) return "red";
   if (task.priority_id === sorted[1]?.id) return "yellow";
   return "green";
+}
+
+// Highest priority first. Ranking follows the priority's `position`
+// (High=2 > Medium=1 > Low=0), the same rule tierOf() uses. Tasks with no
+// priority sink to the bottom; ties fall back to due date, then newest.
+function byPriorityDesc(a, b) {
+  const rank = (t) => {
+    const p = prioById(t.priority_id);
+    return p ? (p.position ?? 0) : -1;
+  };
+  const diff = rank(b) - rank(a);
+  if (diff !== 0) return diff;
+
+  // same priority: soonest due date first, undated last
+  if (a.due_date !== b.due_date) {
+    if (!a.due_date) return 1;
+    if (!b.due_date) return -1;
+    return a.due_date < b.due_date ? -1 : 1;
+  }
+  return new Date(b.created_at || 0) - new Date(a.created_at || 0);
 }
 
 function todaysTasks() {
