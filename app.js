@@ -347,6 +347,7 @@ function renderAll() {
   renderRoutines();
   renderUni();
   renderTodayRoutines();
+  renderCalendar();
   renderPhase4();
   renderThemeStudio();
 }
@@ -668,6 +669,22 @@ function uniCalendarItemsForDate(iso) {
   });
   return [...classes, ...assessments];
 }
+// Every dated/scheduled Prio item is surfaced by the calendar automatically.
+function projectCalendarItemsForDate(iso) {
+  return projectItems
+    .filter((item) => item.due_date === iso)
+    .map((item) => ({
+      item,
+      project: projects.find((project) => project.id === item.project_id) || null,
+    }));
+}
+
+function routineCalendarItemsForDate(iso) {
+  const date = parseISODate(iso);
+  if (!date) return [];
+  const dow = String(date.getDay());
+  return routines.filter((routine) => (routine.days || "0123456").includes(dow));
+}
 function hasSemesterOverview() {
   const s = getUniSemesterSettings();
   return Boolean(s.name || s.notes || s.startDate || s.endDate || (s.breaks && s.breaks.length));
@@ -775,11 +792,15 @@ function renderCalendar() {
   for (let d = 1; d <= daysInMonth; d++) {
     const iso = `${y}-${String(m + 1).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
     const dayTasks = tasks.filter((t) => t.due_date === iso);
+    const dayProjects = projectCalendarItemsForDate(iso);
+    const dayRoutines = routineCalendarItemsForDate(iso);
     const breakInfo = uniBreakForDate(iso);
     const uniItems = breakInfo ? [] : uniCalendarItemsForDate(iso);
     const dayEvents = eventsForDate(iso);
     const dots = [
       ...dayTasks.map((t) => ({ color: prioById(t.priority_id)?.color || "#c3c8dd" })),
+      ...dayProjects.map(() => ({ color: "#8a63ff" })),
+      ...dayRoutines.map(() => ({ color: "#18c2c2" })),
       ...(breakInfo ? [{ color: "#2fbf71" }] : uniItems.map((u) => ({ color: u.type === "assessment" ? "#ffb938" : u.color }))),
       ...dayEvents.map((e) => ({ color: e.color || "#4353ff" })),
     ].slice(0, 5).map((dot, i) => `<i style="background:${dot.color};animation-delay:${i * 0.06}s"></i>`).join("");
@@ -799,6 +820,8 @@ function renderDayPanel() {
   const panel = $("dayPanel");
   if (!selectedDate) { panel.innerHTML = ""; return; }
   const dayTasks = tasks.filter((t) => t.due_date === selectedDate);
+  const dayProjects = projectCalendarItemsForDate(selectedDate);
+  const dayRoutines = routineCalendarItemsForDate(selectedDate);
   const breakInfo = uniBreakForDate(selectedDate);
   // Semester breaks always win: assessments still appear on their due date,
   // but recurring timetable classes are intentionally hidden during breaks.
@@ -822,6 +845,23 @@ function renderDayPanel() {
         return `<div class="calendar-uni-event class" style="--subject-color:${esc(ev.color)}"><span>🎓</span><div><strong>${esc(ev.subject?.code || ev.subject?.name || "Subject")} · ${esc(c.class_type || "Class")}</strong><p>${time} · ${esc(c.room || "Room TBA")}</p></div></div>`;
       }).join("")}
     </div>` : "";
+  const projectsHtml = dayProjects.length ? `
+    <div class="calendar-uni-list">
+      <h4>Projects</h4>
+      ${dayProjects.map(({ item, project }) => `
+        <div class="calendar-uni-event" style="--subject-color:#8a63ff">
+          <span>${esc(project?.icon || "📂")}</span>
+          <div><strong>${esc(item.title)}</strong><p>${esc(project?.name || "Project")} · Project item due</p></div>
+        </div>`).join("")}
+    </div>` : "";
+  const routinesHtml = dayRoutines.length ? `
+    <div class="calendar-uni-list">
+      <h4>Routines</h4>
+      ${dayRoutines.map((routine) => {
+        const stepCount = routineSteps.filter((step) => step.routine_id === routine.id).length;
+        return `<div class="calendar-uni-event" style="--subject-color:#18c2c2"><span>${esc(routine.icon || "🔁")}</span><div><strong>${esc(routine.name)}</strong><p>${stepCount} step${stepCount === 1 ? "" : "s"} · Scheduled routine</p></div></div>`;
+      }).join("")}
+    </div>` : "";
   const eventsHtml = eventsPanelHTML(selectedDate);
   panel.innerHTML = `
     <div class="section-head">
@@ -833,9 +873,11 @@ function renderDayPanel() {
     </div>
     ${eventsHtml}
     ${uniHtml}
+    ${projectsHtml}
+    ${routinesHtml}
     <div class="task-list">${dayTasks.length
       ? dayTasks.map(taskHTML).join("")
-      : (!uniItems.length && !breakInfo && !eventsHtml ? `<div class="empty"><span class="emoji">🗓️</span>Nothing planned — a rare free day!</div>` : "")}</div>`;
+      : (!uniItems.length && !breakInfo && !eventsHtml && !dayProjects.length && !dayRoutines.length ? `<div class="empty"><span class="emoji">🗓️</span>Nothing planned — a rare free day!</div>` : "")}</div>`;
   $("addOnDay").addEventListener("click", () => openModal(null, selectedDate));
   $("addEventOnDay").addEventListener("click", () => openEventModal(null, selectedDate));
   wireTaskEvents(panel);
@@ -1954,6 +1996,7 @@ async function deleteProject(id) {
   projectItems = projectItems.filter((i) => i.project_id !== id);
   openProjectId = null;
   renderProjects();
+  renderCalendar();
   toast("Project deleted");
 }
 
@@ -1996,6 +2039,7 @@ async function deleteSection(id) {
   projectSections = projectSections.filter((x) => !ids.includes(x.id));
   projectItems = projectItems.filter((i) => !ids.includes(i.section_id));
   renderProjects();
+  renderCalendar();
 }
 
 // ---------- project items ----------
@@ -2045,6 +2089,7 @@ async function savePitem() {
   toast(pitemCtx.itemId ? "Item updated" : "Item added ✨");
   pitemCtx = null;
   renderProjects();
+  renderCalendar();
 }
 
 async function togglePitem(id) {
@@ -2060,6 +2105,7 @@ async function togglePitem(id) {
     return toast("Couldn't save — try again");
   }
   if (it.completed) toast("Nice one ✓");
+  renderCalendar();
 }
 
 async function deletePitem(id) {
@@ -2067,6 +2113,7 @@ async function deletePitem(id) {
   if (error) return toast("Couldn't delete — try again");
   projectItems = projectItems.filter((x) => x.id !== id);
   renderProjects();
+  renderCalendar();
   toast("Item removed");
 }
 
@@ -2415,6 +2462,7 @@ async function saveRoutine() {
   renderRoutines();
   renderUni();
   renderTodayRoutines();
+  renderCalendar();
   renderPhase4();
   renderThemeStudio();
 }
@@ -2432,6 +2480,7 @@ async function deleteRoutine(id) {
   renderRoutines();
   renderUni();
   renderTodayRoutines();
+  renderCalendar();
   toast("Routine deleted");
 }
 
