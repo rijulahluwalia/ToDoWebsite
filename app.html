@@ -70,6 +70,10 @@
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 19.5A2.5 2.5 0 016.5 17H20"/><path d="M4 4.5A2.5 2.5 0 016.5 2H20v20H6.5A2.5 2.5 0 014 19.5v-15z"/></svg>
         Uni
       </button>
+      <button data-view="work">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="7" width="18" height="13" rx="2"/><path d="M8 7V5a2 2 0 012-2h4a2 2 0 012 2v2"/></svg>
+        Work
+      </button>
       <button data-view="routines">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 12a8 8 0 0113.7-5.6M20 12a8 8 0 01-13.7 5.6"/><path d="M17 3v4h4M7 21v-4H3"/></svg>
         Routines
@@ -201,6 +205,11 @@
       <div id="routinesRoot"></div>
     </section>
 
+    <!-- ================= WORK VIEW ================= -->
+    <section class="view" id="view-work">
+      <div id="workRoot"></div>
+    </section>
+
     <!-- ================= COLOUR LAB VIEW ================= -->
     <section class="view" id="view-colors">
       <div class="section-head">
@@ -304,6 +313,7 @@
       <button data-view="calendar">📅 <span>Calendar</span></button>
       <button data-view="projects">📂 <span>Projects</span></button>
       <button data-view="uni">🎓 <span>Uni</span></button>
+      <button data-view="work">💼 <span>Work</span></button>
       <button data-view="routines">🔁 <span>Routines</span></button>
       <button data-view="colors">🎨 <span>Colours</span></button>
       <button data-view="profile">👤 <span>Profile</span></button>
@@ -312,6 +322,69 @@
 
   <!-- Task modal -->
   <!-- Event modal (calendar events + invites) -->
+  <!-- Work shift modal -->
+  <div class="modal-backdrop" id="shiftModal">
+    <div class="modal">
+      <h2 id="shiftModalTitle">New shift</h2>
+
+      <div class="field">
+        <label for="shiftTitle">Workplace</label>
+        <div class="input-shell"><input type="text" id="shiftTitle" placeholder="e.g. Cochlear" maxlength="80" /></div>
+      </div>
+
+      <div class="field date-field">
+        <label for="shiftDate">Date</label>
+        <div class="date-shell">
+          <span class="date-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><rect x="3" y="5" width="18" height="16" rx="3"/><path d="M8 3v4M16 3v4M3 10h18"/></svg></span>
+          <input type="text" id="shiftDate" class="pretty-date-input" placeholder="Choose a date" readonly />
+        </div>
+      </div>
+
+      <div class="ev-row">
+        <div class="field date-field">
+          <label for="shiftStart">Starts</label>
+          <div class="date-shell">
+            <span class="date-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3.5 2"/></svg></span>
+            <input type="text" id="shiftStart" class="pretty-date-input" placeholder="Start time" readonly />
+          </div>
+        </div>
+        <div class="field date-field">
+          <label for="shiftEnd">Ends</label>
+          <div class="date-shell">
+            <span class="date-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3.5 2"/></svg></span>
+            <input type="text" id="shiftEnd" class="pretty-date-input" placeholder="End time" readonly />
+          </div>
+        </div>
+      </div>
+
+      <div class="field">
+        <div class="shift-breaks-head">
+          <label style="margin:0">Breaks</label>
+          <button type="button" class="btn-ghost shift-add-break" id="shiftAddBreak">+ Add break</button>
+        </div>
+        <div class="shift-breaks" id="shiftBreaks"></div>
+        <p class="field-hint" id="shiftBreakHint">No breaks — tap “Add break” for lunch or rest breaks.</p>
+      </div>
+
+      <div class="field">
+        <label for="shiftLocation">Location (optional)</label>
+        <div class="input-shell"><input type="text" id="shiftLocation" placeholder="e.g. Macquarie Park" maxlength="120" /></div>
+      </div>
+
+      <div class="field">
+        <label for="shiftNotes">Notes (optional)</label>
+        <textarea id="shiftNotes" placeholder="Anything to remember for this shift…"></textarea>
+      </div>
+
+      <div class="shift-summary" id="shiftSummary"></div>
+
+      <div class="modal-actions">
+        <button class="btn-cancel" id="shiftCancel">Cancel</button>
+        <button class="btn-primary" id="shiftSave">Save shift</button>
+      </div>
+    </div>
+  </div>
+
   <div class="modal-backdrop" id="eventModal">
     <div class="modal">
       <h2 id="eventModalTitle">New event</h2>

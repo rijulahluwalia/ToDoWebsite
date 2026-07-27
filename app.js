@@ -125,6 +125,7 @@ async function init() {
   await loadHabits();
   await loadProjects();
   await loadRoutines();
+  try { await loadShifts(); } catch (e) { console.warn("Work shifts unavailable — run schema-update-8.sql", e); }
   await loadUni();
   await ensureTodayRoutines();
   try { await loadEvents(); await cacheInviteNames(); }
@@ -143,6 +144,7 @@ async function init() {
   wireEventEvents();
   wireTimePickerEvents();
   wireGcalEvents();
+  wireShiftEvents();
   wireDeleteAccount();
   renderGcalStatus();
   wireInviteAlert();
@@ -362,6 +364,7 @@ function renderAll() {
   renderDashboard();
   renderProjects();
   renderRoutines();
+  renderWork();
   renderUni();
   renderTodayRoutines();
   renderCalendar();
@@ -827,12 +830,14 @@ function renderCalendar() {
     const breakInfo = uniBreakForDate(iso);
     const uniItems = breakInfo ? [] : uniCalendarItemsForDate(iso);
     const dayEvents = eventsForDate(iso);
+    const dayShifts = shiftsForDate(iso);
     const dots = [
       ...dayTasks.map((t) => ({ color: prioById(t.priority_id)?.color || "#c3c8dd" })),
       ...dayProjects.map(() => ({ color: "#8a63ff" })),
       ...dayRoutines.map(() => ({ color: "#18c2c2" })),
       ...(breakInfo ? [{ color: "#2fbf71" }] : uniItems.map((u) => ({ color: u.type === "assessment" ? "#ffb938" : u.color }))),
       ...dayEvents.map((e) => ({ color: e.color || "#4353ff" })),
+      ...dayShifts.map((s) => ({ color: s.color || "#18c2c2" })),
     ].slice(0, 5).map((dot, i) => `<i style="background:${dot.color};animation-delay:${i * 0.06}s"></i>`).join("");
     const cls = ["cal-day", iso === today ? "today" : "", iso === selectedDate ? "selected" : "", breakInfo ? "semester-break" : ""].join(" ");
     html += `<button class="${cls}" data-date="${iso}" title="${breakInfo ? esc(breakInfo.label || 'Semester break') : ''}"><span>${d}</span><span class="cal-dots">${dots}</span></button>`;
@@ -893,25 +898,30 @@ function renderDayPanel() {
       }).join("")}
     </div>` : "";
   const eventsHtml = eventsPanelHTML(selectedDate);
+  const shiftsHtml = shiftsPanelHTML(selectedDate);
   panel.innerHTML = `
     <div class="section-head">
       <h3>${pretty}</h3>
       <div class="day-actions">
+        <button class="btn-ghost" id="addShiftOnDay">+ Shift</button>
         <button class="btn-ghost" id="addEventOnDay">+ Event</button>
         <button class="btn-ghost" id="addOnDay">+ Task</button>
       </div>
     </div>
+    ${shiftsHtml}
     ${eventsHtml}
     ${uniHtml}
     ${projectsHtml}
     ${routinesHtml}
     <div class="task-list">${dayTasks.length
       ? dayTasks.map(taskHTML).join("")
-      : (!uniItems.length && !breakInfo && !eventsHtml && !dayProjects.length && !dayRoutines.length ? `<div class="empty"><span class="emoji">🗓️</span>Nothing planned — a rare free day!</div>` : "")}</div>`;
+      : (!uniItems.length && !breakInfo && !eventsHtml && !shiftsHtml && !dayProjects.length && !dayRoutines.length ? `<div class="empty"><span class="emoji">🗓️</span>Nothing planned — a rare free day!</div>` : "")}</div>`;
   $("addOnDay").addEventListener("click", () => openModal(null, selectedDate));
   $("addEventOnDay").addEventListener("click", () => openEventModal(null, selectedDate));
+  $("addShiftOnDay").addEventListener("click", () => openShiftModal(null, selectedDate));
   wireTaskEvents(panel);
   wireEventPanel(panel);
+  wireShiftPanel(panel);
 }
 
 // ---------- colour lab (priorities) ----------
@@ -2607,6 +2617,12 @@ function openDatePicker(targetId) {
 }
 function closeDatePicker() { $("datePickerModal")?.classList.remove("open"); datePickerTargetId = null; }
 function chooseDate(iso) {
+  if (datePickerTargetId === "shiftDate") {
+    setDateInput("shiftDate", iso);
+    closeDatePicker();
+    renderShiftSummary();
+    return;
+  }
   if (datePickerTargetId) setDateInput(datePickerTargetId, iso);
   closeDatePicker();
 }
@@ -3675,8 +3691,20 @@ function stepTime(unit, dir) {
 
 function confirmTimePicker() {
   readTimeFields(true);
+  const hhmm = `${String(tpHour).padStart(2, "0")}:${String(tpMinute).padStart(2, "0")}`;
+
+  // writing into a shift break rather than a normal field?
+  if (timePickerTargetId === "__break" && timePickerBreakTarget) {
+    const { i, field } = timePickerBreakTarget;
+    if (shiftBreaksDraft[i]) shiftBreaksDraft[i][field] = hhmm;
+    timePickerBreakTarget = null;
+    closeTimePicker();
+    renderShiftBreaks();
+    renderShiftSummary();
+    return;
+  }
+
   if (timePickerTargetId) {
-    const hhmm = `${String(tpHour).padStart(2, "0")}:${String(tpMinute).padStart(2, "0")}`;
     setTimeInput(timePickerTargetId, hhmm);
     // keep the end time after the start automatically
     if (timePickerTargetId === "eventStart") {
@@ -3685,6 +3713,17 @@ function confirmTimePicker() {
         const nh = Math.min(23, tpHour + 1);
         setTimeInput("eventEnd", `${String(nh).padStart(2, "0")}:${String(tpMinute).padStart(2, "0")}`);
       }
+    }
+    // shift start bumps shift end, and refresh the worked-hours summary
+    if (timePickerTargetId === "shiftStart") {
+      const end = getTimeInput("shiftEnd");
+      if (end && end <= hhmm) {
+        const nh = Math.min(23, tpHour + 1);
+        setTimeInput("shiftEnd", `${String(nh).padStart(2, "0")}:${String(tpMinute).padStart(2, "0")}`);
+      }
+    }
+    if (timePickerTargetId === "shiftStart" || timePickerTargetId === "shiftEnd") {
+      renderShiftSummary();
     }
   }
   closeTimePicker();
@@ -4145,9 +4184,25 @@ function gcalTaskPayload(t) {
   };
 }
 
+function gcalShiftPayload(sh) {
+  const brk = (sh.breaks || []).length
+    ? "Breaks: " + sh.breaks.map((b) => `${b.label || "Break"} ${prettyTimeValue(b.start)}–${prettyTimeValue(b.end)}`).join(", ")
+    : "";
+  const worked = `Worked: ${fmtDuration(shiftPaidMinutes(sh))}`;
+  const description = [sh.notes, brk, worked, "— synced from Prio"].filter(Boolean).join("\n");
+  return {
+    summary: (sh.title || "Work") + " shift",
+    description,
+    ...(sh.location ? { location: sh.location } : {}),
+    ...gcalTimeFields(sh.starts_at, sh.ends_at, false),
+  };
+}
+
 // ---------- push one item ----------
 async function gcalPush(type, item, { silent = false } = {}) {
-  const payload = type === "event" ? gcalEventPayload(item) : gcalTaskPayload(item);
+  const payload = type === "event" ? gcalEventPayload(item)
+    : type === "shift" ? gcalShiftPayload(item)
+    : gcalTaskPayload(item);
   const link = gcalLinkFor(type, item.id);
 
   let googleId;
@@ -4333,6 +4388,7 @@ function gcalSetAuto(on) {
 function gcalShouldSync(type, item) {
   if (!item) return false;
   if (type === "event") return item.owner_id === user.id;
+  if (type === "shift") return !!item.starts_at && !!item.ends_at;
   // tasks: only dated, incomplete ones are useful in a calendar
   return !!item.due_date && !item.completed;
 }
@@ -4483,4 +4539,372 @@ function wireDeleteAccount() {
     if (e.key === "Escape") closeDeleteAccount();
   });
   $("deleteAccountConfirm")?.addEventListener("click", confirmDeleteAccount);
+}
+
+// ============================================
+// Phase 7 · Work shifts
+// A shift is a timed entry with optional unpaid breaks. Shifts flow into
+// the calendar and Google sync exactly like events do.
+// ============================================
+let shifts = [];
+let editingShiftId = null;
+let shiftBreaksDraft = [];   // [{start:"12:00", end:"12:30", label:"Lunch"}]
+
+async function loadShifts() {
+  const { data } = await db.from("work_shifts").select("*").eq("user_id", user.id).order("starts_at");
+  shifts = data || [];
+}
+
+function shiftDateStr(sh) {
+  const d = new Date(sh.starts_at);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+
+function shiftsForDate(iso) {
+  return shifts.filter((s) => shiftDateStr(s) === iso)
+    .sort((a, b) => new Date(a.starts_at) - new Date(b.starts_at));
+}
+
+// worked minutes = span minus the breaks
+function shiftPaidMinutes(sh) {
+  const total = (new Date(sh.ends_at) - new Date(sh.starts_at)) / 60000;
+  const brk = (sh.breaks || []).reduce((sum, b) => {
+    if (!b.start || !b.end) return sum;
+    const [sh1, sm1] = b.start.split(":").map(Number);
+    const [sh2, sm2] = b.end.split(":").map(Number);
+    return sum + Math.max(0, (sh2 * 60 + sm2) - (sh1 * 60 + sm1));
+  }, 0);
+  return Math.max(0, total - brk);
+}
+
+function fmtDuration(mins) {
+  const h = Math.floor(mins / 60), m = Math.round(mins % 60);
+  if (h && m) return `${h}h ${m}m`;
+  if (h) return `${h}h`;
+  return `${m}m`;
+}
+
+function shiftTimeLabel(sh) {
+  const f = (t) => new Date(t).toLocaleTimeString("en-AU", { hour: "numeric", minute: "2-digit" });
+  return `${f(sh.starts_at)} – ${f(sh.ends_at)}`;
+}
+
+// ---------- calendar day panel ----------
+function shiftsPanelHTML(iso) {
+  const list = shiftsForDate(iso);
+  if (!list.length) return "";
+  return `
+    <div class="calendar-shift-list">
+      <h4>Work</h4>
+      ${list.map((sh) => {
+        const brk = (sh.breaks || []).length;
+        return `
+        <div class="calendar-shift" data-id="${sh.id}" style="--shift-color:${esc(sh.color || "#18c2c2")}">
+          <span class="cs-emoji">💼</span>
+          <div class="cs-body">
+            <strong>${esc(sh.title || "Work")}</strong>
+            <p>${esc(shiftTimeLabel(sh))} · ${fmtDuration(shiftPaidMinutes(sh))}${sh.location ? " · " + esc(sh.location) : ""}</p>
+            ${brk ? `<p class="cs-breaks">☕ ${brk} break${brk === 1 ? "" : "s"}</p>` : ""}
+          </div>
+          <div class="cs-actions">
+            <button class="icon-btn edit" title="Edit"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 20l4-1L20 7l-3-3L5 16l-1 4z"/></svg></button>
+            <button class="icon-btn del" title="Delete"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 7h16M9 7V5a1 1 0 011-1h4a1 1 0 011 1v2m-9 0l1 13h8l1-13"/></svg></button>
+          </div>
+        </div>`;
+      }).join("")}
+    </div>`;
+}
+
+function wireShiftPanel(scope) {
+  scope.querySelectorAll(".calendar-shift").forEach((el) => {
+    const id = el.dataset.id;
+    el.querySelector(".edit")?.addEventListener("click", () => openShiftModal(id));
+    el.querySelector(".del")?.addEventListener("click", () => deleteShift(id));
+  });
+}
+
+// ---------- view ----------
+function renderWork() {
+  const root = $("workRoot");
+  if (!root) return;
+
+  const now = new Date();
+  const upcoming = shifts.filter((s) => new Date(s.ends_at) >= now)
+    .sort((a, b) => new Date(a.starts_at) - new Date(b.starts_at));
+  const past = shifts.filter((s) => new Date(s.ends_at) < now)
+    .sort((a, b) => new Date(b.starts_at) - new Date(a.starts_at));
+
+  // hours this week (Mon–Sun)
+  const weekStart = new Date(now);
+  const dow = (weekStart.getDay() + 6) % 7;
+  weekStart.setDate(weekStart.getDate() - dow); weekStart.setHours(0, 0, 0, 0);
+  const weekEnd = new Date(weekStart); weekEnd.setDate(weekEnd.getDate() + 7);
+  const weekMins = shifts
+    .filter((s) => { const d = new Date(s.starts_at); return d >= weekStart && d < weekEnd; })
+    .reduce((sum, s) => sum + shiftPaidMinutes(s), 0);
+
+  const card = (sh, isPast) => {
+    const brk = (sh.breaks || []).length;
+    return `
+    <div class="work-shift ${isPast ? "past" : ""}" data-id="${sh.id}" style="--shift-color:${esc(sh.color || "#18c2c2")}">
+      <div class="ws-main">
+        <div class="ws-title-row">
+          <strong>${esc(sh.title || "Work")}</strong>
+          <span class="ws-hours">${fmtDuration(shiftPaidMinutes(sh))}</span>
+        </div>
+        <p class="ws-when">${esc(new Date(sh.starts_at).toLocaleDateString("en-AU", { weekday: "short", day: "numeric", month: "short" }))} · ${esc(shiftTimeLabel(sh))}</p>
+        ${sh.location ? `<p class="ws-loc">📍 ${esc(sh.location)}</p>` : ""}
+        ${brk ? `<p class="ws-breaks">☕ ${brk} break${brk === 1 ? "" : "s"} · ${(sh.breaks || []).map((b) => esc(b.label || "Break")).join(", ")}</p>` : ""}
+      </div>
+      <div class="ws-actions">
+        <button class="icon-btn gcal" title="Add to Google Calendar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="5" width="18" height="16" rx="3"/><path d="M8 3v4M16 3v4M3 10h18M12 14v4M10 16h4"/></svg></button>
+        <button class="icon-btn edit" title="Edit"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 20l4-1L20 7l-3-3L5 16l-1 4z"/></svg></button>
+        <button class="icon-btn del" title="Delete"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 7h16M9 7V5a1 1 0 011-1h4a1 1 0 011 1v2m-9 0l1 13h8l1-13"/></svg></button>
+      </div>
+    </div>`;
+  };
+
+  root.innerHTML = `
+    <div class="section-head">
+      <h2>Work</h2>
+      <button class="btn-primary" id="addShiftBtn">+ Add shift</button>
+    </div>
+
+    <div class="work-stats">
+      <div class="work-stat">
+        <span class="ws-num">${fmtDuration(weekMins) || "0m"}</span>
+        <span class="ws-lbl">This week</span>
+      </div>
+      <div class="work-stat">
+        <span class="ws-num">${upcoming.length}</span>
+        <span class="ws-lbl">Upcoming</span>
+      </div>
+      <div class="work-stat">
+        <span class="ws-num">${shifts.length}</span>
+        <span class="ws-lbl">Total logged</span>
+      </div>
+    </div>
+
+    ${upcoming.length ? `
+      <h3 class="work-group-title">Upcoming</h3>
+      <div class="work-list">${upcoming.map((s) => card(s, false)).join("")}</div>` : `
+      <div class="empty"><span class="emoji">💼</span>No upcoming shifts. Tap “Add shift” to log one.</div>`}
+
+    ${past.length ? `
+      <h3 class="work-group-title">Past</h3>
+      <div class="work-list">${past.slice(0, 10).map((s) => card(s, true)).join("")}</div>` : ""}
+  `;
+
+  $("addShiftBtn")?.addEventListener("click", () => openShiftModal());
+  root.querySelectorAll(".work-shift").forEach((el) => {
+    const id = el.dataset.id;
+    el.querySelector(".edit")?.addEventListener("click", () => openShiftModal(id));
+    el.querySelector(".del")?.addEventListener("click", () => deleteShift(id));
+    el.querySelector(".gcal")?.addEventListener("click", () => {
+      const sh = shifts.find((x) => x.id === id);
+      if (gcalConnected() && sh) gcalSyncOne("shift", sh);
+      else shiftToGoogleLink(sh);
+    });
+  });
+}
+
+// ---------- modal ----------
+function openShiftModal(shiftId = null, presetDate = null) {
+  editingShiftId = shiftId;
+  const sh = shiftId ? shifts.find((x) => x.id === shiftId) : null;
+
+  $("shiftModalTitle").textContent = sh ? "Edit shift" : "New shift";
+  $("shiftTitle").value = sh ? sh.title || "" : "";
+  $("shiftLocation").value = sh ? sh.location || "" : "";
+  $("shiftNotes").value = sh ? sh.notes || "" : "";
+
+  if (sh) {
+    const s = new Date(sh.starts_at), e = new Date(sh.ends_at);
+    setDateInput("shiftDate", shiftDateStr(sh));
+    setTimeInput("shiftStart", `${String(s.getHours()).padStart(2, "0")}:${String(s.getMinutes()).padStart(2, "0")}`);
+    setTimeInput("shiftEnd", `${String(e.getHours()).padStart(2, "0")}:${String(e.getMinutes()).padStart(2, "0")}`);
+    shiftBreaksDraft = JSON.parse(JSON.stringify(sh.breaks || []));
+  } else {
+    setDateInput("shiftDate", presetDate || selectedDate || todayStr());
+    setTimeInput("shiftStart", "09:00");
+    setTimeInput("shiftEnd", "17:00");
+    shiftBreaksDraft = [];
+  }
+
+  renderShiftBreaks();
+  renderShiftSummary();
+  $("shiftModal").classList.add("open");
+  setTimeout(() => $("shiftTitle").focus(), 250);
+}
+
+function closeShiftModal() {
+  $("shiftModal")?.classList.remove("open");
+  editingShiftId = null;
+  shiftBreaksDraft = [];
+}
+
+function renderShiftBreaks() {
+  const wrap = $("shiftBreaks");
+  const hint = $("shiftBreakHint");
+  if (!shiftBreaksDraft.length) {
+    wrap.innerHTML = "";
+    if (hint) hint.style.display = "";
+    return;
+  }
+  if (hint) hint.style.display = "none";
+  wrap.innerHTML = shiftBreaksDraft.map((b, i) => `
+    <div class="shift-break-row" data-i="${i}">
+      <input type="text" class="sb-label" value="${esc(b.label || "")}" placeholder="Lunch" maxlength="24" />
+      <div class="sb-times">
+        <button type="button" class="sb-time" data-field="start">${b.start ? esc(prettyTimeValue(b.start)) : "Start"}</button>
+        <span>–</span>
+        <button type="button" class="sb-time" data-field="end">${b.end ? esc(prettyTimeValue(b.end)) : "End"}</button>
+      </div>
+      <button type="button" class="icon-btn sb-del" aria-label="Remove break"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+    </div>`).join("");
+
+  wrap.querySelectorAll(".shift-break-row").forEach((row) => {
+    const i = Number(row.dataset.i);
+    row.querySelector(".sb-label").addEventListener("input", (e) => { shiftBreaksDraft[i].label = e.target.value; });
+    row.querySelectorAll(".sb-time").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        // reuse the app's time picker, writing back into the break
+        openTimePicker.__shiftBreak = { i, field: btn.dataset.field };
+        openBreakTimePicker(i, btn.dataset.field);
+      });
+    });
+    row.querySelector(".sb-del").addEventListener("click", () => {
+      shiftBreaksDraft.splice(i, 1);
+      renderShiftBreaks();
+      renderShiftSummary();
+    });
+  });
+}
+
+// a lightweight wrapper around the existing time picker for breaks
+function openBreakTimePicker(i, field) {
+  const cur = shiftBreaksDraft[i][field] || (field === "start" ? "12:00" : "12:30");
+  const [h, m] = cur.split(":").map(Number);
+  tpHour = h; tpMinute = m;
+  timePickerTargetId = "__break";
+  $("timePickerKicker").textContent = field === "start" ? "Break start" : "Break end";
+  syncTimeFields();
+  $("timePickerModal").classList.add("open");
+  // remember where to write the result
+  timePickerBreakTarget = { i, field };
+}
+let timePickerBreakTarget = null;
+
+function addShiftBreak() {
+  shiftBreaksDraft.push({ label: "", start: "12:00", end: "12:30" });
+  renderShiftBreaks();
+  renderShiftSummary();
+}
+
+function renderShiftSummary() {
+  const date = $("shiftDate").dataset.iso;
+  const st = getTimeInput("shiftStart"), en = getTimeInput("shiftEnd");
+  const box = $("shiftSummary");
+  if (!date || !st || !en) { box.innerHTML = ""; return; }
+  const starts = new Date(`${date}T${st}`);
+  let ends = new Date(`${date}T${en}`);
+  if (ends <= starts) { box.innerHTML = `<span class="ss-warn">End time must be after the start</span>`; return; }
+  const fakeShift = { starts_at: starts.toISOString(), ends_at: ends.toISOString(), breaks: shiftBreaksDraft };
+  const paid = shiftPaidMinutes(fakeShift);
+  const brkMins = ((ends - starts) / 60000) - paid;
+  box.innerHTML = `<span class="ss-main">${fmtDuration(paid)} worked</span>${brkMins > 0 ? `<span class="ss-sub">${fmtDuration(brkMins)} on break</span>` : ""}`;
+}
+
+async function saveShift() {
+  const title = $("shiftTitle").value.trim() || "Work";
+  const date = $("shiftDate").dataset.iso;
+  if (!date) return toast("Pick a date for the shift");
+  const st = getTimeInput("shiftStart"), en = getTimeInput("shiftEnd");
+  if (!st || !en) return toast("Set a start and end time");
+
+  const starts = new Date(`${date}T${st}`);
+  const ends = new Date(`${date}T${en}`);
+  if (ends <= starts) return toast("End time must be after the start time");
+
+  // keep only valid breaks
+  const breaks = shiftBreaksDraft.filter((b) => b.start && b.end && b.end > b.start);
+
+  const payload = {
+    user_id: user.id,
+    title,
+    location: $("shiftLocation").value.trim() || null,
+    notes: $("shiftNotes").value.trim() || null,
+    starts_at: starts.toISOString(),
+    ends_at: ends.toISOString(),
+    breaks,
+    color: "#18c2c2",
+  };
+
+  const btn = $("shiftSave");
+  btn.disabled = true;
+  try {
+    let shiftId = editingShiftId;
+    if (shiftId) {
+      const { error } = await db.from("work_shifts").update(payload).eq("id", shiftId);
+      if (error) throw error;
+    } else {
+      const { data, error } = await db.from("work_shifts").insert(payload).select().single();
+      if (error) throw error;
+      shiftId = data.id;
+    }
+    await loadShifts();
+    renderWork();
+    renderCalendar();
+    closeShiftModal();
+    toast(editingShiftId ? "Shift updated 💼" : "Shift added 💼");
+
+    // background sync to Google
+    const saved = shifts.find((x) => x.id === shiftId);
+    if (saved) gcalAutoSync("shift", saved);
+  } catch (err) {
+    toast(String(err.message).includes("work_shifts") ? "Couldn't save — run schema-update-8.sql" : "Couldn't save — try again");
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+async function deleteShift(id) {
+  const sh = shifts.find((x) => x.id === id);
+  if (!sh) return;
+  if (!confirm(`Delete this ${esc(sh.title || "work")} shift?`)) return;
+  gcalAutoRemove("shift", id);
+  const { error } = await db.from("work_shifts").delete().eq("id", id);
+  if (error) return toast("Couldn't delete — try again");
+  shifts = shifts.filter((x) => x.id !== id);
+  renderWork();
+  renderCalendar();
+  toast("Shift deleted");
+}
+
+// manual "add to Google" link when not connected
+function shiftToGoogleLink(sh) {
+  if (!sh) return;
+  const stamp = (d) => new Date(d).toISOString().slice(0, 19).replace(/[-:]/g, "") + "Z";
+  const details = [
+    sh.notes,
+    (sh.breaks || []).length ? "Breaks: " + sh.breaks.map((b) => `${b.label || "Break"} ${b.start}–${b.end}`).join(", ") : "",
+    "— added from Prio",
+  ].filter(Boolean).join("\n");
+  const url = "https://calendar.google.com/calendar/render?action=TEMPLATE" +
+    `&text=${encodeURIComponent(sh.title || "Work")}` +
+    `&dates=${stamp(sh.starts_at)}/${stamp(sh.ends_at)}` +
+    `&details=${encodeURIComponent(details)}` +
+    (sh.location ? `&location=${encodeURIComponent(sh.location)}` : "");
+  window.open(url, "_blank");
+  toast("Opening Google Calendar 📅");
+}
+
+function wireShiftEvents() {
+  $("shiftCancel")?.addEventListener("click", closeShiftModal);
+  $("shiftSave")?.addEventListener("click", saveShift);
+  $("shiftModal")?.addEventListener("click", (e) => { if (e.target.id === "shiftModal") closeShiftModal(); });
+  $("shiftAddBreak")?.addEventListener("click", addShiftBreak);
+  $("shiftDate")?.addEventListener("click", () => openDatePicker("shiftDate"));
+  $("shiftStart")?.addEventListener("click", () => openTimePicker("shiftStart", "Shift start"));
+  $("shiftEnd")?.addEventListener("click", () => openTimePicker("shiftEnd", "Shift end"));
 }
