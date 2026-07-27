@@ -62,23 +62,23 @@
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="5" width="18" height="16" rx="3"/><path d="M8 3v4M16 3v4M3 10h18"/></svg>
         Calendar
       </button>
-      <button data-view="projects">
+      <button data-view="projects" data-nav-removable="true">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 7a2 2 0 012-2h4l2 2h8a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V7z"/></svg>
         Projects
       </button>
-      <button data-view="uni">
+      <button data-view="uni" data-nav-removable="true">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 19.5A2.5 2.5 0 016.5 17H20"/><path d="M4 4.5A2.5 2.5 0 016.5 2H20v20H6.5A2.5 2.5 0 014 19.5v-15z"/></svg>
         Uni
       </button>
-      <button data-view="work">
+      <button data-view="work" data-nav-removable="true">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="7" width="18" height="13" rx="2"/><path d="M8 7V5a2 2 0 012-2h4a2 2 0 012 2v2"/></svg>
         Work
       </button>
-      <button data-view="routines">
+      <button data-view="routines" data-nav-removable="true">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 12a8 8 0 0113.7-5.6M20 12a8 8 0 01-13.7 5.6"/><path d="M17 3v4h4M7 21v-4H3"/></svg>
         Routines
       </button>
-      <button data-view="colors">
+      <button data-view="colors" data-nav-removable="true">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><circle cx="9" cy="9" r="1.2" fill="currentColor"/><circle cx="15" cy="9" r="1.2" fill="currentColor"/><circle cx="9" cy="15" r="1.2" fill="currentColor"/><path d="M12 21a9 9 0 0 0 0-18"/></svg>
         Colours
       </button>
@@ -261,6 +261,16 @@
           <button class="btn-primary" id="gcalOpenBtn">Manage sync</button>
         </div>
 
+        <div class="card nav-customise-card">
+          <div class="section-head" style="margin-bottom:8px">
+            <div>
+              <h3>Navigation tabs</h3>
+              <p class="field-hint">Drag an optional tab into the bin to hide it. Add hidden tabs back here.</p>
+            </div>
+          </div>
+          <div class="nav-settings-list" id="navSettingsList"></div>
+        </div>
+
         <div class="card">
           <h3>New password</h3>
           <div class="field">
@@ -295,6 +305,16 @@
     </section>
   </div>
 
+  <!-- Navigation drag-to-hide overlay -->
+  <div class="nav-drag-overlay" id="navDragOverlay" aria-hidden="true">
+    <div class="nav-drag-bin" id="navDragBin" role="presentation">
+      <span class="nav-bin-lid"></span>
+      <span class="nav-bin-body"><i></i><i></i><i></i></span>
+      <strong>Hide tab</strong>
+      <small>Drop here — your data stays safe</small>
+    </div>
+  </div>
+
   <!-- Floating add button -->
   <button class="fab" id="fabBtn" aria-label="Add task">+</button>
 
@@ -311,11 +331,11 @@
       <button data-view="home" class="active">🏠 <span>Home</span></button>
       <button data-view="tasks">✅ <span>Planner</span></button>
       <button data-view="calendar">📅 <span>Calendar</span></button>
-      <button data-view="projects">📂 <span>Projects</span></button>
-      <button data-view="uni">🎓 <span>Uni</span></button>
-      <button data-view="work">💼 <span>Work</span></button>
-      <button data-view="routines">🔁 <span>Routines</span></button>
-      <button data-view="colors">🎨 <span>Colours</span></button>
+      <button data-view="projects" data-nav-removable="true">📂 <span>Projects</span></button>
+      <button data-view="uni" data-nav-removable="true">🎓 <span>Uni</span></button>
+      <button data-view="work" data-nav-removable="true">💼 <span>Work</span></button>
+      <button data-view="routines" data-nav-removable="true">🔁 <span>Routines</span></button>
+      <button data-view="colors" data-nav-removable="true">🎨 <span>Colours</span></button>
       <button data-view="profile">👤 <span>Profile</span></button>
     </nav>
   </div>
@@ -339,27 +359,6 @@
           <input type="text" id="shiftDate" class="pretty-date-input" placeholder="Choose a date" readonly />
         </div>
       </div>
-
-      <div class="shift-repeat-grid">
-        <div class="field">
-          <label for="shiftRepeat">Repeat</label>
-          <div class="select-shell">
-            <select id="shiftRepeat">
-              <option value="none">Does not repeat</option>
-              <option value="weekly">Every week</option>
-              <option value="business">Every business day</option>
-            </select>
-          </div>
-        </div>
-        <div class="field date-field" id="shiftRepeatUntilField" hidden>
-          <label for="shiftRepeatUntil">Repeat until</label>
-          <div class="date-shell">
-            <span class="date-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><rect x="3" y="5" width="18" height="16" rx="3"/><path d="M8 3v4M16 3v4M3 10h18"/></svg></span>
-            <input type="text" id="shiftRepeatUntil" class="pretty-date-input" placeholder="Choose an end date" readonly />
-          </div>
-        </div>
-      </div>
-      <p class="field-hint shift-repeat-hint" id="shiftRepeatHint">Recurring shifts are created as individual shifts, so each one can be edited or deleted separately.</p>
 
       <div class="ev-row">
         <div class="field date-field">
@@ -428,27 +427,6 @@
           <button type="button" class="ev-toggle" id="eventAllDay" role="switch" aria-checked="false"><span></span></button>
         </div>
       </div>
-
-      <div class="ev-row event-repeat-row">
-        <div class="field">
-          <label for="eventRepeat">Repeat</label>
-          <div class="select-wrap">
-            <select id="eventRepeat">
-              <option value="none">Does not repeat</option>
-              <option value="weekly">Every week</option>
-              <option value="business">Every business day</option>
-            </select>
-          </div>
-        </div>
-        <div class="field date-field" id="eventRepeatUntilField" hidden>
-          <label for="eventRepeatUntil">Repeat until</label>
-          <div class="date-shell">
-            <span class="date-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><rect x="3" y="5" width="18" height="16" rx="3"/><path d="M8 3v4M16 3v4M3 10h18"/></svg></span>
-            <input type="text" id="eventRepeatUntil" class="pretty-date-input" placeholder="Choose an end date" readonly />
-          </div>
-        </div>
-      </div>
-      <p class="field-hint event-repeat-hint" id="eventRepeatHint" style="display:none">Recurring events are created as individual events, so each one can be edited or deleted separately.</p>
 
       <div class="ev-row" id="eventTimeRow">
         <div class="field date-field">
@@ -755,13 +733,13 @@
       </div>
 
       <p class="gcal-note">
-        Prio can push everything shown on your Prio calendar into Google Calendar,
+        Prio can push your events and dated tasks straight into Google Calendar,
         so reminders and notifications come through on your phone.
       </p>
 
       <ul class="gcal-points">
-        <li>Events, dated tasks and work shifts</li>
-        <li>Project deadlines, routines, assessments, classes and semester breaks</li>
+        <li>Events you organise, with time, location and guest names</li>
+        <li>Tasks with a due date, as all-day entries</li>
         <li>Re-syncing updates the same entry — no duplicates</li>
       </ul>
 

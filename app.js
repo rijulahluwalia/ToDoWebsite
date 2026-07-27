@@ -115,6 +115,7 @@ async function init() {
   const { data } = await db.auth.getSession();
   if (!data.session) { window.location.href = "index.html"; return; }
   user = data.session.user;
+  loadNavPreferences();
   // Supabase exposes Google's token here right after the OAuth redirect.
   // It's not stored anywhere, so grab it now or it's gone.
   gcalCaptureToken(data.session);
@@ -137,6 +138,7 @@ async function init() {
   renderQuote();
   renderAll();
   wireEvents();
+  wireNavCustomization();
   wirePrioEvents();
   wirePhase2Events();
   wireDatePickerEvents();
@@ -370,10 +372,147 @@ function renderAll() {
   renderCalendar();
   renderPhase4();
   renderThemeStudio();
+  renderNavSettings();
+}
+
+
+// ---------- custom navigation ----------
+const NAV_ITEMS = [
+  { id: "home", label: "Home", icon: "🏠", locked: true },
+  { id: "tasks", label: "Planner", icon: "✅", locked: true },
+  { id: "calendar", label: "Calendar", icon: "📅", locked: true },
+  { id: "projects", label: "Projects", icon: "📂" },
+  { id: "uni", label: "Uni", icon: "🎓" },
+  { id: "work", label: "Work", icon: "💼" },
+  { id: "routines", label: "Routines", icon: "🔁" },
+  { id: "colors", label: "Colours", icon: "🎨" },
+  { id: "profile", label: "Profile", icon: "👤", locked: true },
+];
+let hiddenNavItems = new Set();
+let navDrag = null;
+let navLongPressTimer = null;
+
+function navStorageKey() {
+  return `prioHiddenNav:${user?.id || "guest"}`;
+}
+function loadNavPreferences() {
+  try {
+    const saved = JSON.parse(localStorage.getItem(navStorageKey()) || "[]");
+    hiddenNavItems = new Set(saved.filter((id) => !NAV_ITEMS.find((x) => x.id === id)?.locked));
+  } catch { hiddenNavItems = new Set(); }
+  applyNavVisibility();
+}
+function saveNavPreferences() {
+  localStorage.setItem(navStorageKey(), JSON.stringify([...hiddenNavItems]));
+}
+function applyNavVisibility() {
+  document.querySelectorAll('[data-view]').forEach((btn) => {
+    const hidden = hiddenNavItems.has(btn.dataset.view);
+    btn.hidden = hidden;
+    btn.setAttribute('aria-hidden', hidden ? 'true' : 'false');
+  });
+  renderNavSettings();
+}
+function renderNavSettings() {
+  const box = $("navSettingsList");
+  if (!box) return;
+  box.innerHTML = NAV_ITEMS.map((item) => {
+    const hidden = hiddenNavItems.has(item.id);
+    return `<div class="nav-setting-row">
+      <div class="nav-setting-copy"><span class="nav-setting-icon">${item.icon}</span><span><strong>${item.label}</strong><small>${item.locked ? "Always visible" : hidden ? "Hidden from navigation" : "Visible in navigation"}</small></span></div>
+      ${item.locked
+        ? `<span class="nav-setting-state locked">Locked</span>`
+        : `<button type="button" class="nav-setting-state" data-nav-restore="${item.id}">${hidden ? "Add back" : "Visible"}</button>`}
+    </div>`;
+  }).join("");
+  box.querySelectorAll('[data-nav-restore]').forEach((btn) => btn.addEventListener('click', () => {
+    const id = btn.dataset.navRestore;
+    if (!hiddenNavItems.has(id)) return;
+    hiddenNavItems.delete(id);
+    saveNavPreferences();
+    applyNavVisibility();
+    toast(`${NAV_ITEMS.find((x) => x.id === id)?.label || "Tab"} added back`);
+  }));
+}
+function beginNavDrag(source, pointerEvent) {
+  if (!source || !source.dataset.navRemovable || hiddenNavItems.has(source.dataset.view)) return;
+  clearTimeout(navLongPressTimer);
+  const rect = source.getBoundingClientRect();
+  const ghost = source.cloneNode(true);
+  ghost.classList.add('nav-drag-ghost');
+  ghost.removeAttribute('id');
+  document.body.appendChild(ghost);
+  source.style.opacity = '.25';
+  navDrag = { source, ghost, id: source.dataset.view, pointerId: pointerEvent.pointerId };
+  document.body.classList.add('nav-dragging');
+  $("navDragOverlay")?.classList.add('open');
+  $("navDragOverlay")?.setAttribute('aria-hidden', 'false');
+  moveNavGhost(pointerEvent.clientX || rect.left + rect.width / 2, pointerEvent.clientY || rect.top + rect.height / 2);
+  if (navigator.vibrate) navigator.vibrate(18);
+}
+function moveNavGhost(x, y) {
+  if (!navDrag) return;
+  navDrag.ghost.style.left = `${x}px`;
+  navDrag.ghost.style.top = `${y}px`;
+  const bin = $("navDragBin");
+  if (!bin) return;
+  const r = bin.getBoundingClientRect();
+  const over = x >= r.left && x <= r.right && y >= r.top && y <= r.bottom;
+  bin.classList.toggle('over', over);
+  navDrag.overBin = over;
+}
+function finishNavDrag(cancelled = false) {
+  clearTimeout(navLongPressTimer);
+  if (!navDrag) return;
+  const { source, ghost, id, overBin } = navDrag;
+  source.style.opacity = '';
+  if (!cancelled && overBin) {
+    hiddenNavItems.add(id);
+    saveNavPreferences();
+    ghost.classList.add('nav-drop-success');
+    if ($(`view-${id}`)?.classList.contains('active')) switchView('home');
+    setTimeout(() => { ghost.remove(); applyNavVisibility(); }, 260);
+    toast(`${NAV_ITEMS.find((x) => x.id === id)?.label || "Tab"} hidden — add it back in Profile`);
+    if (navigator.vibrate) navigator.vibrate([25, 35, 25]);
+  } else {
+    ghost.remove();
+  }
+  $("navDragBin")?.classList.remove('over');
+  $("navDragOverlay")?.classList.remove('open');
+  $("navDragOverlay")?.setAttribute('aria-hidden', 'true');
+  document.body.classList.remove('nav-dragging');
+  navDrag = null;
+}
+function wireNavCustomization() {
+  document.querySelectorAll('[data-nav-removable="true"]').forEach((btn) => {
+    let startX = 0, startY = 0, pressed = false;
+    btn.addEventListener('pointerdown', (e) => {
+      if (e.button != null && e.button !== 0) return;
+      pressed = true; startX = e.clientX; startY = e.clientY;
+      btn.classList.add('nav-pressing');
+      const mobile = matchMedia('(max-width: 720px)').matches || e.pointerType === 'touch';
+      navLongPressTimer = setTimeout(() => { if (pressed) beginNavDrag(btn, e); }, mobile ? 430 : 120);
+    });
+    btn.addEventListener('pointermove', (e) => {
+      if (!pressed) return;
+      if (navDrag) { e.preventDefault(); moveNavGhost(e.clientX, e.clientY); return; }
+      const distance = Math.hypot(e.clientX - startX, e.clientY - startY);
+      if (distance > 9 && e.pointerType !== 'touch') beginNavDrag(btn, e);
+      if (distance > 13 && e.pointerType === 'touch') { clearTimeout(navLongPressTimer); btn.classList.remove('nav-pressing'); }
+    });
+    const end = (e) => {
+      pressed = false; btn.classList.remove('nav-pressing'); clearTimeout(navLongPressTimer);
+      if (navDrag) { e.preventDefault(); finishNavDrag(false); }
+    };
+    btn.addEventListener('pointerup', end);
+    btn.addEventListener('pointercancel', () => { pressed = false; btn.classList.remove('nav-pressing'); finishNavDrag(true); });
+    btn.addEventListener('click', (e) => { if (navDrag) { e.preventDefault(); e.stopImmediatePropagation(); } }, true);
+  });
 }
 
 // ---------- navigation ----------
 function switchView(name) {
+  if (hiddenNavItems.has(name)) name = "home";
   document.querySelectorAll(".view").forEach((v) => v.classList.remove("active"));
   $("view-" + name).classList.add("active");
   document.querySelectorAll("[data-view]").forEach((b) =>
@@ -464,6 +603,9 @@ function taskHTML(t, i) {
       <button class="icon-btn edit" aria-label="Edit task">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 20l4-1L20 7l-3-3L5 16l-1 4z"/></svg>
       </button>
+      ${t.due_date ? `<button class="icon-btn gcal" title="Add to Google Calendar" aria-label="Add to Google Calendar">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="5" width="18" height="16" rx="3"/><path d="M8 3v4M16 3v4M3 10h18M12 14v4M10 16h4"/></svg>
+      </button>` : ""}
       <button class="icon-btn del" aria-label="Delete task">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 7h16M9 7V5a1 1 0 011-1h4a1 1 0 011 1v2m-9 0l1 13h8l1-13"/></svg>
       </button>
@@ -549,6 +691,12 @@ function wireTaskEvents(scope) {
     el.querySelector(".check").addEventListener("click", () => toggleTask(id, el));
     el.querySelector(".del").addEventListener("click", () => removeTask(id, el));
     el.querySelector(".edit").addEventListener("click", () => openModal(id));
+    const gcal = el.querySelector(".gcal");
+    if (gcal) gcal.addEventListener("click", () => {
+      const t = tasks.find((x) => x.id === id);
+      if (gcalConnected() && t) gcalSyncOne("task", t);
+      else openGoogleCalendar(id);
+    });
     el.querySelector(".task-body").addEventListener("click", () => openModal(id));
   });
 }
