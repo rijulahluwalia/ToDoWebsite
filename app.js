@@ -5069,6 +5069,7 @@ function wireShiftEvents() {
   $("shiftModal")?.addEventListener("click", (e) => { if (e.target.id === "shiftModal") closeShiftModal(); });
   $("shiftAddBreak")?.addEventListener("click", addShiftBreak);
   $("shiftRepeat")?.addEventListener("change", updateShiftRepeatUI);
+  $("shiftRepeatUntil")?.addEventListener("click", () => openDatePicker("shiftRepeatUntil"));
   $("shiftDate")?.addEventListener("click", () => openDatePicker("shiftDate"));
   $("shiftStart")?.addEventListener("click", () => openTimePicker("shiftStart", "Shift start"));
   $("shiftEnd")?.addEventListener("click", () => openTimePicker("shiftEnd", "Shift end"));
