@@ -335,11 +335,9 @@ function confirmDialog({ title = "Are you sure?", message = "", okText = "Delete
     document.addEventListener("keydown", onKey);
   });
 }
-function localDateStr(d = new Date()) {
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-}
 function todayStr() {
-  return localDateStr(new Date());
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
 function niceDate(iso) {
   const [y, m, d] = iso.split("-").map(Number);
@@ -466,9 +464,6 @@ function taskHTML(t, i) {
       <button class="icon-btn edit" aria-label="Edit task">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 20l4-1L20 7l-3-3L5 16l-1 4z"/></svg>
       </button>
-      ${t.due_date ? `<button class="icon-btn gcal" title="Add to Google Calendar" aria-label="Add to Google Calendar">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="5" width="18" height="16" rx="3"/><path d="M8 3v4M16 3v4M3 10h18M12 14v4M10 16h4"/></svg>
-      </button>` : ""}
       <button class="icon-btn del" aria-label="Delete task">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 7h16M9 7V5a1 1 0 011-1h4a1 1 0 011 1v2m-9 0l1 13h8l1-13"/></svg>
       </button>
@@ -554,12 +549,6 @@ function wireTaskEvents(scope) {
     el.querySelector(".check").addEventListener("click", () => toggleTask(id, el));
     el.querySelector(".del").addEventListener("click", () => removeTask(id, el));
     el.querySelector(".edit").addEventListener("click", () => openModal(id));
-    const gcal = el.querySelector(".gcal");
-    if (gcal) gcal.addEventListener("click", () => {
-      const t = tasks.find((x) => x.id === id);
-      if (gcalConnected() && t) gcalSyncOne("task", t);
-      else openGoogleCalendar(id);
-    });
     el.querySelector(".task-body").addEventListener("click", () => openModal(id));
   });
 }
@@ -796,10 +785,6 @@ function saveSemesterSettingsFromModal() {
   renderCalendar();
   renderDayPanel();
   toast("Semester calendar updated 🗓️");
-  if (gcalConnected() && gcalAutoOn()) {
-    uniClasses.forEach((c) => gcalAutoSync("class", c));
-    semesterBreakItems().forEach((b) => gcalAutoSync("break", b));
-  }
 }
 
 async function clearSemesterOverview() {
@@ -2148,12 +2133,10 @@ async function savePitem() {
     projectItems.push(data);
   }
   $("pitemModal").classList.remove("open");
-  const savedProjectItem = pitemCtx.itemId ? projectItems.find((x) => x.id === pitemCtx.itemId) : data;
   toast(pitemCtx.itemId ? "Item updated" : "Item added ✨");
   pitemCtx = null;
   renderProjects();
   renderCalendar();
-  if (savedProjectItem) gcalAutoSync("project", savedProjectItem);
 }
 
 async function togglePitem(id) {
@@ -2170,11 +2153,9 @@ async function togglePitem(id) {
   }
   if (it.completed) toast("Nice one ✓");
   renderCalendar();
-  gcalAutoSync("project", it);
 }
 
 async function deletePitem(id) {
-  gcalAutoRemove("project", id);
   const { error } = await db.from("project_items").delete().eq("id", id);
   if (error) return toast("Couldn't delete — try again");
   projectItems = projectItems.filter((x) => x.id !== id);
@@ -2521,7 +2502,6 @@ async function saveRoutine() {
     routines.push(data);
     openRoutineId = data.id; // jump straight into the step editor
   }
-  const savedRoutineId = editingRoutineId || openRoutineId;
   $("routineModal").classList.remove("open");
   toast(editingRoutineId ? "Routine updated" : "Routine created 🔁");
   editingRoutineId = null;
@@ -2529,8 +2509,6 @@ async function saveRoutine() {
   renderRoutines();
   renderUni();
   renderTodayRoutines();
-  const savedRoutine = routines.find((x) => x.id === savedRoutineId);
-  if (savedRoutine) gcalAutoSync("routine", savedRoutine);
   renderCalendar();
   renderPhase4();
   renderThemeStudio();
@@ -2540,7 +2518,6 @@ async function deleteRoutine(id) {
   const r = routines.find((x) => x.id === id);
   const ok = await confirmDialog({ title: "Delete routine?", message: `Delete "${r.name}" and all its history?`, okText: "Delete routine" });
   if (!ok) return;
-  gcalAutoRemove("routine", id);
   const { error } = await db.from("routines").delete().eq("id", id);
   if (error) return toast("Couldn't delete — try again");
   routines = routines.filter((x) => x.id !== id);
@@ -2926,10 +2903,7 @@ async function saveUniClass() {
   if (editingUniClassId) ({ error } = await db.from("uni_classes").update(payload).eq("id", editingUniClassId));
   else ({ error } = await db.from("uni_classes").insert(payload));
   if (error) return toast("Couldn't save class");
-  const savedId = editingUniClassId;
   $("uniClassModal").classList.remove("open"); await loadUni(); renderUni(); renderCalendar(); renderDayPanel(); toast("Class saved 🗓️");
-  const savedClass = savedId ? uniClasses.find((x) => x.id === savedId) : uniClasses.at(-1);
-  if (savedClass) gcalAutoSync("class", savedClass);
 }
 function openUniAssessment(id = null) {
   if (!uniSubjects.length) return toast("Add a subject first");
@@ -2953,10 +2927,7 @@ async function saveUniAssessment() {
   if (editingUniAssessmentId) ({ error } = await db.from("uni_assessments").update(payload).eq("id", editingUniAssessmentId));
   else ({ error } = await db.from("uni_assessments").insert({ ...payload, position: uniAssessments.length }));
   if (error) return toast("Couldn't save assessment");
-  const savedId = editingUniAssessmentId;
   $("uniAssessmentModal").classList.remove("open"); await loadUni(); renderUni(); renderCalendar(); renderDayPanel(); toast("Assessment saved 📝");
-  const savedAssessment = savedId ? uniAssessments.find((x) => x.id === savedId) : uniAssessments.at(-1);
-  if (savedAssessment) gcalAutoSync("assessment", savedAssessment);
 }
 function openUniStep(aid, stepId = null) {
   uniStepAssessmentId = aid;
@@ -2986,8 +2957,6 @@ async function saveUniStep() {
 async function deleteRow(table, id, msg) {
   const ok = await confirmDialog({ title: msg, message: "This can't be undone.", okText: "Delete" });
   if (!ok) return;
-  if (table === "uni_classes") gcalAutoRemove("class", id);
-  if (table === "uni_assessments") gcalAutoRemove("assessment", id);
   const { error } = await db.from(table).delete().eq("id", id);
   if (error) return toast("Couldn't delete");
   await loadUni(); renderUni(); renderCalendar(); renderDayPanel(); toast("Deleted");
@@ -3265,11 +3234,6 @@ function openEventModal(eventId = null, presetDate = null) {
   $("eventTitle").value = ev ? ev.title : "";
   $("eventLocation").value = ev ? ev.location || "" : "";
   $("eventNotes").value = ev ? ev.notes || "" : "";
-  $("eventRepeat").value = "none";
-  renderPrettySelect("eventRepeat");
-  $("eventRepeat").disabled = !!ev;
-  setDateInput("eventRepeatUntil", "");
-  updateEventRepeatUI();
 
   if (ev) {
     const s = new Date(ev.starts_at);
@@ -3380,35 +3344,6 @@ function renderInviteChips() {
     }));
 }
 
-function updateEventRepeatUI() {
-  const repeat = $("eventRepeat")?.value || "none";
-  const field = $("eventRepeatUntilField");
-  const hint = $("eventRepeatHint");
-  if (field) field.hidden = repeat === "none";
-  if (hint) hint.style.display = repeat === "none" ? "none" : "";
-  if (repeat !== "none" && !$("eventRepeatUntil")?.dataset.iso) {
-    const startIso = $("eventDate")?.dataset.iso || todayStr();
-    const d = new Date(startIso + "T00:00:00");
-    d.setDate(d.getDate() + (repeat === "business" ? 42 : 84));
-    setDateInput("eventRepeatUntil", localDateStr(d));
-  }
-}
-
-function recurringEventDates(startIso, untilIso, repeat) {
-  if (repeat === "none") return [startIso];
-  const out = [];
-  const until = new Date(untilIso + "T23:59:59");
-  const cursor = new Date(startIso + "T00:00:00");
-  while (cursor <= until && out.length < 260) {
-    const day = cursor.getDay();
-    if (repeat === "weekly" || (repeat === "business" && day >= 1 && day <= 5)) {
-      out.push(localDateStr(cursor));
-    }
-    cursor.setDate(cursor.getDate() + (repeat === "weekly" ? 7 : 1));
-  }
-  return out;
-}
-
 // ---------- save ----------
 async function saveEvent() {
   const title = $("eventTitle").value.trim();
@@ -3440,73 +3375,41 @@ async function saveEvent() {
   btn.disabled = true;
   try {
     let eventId = editingEventId;
-    let createdEventIds = [];
-    let createdCount = 1;
-
     if (eventId) {
       const { error } = await db.from("events").update(payload).eq("id", eventId);
       if (error) throw error;
-      createdEventIds = [eventId];
     } else {
-      const repeat = $("eventRepeat")?.value || "none";
-      const until = $("eventRepeatUntil")?.dataset.iso || date;
-      if (repeat !== "none" && until < date) throw new Error("Repeat end must be after the first event");
-      const dates = recurringEventDates(date, until, repeat);
-      if (!dates.length) throw new Error("No events fall inside that repeat range");
-
-      const rows = dates.map((iso) => {
-        const rowStart = new Date(`${iso}T${startTime}`);
-        let rowEnd = null;
-        if (!allDay && endTime) rowEnd = new Date(`${iso}T${endTime}`);
-        return {
-          ...payload,
-          starts_at: rowStart.toISOString(),
-          ends_at: rowEnd ? rowEnd.toISOString() : null,
-        };
-      });
-      const { data, error } = await db.from("events").insert(rows).select();
+      const { data, error } = await db.from("events").insert(payload).select().single();
       if (error) throw error;
-      createdEventIds = (data || []).map((row) => row.id);
-      eventId = createdEventIds[0];
-      createdCount = createdEventIds.length || rows.length;
+      eventId = data.id;
     }
 
+    // sync invites: add new ones, remove any that were taken off
+    const { data: current } = await db.from("event_invites").select("invitee_id").eq("event_id", eventId);
+    const currentIds = (current || []).map((c) => c.invitee_id);
     const wantIds = eventInvitees.map((p) => p.id);
-    if (editingEventId) {
-      // Editing one occurrence only.
-      const { data: current } = await db.from("event_invites").select("invitee_id").eq("event_id", eventId);
-      const currentIds = (current || []).map((c) => c.invitee_id);
-      const toAdd = wantIds.filter((id) => !currentIds.includes(id));
-      const toRemove = currentIds.filter((id) => !wantIds.includes(id));
-      if (toAdd.length) {
-        await db.from("event_invites").insert(toAdd.map((id) => ({
-          event_id: eventId, invitee_id: id, inviter_id: user.id, status: "pending",
-        })));
-      }
-      if (toRemove.length) {
-        await db.from("event_invites").delete().eq("event_id", eventId).in("invitee_id", toRemove);
-      }
-    } else if (wantIds.length && createdEventIds.length) {
-      const inviteRows = createdEventIds.flatMap((id) => wantIds.map((inviteeId) => ({
-        event_id: id,
-        invitee_id: inviteeId,
-        inviter_id: user.id,
-        status: "pending",
+
+    const toAdd = wantIds.filter((id) => !currentIds.includes(id));
+    const toRemove = currentIds.filter((id) => !wantIds.includes(id));
+
+    if (toAdd.length) {
+      await db.from("event_invites").insert(toAdd.map((id) => ({
+        event_id: eventId, invitee_id: id, inviter_id: user.id, status: "pending",
       })));
-      const { error } = await db.from("event_invites").insert(inviteRows);
-      if (error) throw error;
+    }
+    if (toRemove.length) {
+      await db.from("event_invites").delete().eq("event_id", eventId).in("invitee_id", toRemove);
     }
 
     await loadEvents();
-    await cacheInviteNames();
+    await cacheInviteNames();   // so guest names make it into the Google entry
     renderCalendar();
     closeEventModal();
-    const inviteText = wantIds.length ? ` · ${wantIds.length} invited` : "";
-    toast(editingEventId ? "Event updated 🗓️" : (createdCount > 1 ? `${createdCount} recurring events created${inviteText} 🗓️` : `Event created${inviteText} 🗓️`));
+    toast(editingEventId ? "Event updated 🗓️" : (toAdd.length ? `Event created · ${toAdd.length} invited 🗓️` : "Event created 🗓️"));
 
-    // background push every newly created occurrence to Google Calendar
-    const idsToSync = editingEventId ? [eventId] : createdEventIds;
-    events.filter((e) => idsToSync.includes(e.id)).forEach((e) => gcalAutoSync("event", e));
+    // background push to Google
+    const savedEvent = events.find((e) => e.id === eventId);
+    if (savedEvent) gcalAutoSync("event", savedEvent);
   } catch (err) {
     toast(err.message?.includes("events") ? "Couldn't save — run schema-update-4.sql" : "Couldn't save — try again");
   } finally {
@@ -3821,8 +3724,6 @@ function wireTimePickerEvents() {
   $("eventStart")?.addEventListener("click", () => openTimePicker("eventStart", "Start time"));
   $("eventEnd")?.addEventListener("click", () => openTimePicker("eventEnd", "End time"));
   $("eventDate")?.addEventListener("click", () => openDatePicker("eventDate"));
-  $("eventRepeatUntil")?.addEventListener("click", () => openDatePicker("eventRepeatUntil"));
-  $("eventRepeat")?.addEventListener("change", updateEventRepeatUI);
 
   $("timePickerClose")?.addEventListener("click", closeTimePicker);
   $("timePickerCancel")?.addEventListener("click", closeTimePicker);
@@ -4288,93 +4189,10 @@ function gcalShiftPayload(sh) {
   };
 }
 
-
-function gcalProjectPayload(it) {
-  const project = projects.find((p) => p.id === it.project_id);
-  return {
-    summary: `${project?.icon || "📂"} ${it.title}`,
-    description: [project?.name ? `Project: ${project.name}` : "", it.notes, "— synced from Prio"].filter(Boolean).join("\n"),
-    ...gcalTimeFields(it.due_date + "T00:00:00", null, true),
-  };
-}
-
-function gcalAssessmentPayload(a) {
-  const subject = uniSubjects.find((s) => s.id === a.subject_id);
-  return {
-    summary: `📝 ${a.title}`,
-    description: [subject ? `Subject: ${subject.code || subject.name}` : "", a.weight ? `Weight: ${a.weight}%` : "", a.notes, "— synced from Prio"].filter(Boolean).join("\n"),
-    ...gcalTimeFields(a.due_date + "T00:00:00", null, true),
-  };
-}
-
-function gcalRoutinePayload(r) {
-  const dayMap = ["SU", "MO", "TU", "WE", "TH", "FR", "SA"];
-  const days = [...(r.days || "")].map((d) => dayMap[Number(d)]).filter(Boolean);
-  const start = new Date();
-  start.setHours(0, 0, 0, 0);
-  const selectedDays = [...(r.days || "")].map(Number).sort((a, b) => a - b);
-  for (let i = 0; i < 7 && !selectedDays.includes(start.getDay()); i++) start.setDate(start.getDate() + 1);
-  return {
-    summary: `${r.icon || "🔁"} ${r.name}`,
-    description: `Scheduled routine in Prio\n— synced from Prio`,
-    ...gcalTimeFields(localDateStr(start) + "T00:00:00", null, true),
-    recurrence: [`RRULE:FREQ=WEEKLY;BYDAY=${days.join(",")}`],
-  };
-}
-
-function gcalClassPayload(c) {
-  const subject = uniSubjects.find((s) => s.id === c.subject_id);
-  const sem = getUniSemesterSettings();
-  const first = sem.startDate ? parseISODate(sem.startDate) : new Date();
-  const targetDay = Number(c.day_of_week);
-  while (first.getDay() !== targetDay) first.setDate(first.getDate() + 1);
-  const startTime = (c.start_time || "09:00").slice(0, 5);
-  const endTime = (c.end_time || "10:00").slice(0, 5);
-  const startIso = `${localDateStr(first)}T${startTime}:00`;
-  const endIso = `${localDateStr(first)}T${endTime}:00`;
-  const dayMap = ["SU", "MO", "TU", "WE", "TH", "FR", "SA"];
-  const until = (sem.endDate || localDateStr(new Date(first.getFullYear(), first.getMonth() + 6, first.getDate()))).replaceAll("-", "") + "T235959Z";
-  return {
-    summary: `🎓 ${subject?.code || subject?.name || "Uni"} · ${c.class_type || "Class"}`,
-    description: [`Room: ${c.room || "TBA"}`, "— synced from Prio"].join("\n"),
-    ...(c.room ? { location: c.room } : {}),
-    ...gcalTimeFields(startIso, endIso, false),
-    recurrence: [`RRULE:FREQ=WEEKLY;BYDAY=${dayMap[targetDay]};UNTIL=${until}`],
-  };
-}
-
-function stableUuid(text) {
-  let h1 = 0x811c9dc5, h2 = 0x9e3779b9;
-  for (let i = 0; i < text.length; i++) { h1 = Math.imul(h1 ^ text.charCodeAt(i), 16777619); h2 = Math.imul(h2 ^ text.charCodeAt(i), 2246822519); }
-  const hex = (n) => (n >>> 0).toString(16).padStart(8, "0");
-  const raw = (hex(h1) + hex(h2) + hex(h1 ^ h2) + hex(Math.imul(h1, h2))).slice(0, 32);
-  return `${raw.slice(0,8)}-${raw.slice(8,12)}-4${raw.slice(13,16)}-a${raw.slice(17,20)}-${raw.slice(20,32)}`;
-}
-
-function semesterBreakItems() {
-  return (getUniSemesterSettings().breaks || []).map((b, i) => ({ ...b, id: stableUuid(`semester-break:${i}:${b.label}:${b.start}:${b.end}`) }));
-}
-
-function gcalBreakPayload(b) {
-  const end = parseISODate(b.end);
-  end.setDate(end.getDate() + 1);
-  return {
-    summary: `🌿 ${b.label || "Semester break"}`,
-    description: "Semester break from Prio\n— synced from Prio",
-    start: { date: b.start },
-    end: { date: localDateStr(end) },
-  };
-}
-
 // ---------- push one item ----------
 async function gcalPush(type, item, { silent = false } = {}) {
   const payload = type === "event" ? gcalEventPayload(item)
     : type === "shift" ? gcalShiftPayload(item)
-    : type === "project" ? gcalProjectPayload(item)
-    : type === "assessment" ? gcalAssessmentPayload(item)
-    : type === "routine" ? gcalRoutinePayload(item)
-    : type === "class" ? gcalClassPayload(item)
-    : type === "break" ? gcalBreakPayload(item)
     : gcalTaskPayload(item);
   const link = gcalLinkFor(type, item.id);
 
@@ -4442,31 +4260,29 @@ async function gcalSyncOne(type, item) {
 async function gcalSyncAll() {
   if (!gcalConnected()) return gcalPromptConnect();
   const btn = $("gcalSyncAllBtn");
-  if (btn) { btn.disabled = true; btn.textContent = "Syncing everything…"; }
+  if (btn) { btn.disabled = true; btn.textContent = "Syncing…"; }
 
+  // upcoming events I own + tasks with a due date, from today onward
   const today = todayStr();
-  const items = [
-    ...events.filter((e) => e.owner_id === user.id && eventDateStr(e) >= today).map((item) => ({ type: "event", item })),
-    ...tasks.filter((t) => !t.completed && t.due_date && t.due_date >= today).map((item) => ({ type: "task", item })),
-    ...shifts.filter((s) => shiftDateStr(s) >= today).map((item) => ({ type: "shift", item })),
-    ...projectItems.filter((i) => !i.completed && i.due_date && i.due_date >= today).map((item) => ({ type: "project", item })),
-    ...uniAssessments.filter((a) => a.due_date && a.due_date >= today).map((item) => ({ type: "assessment", item })),
-    ...routines.map((item) => ({ type: "routine", item })),
-    ...uniClasses.map((item) => ({ type: "class", item })),
-    ...semesterBreakItems().filter((b) => b.end >= today).map((item) => ({ type: "break", item })),
-  ];
+  const mine = events.filter((e) => e.owner_id === user.id && eventDateStr(e) >= today);
+  const dated = tasks.filter((t) => !t.completed && t.due_date && t.due_date >= today);
 
   let ok = 0, failed = 0;
-  for (const { type, item } of items) {
-    try { await gcalPush(type, item, { silent: true }); ok++; }
-    catch (err) { failed++; if (err.message === "TOKEN_EXPIRED" || err.message === "NOT_CONNECTED") break; }
+  for (const ev of mine) {
+    try { await gcalPush("event", ev, { silent: true }); ok++; }
+    catch (err) { failed++; if (err.message === "TOKEN_EXPIRED") break; }
+  }
+  for (const t of dated) {
+    try { await gcalPush("task", t, { silent: true }); ok++; }
+    catch (err) { failed++; if (err.message === "TOKEN_EXPIRED") break; }
   }
 
   if (btn) { btn.disabled = false; btn.textContent = "Sync everything"; }
   renderGcalStatus();
   renderCalendar();
+
   if (!gcalConnected()) return gcalPromptConnect();
-  toast(failed ? `Synced ${ok}, ${failed} failed` : `Synced all ${ok} calendar item${ok === 1 ? "" : "s"} ✓`);
+  toast(failed ? `Synced ${ok}, ${failed} failed` : `Synced ${ok} item${ok === 1 ? "" : "s"} to Google ✓`);
 }
 
 function gcalHandleError(err) {
@@ -4564,11 +4380,6 @@ function gcalShouldSync(type, item) {
   if (!item) return false;
   if (type === "event") return item.owner_id === user.id;
   if (type === "shift") return !!item.starts_at && !!item.ends_at;
-  if (type === "project") return !!item.due_date && !item.completed;
-  if (type === "assessment") return !!item.due_date;
-  if (type === "routine") return !!item.days;
-  if (type === "class") return Number.isInteger(Number(item.day_of_week));
-  if (type === "break") return !!item.start && !!item.end;
   // tasks: only dated, incomplete ones are useful in a calendar
   return !!item.due_date && !item.completed;
 }
@@ -4897,11 +4708,6 @@ function openShiftModal(shiftId = null, presetDate = null) {
   $("shiftTitle").value = sh ? sh.title || "" : "";
   $("shiftLocation").value = sh ? sh.location || "" : "";
   $("shiftNotes").value = sh ? sh.notes || "" : "";
-  $("shiftRepeat").value = "none";
-  renderPrettySelect("shiftRepeat");
-  $("shiftRepeat").disabled = !!sh;
-  setDateInput("shiftRepeatUntil", "");
-  updateShiftRepeatUI();
 
   if (sh) {
     const s = new Date(sh.starts_at), e = new Date(sh.ends_at);
@@ -5000,36 +4806,6 @@ function renderShiftSummary() {
   box.innerHTML = `<span class="ss-main">${fmtDuration(paid)} worked</span>${brkMins > 0 ? `<span class="ss-sub">${fmtDuration(brkMins)} on break</span>` : ""}`;
 }
 
-function updateShiftRepeatUI() {
-  const repeat = $("shiftRepeat")?.value || "none";
-  const field = $("shiftRepeatUntilField");
-  const hint = $("shiftRepeatHint");
-  if (field) field.hidden = repeat === "none";
-  if (hint) hint.style.display = repeat === "none" ? "none" : "";
-  if (repeat !== "none" && !$("shiftRepeatUntil")?.dataset.iso) {
-    const startIso = $("shiftDate")?.dataset.iso || todayStr();
-    const d = new Date(startIso + "T00:00:00");
-    d.setDate(d.getDate() + (repeat === "business" ? 42 : 84));
-    setDateInput("shiftRepeatUntil", localDateStr(d));
-  }
-}
-
-function recurringShiftDates(startIso, untilIso, repeat) {
-  if (repeat === "none") return [startIso];
-  const out = [];
-  const start = new Date(startIso + "T00:00:00");
-  const until = new Date(untilIso + "T23:59:59");
-  const cursor = new Date(start);
-  while (cursor <= until && out.length < 260) {
-    const day = cursor.getDay();
-    if (repeat === "weekly" || (repeat === "business" && day >= 1 && day <= 5)) {
-      out.push(localDateStr(cursor));
-    }
-    cursor.setDate(cursor.getDate() + (repeat === "weekly" ? 7 : 1));
-  }
-  return out;
-}
-
 async function saveShift() {
   const title = $("shiftTitle").value.trim() || "Work";
   const date = $("shiftDate").dataset.iso;
@@ -5059,40 +4835,23 @@ async function saveShift() {
   btn.disabled = true;
   try {
     let shiftId = editingShiftId;
-    let createdCount = 1;
-    let createdShiftIds = [];
     if (shiftId) {
       const { error } = await db.from("work_shifts").update(payload).eq("id", shiftId);
       if (error) throw error;
     } else {
-      const repeat = $("shiftRepeat")?.value || "none";
-      const until = $("shiftRepeatUntil")?.dataset.iso || date;
-      if (repeat !== "none" && until < date) throw new Error("Repeat end must be after the first shift");
-      const dates = recurringShiftDates(date, until, repeat);
-      if (!dates.length) throw new Error("No shifts fall inside that repeat range");
-      const rows = dates.map((iso) => {
-        const rowStart = new Date(`${iso}T${st}`);
-        const rowEnd = new Date(`${iso}T${en}`);
-        return { ...payload, starts_at: rowStart.toISOString(), ends_at: rowEnd.toISOString() };
-      });
-      const { data, error } = await db.from("work_shifts").insert(rows).select();
+      const { data, error } = await db.from("work_shifts").insert(payload).select().single();
       if (error) throw error;
-      shiftId = data?.[0]?.id;
-      createdCount = data?.length || rows.length;
-      createdShiftIds = (data || []).map((row) => row.id);
+      shiftId = data.id;
     }
     await loadShifts();
     renderWork();
     renderCalendar();
     closeShiftModal();
-    toast(editingShiftId ? "Shift updated 💼" : (createdCount > 1 ? `${createdCount} recurring shifts added 💼` : "Shift added 💼"));
+    toast(editingShiftId ? "Shift updated 💼" : "Shift added 💼");
 
     // background sync to Google
     const saved = shifts.find((x) => x.id === shiftId);
     if (saved) gcalAutoSync("shift", saved);
-    if (!editingShiftId && createdCount > 1 && gcalConnected() && gcalAutoOn()) {
-      shifts.filter((x) => createdShiftIds.includes(x.id)).forEach((x) => gcalAutoSync("shift", x));
-    }
   } catch (err) {
     toast(String(err.message).includes("work_shifts") ? "Couldn't save — run schema-update-8.sql" : "Couldn't save — try again");
   } finally {
@@ -5136,7 +4895,6 @@ function wireShiftEvents() {
   $("shiftSave")?.addEventListener("click", saveShift);
   $("shiftModal")?.addEventListener("click", (e) => { if (e.target.id === "shiftModal") closeShiftModal(); });
   $("shiftAddBreak")?.addEventListener("click", addShiftBreak);
-  $("shiftRepeat")?.addEventListener("change", updateShiftRepeatUI);
   $("shiftDate")?.addEventListener("click", () => openDatePicker("shiftDate"));
   $("shiftStart")?.addEventListener("click", () => openTimePicker("shiftStart", "Shift start"));
   $("shiftEnd")?.addEventListener("click", () => openTimePicker("shiftEnd", "Shift end"));
