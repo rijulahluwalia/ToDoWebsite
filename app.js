@@ -437,19 +437,29 @@ function renderNavSettings() {
 function beginNavDrag(source, pointerEvent) {
   if (!source || !source.dataset.navRemovable || hiddenNavItems.has(source.dataset.view)) return;
   clearTimeout(navLongPressTimer);
-  const rect = source.getBoundingClientRect();
-  const ghost = source.cloneNode(true);
-  ghost.classList.add('nav-drag-ghost');
-  ghost.removeAttribute('id');
+  const id = source.dataset.view;
+  const label = NAV_ITEMS.find((x) => x.id === id)?.label || source.textContent.trim() || "Tab";
+
+  // The floating thing that follows the finger is JUST the name, shaking.
+  const ghost = document.createElement('div');
+  ghost.className = 'nav-drag-ghost';
+  ghost.textContent = label;
   document.body.appendChild(ghost);
-  source.style.opacity = '.25';
-  navDrag = { source, ghost, id: source.dataset.view, pointerId: pointerEvent.pointerId };
+
+  source.classList.add('nav-source-dragging');
+  navDrag = { source, ghost, id, label, overBin: false, pointerId: pointerEvent.pointerId };
+
   document.body.classList.add('nav-dragging');
-  $("navDragOverlay")?.classList.add('open');
-  $("navDragOverlay")?.setAttribute('aria-hidden', 'false');
-  moveNavGhost(pointerEvent.clientX || rect.left + rect.width / 2, pointerEvent.clientY || rect.top + rect.height / 2);
+  const overlay = $("navDragOverlay");
+  overlay?.classList.add('open');
+  overlay?.setAttribute('aria-hidden', 'false');
+
+  const rect = source.getBoundingClientRect();
+  moveNavGhost(pointerEvent.clientX || rect.left + rect.width / 2,
+               pointerEvent.clientY || rect.top + rect.height / 2);
   if (navigator.vibrate) navigator.vibrate(18);
 }
+
 function moveNavGhost(x, y) {
   if (!navDrag) return;
   navDrag.ghost.style.left = `${x}px`;
@@ -457,57 +467,93 @@ function moveNavGhost(x, y) {
   const bin = $("navDragBin");
   if (!bin) return;
   const r = bin.getBoundingClientRect();
-  const over = x >= r.left && x <= r.right && y >= r.top && y <= r.bottom;
-  bin.classList.toggle('over', over);
+  // a little padding so it triggers slightly before the finger is dead-centre
+  const pad = 18;
+  const over = x >= r.left - pad && x <= r.right + pad && y >= r.top - pad && y <= r.bottom + pad;
+  if (over !== navDrag.overBin) {
+    bin.classList.toggle('over', over);
+    navDrag.ghost.classList.toggle('over-bin', over);
+    if (over && navigator.vibrate) navigator.vibrate(12);
+  }
   navDrag.overBin = over;
 }
+
 function finishNavDrag(cancelled = false) {
   clearTimeout(navLongPressTimer);
   if (!navDrag) return;
-  const { source, ghost, id, overBin } = navDrag;
-  source.style.opacity = '';
+  const { source, ghost, id, label, overBin } = navDrag;
+  navDrag = null;   // clear first so a stray event can't double-fire
+
+  const cleanup = () => {
+    ghost.remove();
+    source.classList.remove('nav-source-dragging');
+    $("navDragBin")?.classList.remove('over');
+    $("navDragOverlay")?.classList.remove('open');
+    $("navDragOverlay")?.setAttribute('aria-hidden', 'true');
+    document.body.classList.remove('nav-dragging');
+  };
+
+  // Dropped in the bin → hide the tab.
   if (!cancelled && overBin) {
     hiddenNavItems.add(id);
     saveNavPreferences();
     ghost.classList.add('nav-drop-success');
     if ($(`view-${id}`)?.classList.contains('active')) switchView('home');
-    setTimeout(() => { ghost.remove(); applyNavVisibility(); }, 260);
-    toast(`${NAV_ITEMS.find((x) => x.id === id)?.label || "Tab"} hidden — add it back in Profile`);
-    if (navigator.vibrate) navigator.vibrate([25, 35, 25]);
-  } else {
-    ghost.remove();
+    if (navigator.vibrate) navigator.vibrate([22, 30, 22]);
+    setTimeout(() => { cleanup(); applyNavVisibility(); }, 240);
+    toast(`${label} hidden — add it back in Profile`);
+    return;
   }
-  $("navDragBin")?.classList.remove('over');
-  $("navDragOverlay")?.classList.remove('open');
-  $("navDragOverlay")?.setAttribute('aria-hidden', 'true');
-  document.body.classList.remove('nav-dragging');
-  navDrag = null;
+
+  // Released anywhere else (or cancelled) → snap the name back to its tab.
+  ghost.classList.add('nav-drag-snapback');
+  const r = source.getBoundingClientRect();
+  ghost.style.left = `${r.left + r.width / 2}px`;
+  ghost.style.top = `${r.top + r.height / 2}px`;
+  setTimeout(cleanup, 200);
 }
+
 function wireNavCustomization() {
   document.querySelectorAll('[data-nav-removable="true"]').forEach((btn) => {
-    let startX = 0, startY = 0, pressed = false;
+    let startX = 0, startY = 0, pressed = false, armed = false;
+
+    const cancelArm = () => { pressed = false; armed = false; btn.classList.remove('nav-pressing'); clearTimeout(navLongPressTimer); };
+
     btn.addEventListener('pointerdown', (e) => {
       if (e.button != null && e.button !== 0) return;
-      pressed = true; startX = e.clientX; startY = e.clientY;
+      pressed = true; armed = true; startX = e.clientX; startY = e.clientY;
       btn.classList.add('nav-pressing');
+      try { btn.setPointerCapture(e.pointerId); } catch {}
       const mobile = matchMedia('(max-width: 720px)').matches || e.pointerType === 'touch';
-      navLongPressTimer = setTimeout(() => { if (pressed) beginNavDrag(btn, e); }, mobile ? 430 : 120);
+      // hold to pick up; shorter on desktop where a drag intent is obvious
+      navLongPressTimer = setTimeout(() => { if (pressed && armed) beginNavDrag(btn, e); }, mobile ? 380 : 140);
     });
+
     btn.addEventListener('pointermove', (e) => {
       if (!pressed) return;
       if (navDrag) { e.preventDefault(); moveNavGhost(e.clientX, e.clientY); return; }
       const distance = Math.hypot(e.clientX - startX, e.clientY - startY);
-      if (distance > 9 && e.pointerType !== 'touch') beginNavDrag(btn, e);
-      if (distance > 13 && e.pointerType === 'touch') { clearTimeout(navLongPressTimer); btn.classList.remove('nav-pressing'); }
+      // desktop: a clear drag gesture starts the pickup immediately
+      if (armed && distance > 8 && e.pointerType !== 'touch') { beginNavDrag(btn, e); return; }
+      // touch: moving before the hold completes means they're scrolling, not dragging
+      if (distance > 12 && e.pointerType === 'touch') cancelArm();
     });
+
     const end = (e) => {
-      pressed = false; btn.classList.remove('nav-pressing'); clearTimeout(navLongPressTimer);
+      btn.classList.remove('nav-pressing');
+      clearTimeout(navLongPressTimer);
       if (navDrag) { e.preventDefault(); finishNavDrag(false); }
+      pressed = false; armed = false;
     };
     btn.addEventListener('pointerup', end);
-    btn.addEventListener('pointercancel', () => { pressed = false; btn.classList.remove('nav-pressing'); finishNavDrag(true); });
+    btn.addEventListener('pointercancel', () => { cancelArm(); finishNavDrag(true); });
+    btn.addEventListener('lostpointercapture', () => { if (navDrag) finishNavDrag(true); });
+    // swallow the click that follows a drag so it doesn't also switch views
     btn.addEventListener('click', (e) => { if (navDrag) { e.preventDefault(); e.stopImmediatePropagation(); } }, true);
   });
+
+  // Safety net: releasing the mouse anywhere on the page ends the drag.
+  window.addEventListener('pointerup', () => { if (navDrag) finishNavDrag(false); });
 }
 
 // ---------- navigation ----------

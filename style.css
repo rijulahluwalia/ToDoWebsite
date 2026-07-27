@@ -5021,9 +5021,9 @@ body.modal-open .prio-filter-panel { display: none !important; }
 [data-nav-removable="true"] { touch-action: none; user-select: none; -webkit-user-select: none; }
 [data-nav-removable="true"].nav-pressing { transform: scale(.98); }
 body.nav-dragging { overflow: hidden; }
-body.nav-dragging .app > *:not(.nav-drag-overlay),
-body.nav-dragging .mobile-menu-backdrop > *:not(.nav-drag-overlay) {
-  filter: blur(5px) saturate(.82);
+body.nav-dragging > .app,
+body.nav-dragging > .mobile-menu-backdrop {
+  filter: blur(6px) saturate(.85);
   transition: filter .22s ease;
 }
 .nav-drag-overlay {
@@ -5032,74 +5032,103 @@ body.nav-dragging .mobile-menu-backdrop > *:not(.nav-drag-overlay) {
   z-index: 9998;
   pointer-events: none;
   opacity: 0;
-  background: rgba(10, 14, 30, .16);
-  backdrop-filter: blur(2px);
   transition: opacity .2s ease;
 }
 .nav-drag-overlay.open { opacity: 1; }
+
+/* the shaking name that follows the pointer */
+.nav-drag-ghost {
+  position: fixed;
+  z-index: 10000;
+  left: 0; top: 0;
+  transform: translate(-50%, -50%);
+  padding: 11px 20px;
+  border-radius: 999px;
+  background: var(--card, #fff);
+  color: var(--ink);
+  font-weight: 800;
+  font-size: .95rem;
+  letter-spacing: .01em;
+  white-space: nowrap;
+  pointer-events: none;
+  box-shadow: 0 16px 44px rgba(15,23,42,.30);
+  border: 1.5px solid var(--primary-soft);
+  animation: nav-ghost-shake .42s ease-in-out infinite;
+}
+/* grows a touch and turns red-ish while it's over the bin */
+.nav-drag-ghost.over-bin {
+  color: var(--danger, #f0455a);
+  border-color: var(--danger, #f0455a);
+  transform: translate(-50%, -50%) scale(1.12);
+  animation-duration: .28s;
+}
+.nav-drag-ghost.nav-drop-success { animation: nav-drop-away .24s ease forwards; }
+.nav-drag-ghost.nav-drag-snapback {
+  transition: left .18s cubic-bezier(.2,.8,.3,1), top .18s cubic-bezier(.2,.8,.3,1), opacity .18s ease;
+  animation: none;
+  opacity: 0;
+}
+@keyframes nav-ghost-shake {
+  0%, 100% { rotate: -3deg; }
+  50% { rotate: 3deg; }
+}
+@keyframes nav-drop-away {
+  to { opacity: 0; transform: translate(-50%, -50%) scale(.5) rotate(10deg); }
+}
+
+/* the tab being dragged fades in place until it snaps back or is removed */
+.nav-source-dragging { opacity: .28; transition: opacity .15s ease; }
+
+/* the bin */
 .nav-drag-bin {
   position: absolute;
   left: 50%;
-  bottom: max(28px, env(safe-area-inset-bottom));
-  width: min(260px, calc(100vw - 36px));
-  min-height: 138px;
-  transform: translateX(-50%) translateY(25px) scale(.92);
-  border: 1px solid rgba(255,255,255,.72);
-  border-radius: 28px;
-  background: rgba(255,255,255,.88);
-  box-shadow: 0 28px 80px rgba(15,23,42,.22);
+  bottom: max(30px, env(safe-area-inset-bottom));
+  transform: translateX(-50%) translateY(24px) scale(.9);
+  width: min(230px, calc(100vw - 40px));
+  padding: 22px 20px 18px;
+  border-radius: 26px;
+  background: var(--card, rgba(255,255,255,.94));
+  border: 1.5px solid rgba(240,69,90,.28);
+  box-shadow: 0 26px 70px rgba(15,23,42,.24);
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: center;
-  gap: 3px;
-  transition: transform .22s cubic-bezier(.2,.9,.25,1), background .2s ease, box-shadow .2s ease;
+  gap: 4px;
+  opacity: 0;
+  transition: transform .26s cubic-bezier(.2,.9,.25,1), opacity .2s ease, background .2s ease, box-shadow .2s ease, border-color .2s ease;
 }
-.nav-drag-overlay.open .nav-drag-bin { transform: translateX(-50%) translateY(0) scale(1); }
-.nav-drag-bin strong { font-size: .92rem; margin-top: 8px; }
-.nav-drag-bin small { color: var(--ink-soft); font-size: .74rem; }
-.nav-bin-body {
-  width: 42px;
-  height: 43px;
-  border: 3px solid var(--ink);
-  border-top: 0;
-  border-radius: 4px 4px 10px 10px;
-  display: flex;
-  justify-content: space-evenly;
-  padding: 8px 7px;
+.nav-drag-overlay.open .nav-drag-bin {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0) scale(1);
 }
-.nav-bin-body i { width: 2px; border-radius: 2px; background: var(--ink); opacity: .72; }
-.nav-bin-lid {
-  width: 50px;
-  height: 8px;
-  border-radius: 8px;
-  background: var(--ink);
-  position: relative;
-  transform-origin: 12px 6px;
-  animation: nav-bin-wiggle .55s ease-in-out infinite alternate;
+.nav-drag-bin strong { font-size: .9rem; margin-top: 6px; color: var(--ink); }
+.nav-drag-bin small { color: var(--ink-soft); font-size: .72rem; text-align: center; }
+
+/* the whole bin gently shakes to invite the drop... */
+.nav-bin-icon {
+  width: 46px; height: 46px;
+  display: grid; place-items: center;
+  color: var(--danger, #f0455a);
+  animation: nav-bin-shake .5s ease-in-out infinite;
+  transform-origin: 50% 60%;
 }
-.nav-bin-lid::before { content:""; position:absolute; width:18px; height:6px; border:3px solid var(--ink); border-bottom:0; border-radius:7px 7px 0 0; left:16px; top:-7px; }
+.nav-bin-icon svg { width: 100%; height: 100%; }
+@keyframes nav-bin-shake {
+  0%, 100% { transform: rotate(-7deg); }
+  50% { transform: rotate(7deg); }
+}
+
+/* ...and enlarges + reddens when the name is dragged over it */
 .nav-drag-bin.over {
-  transform: translateX(-50%) translateY(-4px) scale(1.10) !important;
-  background: rgba(255,242,244,.96);
-  box-shadow: 0 30px 90px rgba(240,69,90,.30);
+  transform: translateX(-50%) translateY(-6px) scale(1.14);
+  background: color-mix(in srgb, var(--danger, #f0455a) 12%, var(--card, #fff));
+  border-color: var(--danger, #f0455a);
+  box-shadow: 0 32px 90px rgba(240,69,90,.34);
 }
-.nav-drag-bin.over .nav-bin-lid { animation-duration: .18s; }
-@keyframes nav-bin-wiggle { from { transform: rotate(-5deg); } to { transform: rotate(5deg); } }
-.nav-drag-ghost {
-  position: fixed !important;
-  z-index: 10000 !important;
-  margin: 0 !important;
-  pointer-events: none !important;
-  opacity: .96;
-  transform: translate(-50%, -50%) scale(1.08) rotate(-1.5deg) !important;
-  box-shadow: 0 18px 55px rgba(15,23,42,.28) !important;
-  transition: none !important;
-  width: max-content;
-  min-width: 120px;
-}
-.nav-drag-ghost.nav-drop-success { animation: nav-drop-away .28s ease forwards; }
-@keyframes nav-drop-away { to { opacity:0; transform:translate(-50%,-50%) scale(.55) rotate(8deg)!important; } }
+.nav-drag-bin.over .nav-bin-icon { animation-duration: .2s; }
+.nav-drag-bin.over strong { color: var(--danger, #f0455a); }
+
 .nav-settings-list { display:flex; flex-direction:column; gap:9px; margin-top:14px; }
 .nav-setting-row { display:flex; align-items:center; justify-content:space-between; gap:14px; padding:11px 12px; border:1px solid var(--line); border-radius:14px; background:var(--bg); }
 .nav-setting-copy { display:flex; align-items:center; gap:10px; min-width:0; }
