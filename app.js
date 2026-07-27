@@ -3265,6 +3265,11 @@ function openEventModal(eventId = null, presetDate = null) {
   $("eventTitle").value = ev ? ev.title : "";
   $("eventLocation").value = ev ? ev.location || "" : "";
   $("eventNotes").value = ev ? ev.notes || "" : "";
+  $("eventRepeat").value = "none";
+  renderPrettySelect("eventRepeat");
+  $("eventRepeat").disabled = !!ev;
+  setDateInput("eventRepeatUntil", "");
+  updateEventRepeatUI();
 
   if (ev) {
     const s = new Date(ev.starts_at);
@@ -3375,6 +3380,35 @@ function renderInviteChips() {
     }));
 }
 
+function updateEventRepeatUI() {
+  const repeat = $("eventRepeat")?.value || "none";
+  const field = $("eventRepeatUntilField");
+  const hint = $("eventRepeatHint");
+  if (field) field.hidden = repeat === "none";
+  if (hint) hint.style.display = repeat === "none" ? "none" : "";
+  if (repeat !== "none" && !$("eventRepeatUntil")?.dataset.iso) {
+    const startIso = $("eventDate")?.dataset.iso || todayStr();
+    const d = new Date(startIso + "T00:00:00");
+    d.setDate(d.getDate() + (repeat === "business" ? 42 : 84));
+    setDateInput("eventRepeatUntil", localDateStr(d));
+  }
+}
+
+function recurringEventDates(startIso, untilIso, repeat) {
+  if (repeat === "none") return [startIso];
+  const out = [];
+  const until = new Date(untilIso + "T23:59:59");
+  const cursor = new Date(startIso + "T00:00:00");
+  while (cursor <= until && out.length < 260) {
+    const day = cursor.getDay();
+    if (repeat === "weekly" || (repeat === "business" && day >= 1 && day <= 5)) {
+      out.push(localDateStr(cursor));
+    }
+    cursor.setDate(cursor.getDate() + (repeat === "weekly" ? 7 : 1));
+  }
+  return out;
+}
+
 // ---------- save ----------
 async function saveEvent() {
   const title = $("eventTitle").value.trim();
@@ -3406,41 +3440,73 @@ async function saveEvent() {
   btn.disabled = true;
   try {
     let eventId = editingEventId;
+    let createdEventIds = [];
+    let createdCount = 1;
+
     if (eventId) {
       const { error } = await db.from("events").update(payload).eq("id", eventId);
       if (error) throw error;
+      createdEventIds = [eventId];
     } else {
-      const { data, error } = await db.from("events").insert(payload).select().single();
+      const repeat = $("eventRepeat")?.value || "none";
+      const until = $("eventRepeatUntil")?.dataset.iso || date;
+      if (repeat !== "none" && until < date) throw new Error("Repeat end must be after the first event");
+      const dates = recurringEventDates(date, until, repeat);
+      if (!dates.length) throw new Error("No events fall inside that repeat range");
+
+      const rows = dates.map((iso) => {
+        const rowStart = new Date(`${iso}T${startTime}`);
+        let rowEnd = null;
+        if (!allDay && endTime) rowEnd = new Date(`${iso}T${endTime}`);
+        return {
+          ...payload,
+          starts_at: rowStart.toISOString(),
+          ends_at: rowEnd ? rowEnd.toISOString() : null,
+        };
+      });
+      const { data, error } = await db.from("events").insert(rows).select();
       if (error) throw error;
-      eventId = data.id;
+      createdEventIds = (data || []).map((row) => row.id);
+      eventId = createdEventIds[0];
+      createdCount = createdEventIds.length || rows.length;
     }
 
-    // sync invites: add new ones, remove any that were taken off
-    const { data: current } = await db.from("event_invites").select("invitee_id").eq("event_id", eventId);
-    const currentIds = (current || []).map((c) => c.invitee_id);
     const wantIds = eventInvitees.map((p) => p.id);
-
-    const toAdd = wantIds.filter((id) => !currentIds.includes(id));
-    const toRemove = currentIds.filter((id) => !wantIds.includes(id));
-
-    if (toAdd.length) {
-      await db.from("event_invites").insert(toAdd.map((id) => ({
-        event_id: eventId, invitee_id: id, inviter_id: user.id, status: "pending",
+    if (editingEventId) {
+      // Editing one occurrence only.
+      const { data: current } = await db.from("event_invites").select("invitee_id").eq("event_id", eventId);
+      const currentIds = (current || []).map((c) => c.invitee_id);
+      const toAdd = wantIds.filter((id) => !currentIds.includes(id));
+      const toRemove = currentIds.filter((id) => !wantIds.includes(id));
+      if (toAdd.length) {
+        await db.from("event_invites").insert(toAdd.map((id) => ({
+          event_id: eventId, invitee_id: id, inviter_id: user.id, status: "pending",
+        })));
+      }
+      if (toRemove.length) {
+        await db.from("event_invites").delete().eq("event_id", eventId).in("invitee_id", toRemove);
+      }
+    } else if (wantIds.length && createdEventIds.length) {
+      const inviteRows = createdEventIds.flatMap((id) => wantIds.map((inviteeId) => ({
+        event_id: id,
+        invitee_id: inviteeId,
+        inviter_id: user.id,
+        status: "pending",
       })));
-    }
-    if (toRemove.length) {
-      await db.from("event_invites").delete().eq("event_id", eventId).in("invitee_id", toRemove);
+      const { error } = await db.from("event_invites").insert(inviteRows);
+      if (error) throw error;
     }
 
     await loadEvents();
-    await cacheInviteNames();   // so guest names make it into the Google entry
+    await cacheInviteNames();
     renderCalendar();
     closeEventModal();
-    toast(editingEventId ? "Event updated 🗓️" : (toAdd.length ? `Event created · ${toAdd.length} invited 🗓️` : "Event created 🗓️"));
+    const inviteText = wantIds.length ? ` · ${wantIds.length} invited` : "";
+    toast(editingEventId ? "Event updated 🗓️" : (createdCount > 1 ? `${createdCount} recurring events created${inviteText} 🗓️` : `Event created${inviteText} 🗓️`));
 
-    // background push to Google
-    const savedEvent = events.find((e) => e.id === eventId);
-    if (savedEvent) gcalAutoSync("event", savedEvent);
+    // background push every newly created occurrence to Google Calendar
+    const idsToSync = editingEventId ? [eventId] : createdEventIds;
+    events.filter((e) => idsToSync.includes(e.id)).forEach((e) => gcalAutoSync("event", e));
   } catch (err) {
     toast(err.message?.includes("events") ? "Couldn't save — run schema-update-4.sql" : "Couldn't save — try again");
   } finally {
@@ -3755,6 +3821,8 @@ function wireTimePickerEvents() {
   $("eventStart")?.addEventListener("click", () => openTimePicker("eventStart", "Start time"));
   $("eventEnd")?.addEventListener("click", () => openTimePicker("eventEnd", "End time"));
   $("eventDate")?.addEventListener("click", () => openDatePicker("eventDate"));
+  $("eventRepeatUntil")?.addEventListener("click", () => openDatePicker("eventRepeatUntil"));
+  $("eventRepeat")?.addEventListener("change", updateEventRepeatUI);
 
   $("timePickerClose")?.addEventListener("click", closeTimePicker);
   $("timePickerCancel")?.addEventListener("click", closeTimePicker);
@@ -5069,7 +5137,6 @@ function wireShiftEvents() {
   $("shiftModal")?.addEventListener("click", (e) => { if (e.target.id === "shiftModal") closeShiftModal(); });
   $("shiftAddBreak")?.addEventListener("click", addShiftBreak);
   $("shiftRepeat")?.addEventListener("change", updateShiftRepeatUI);
-  $("shiftRepeatUntil")?.addEventListener("click", () => openDatePicker("shiftRepeatUntil"));
   $("shiftDate")?.addEventListener("click", () => openDatePicker("shiftDate"));
   $("shiftStart")?.addEventListener("click", () => openTimePicker("shiftStart", "Shift start"));
   $("shiftEnd")?.addEventListener("click", () => openTimePicker("shiftEnd", "Shift end"));

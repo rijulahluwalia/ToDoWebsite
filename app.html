@@ -429,6 +429,27 @@
         </div>
       </div>
 
+      <div class="ev-row event-repeat-row">
+        <div class="field">
+          <label for="eventRepeat">Repeat</label>
+          <div class="select-wrap">
+            <select id="eventRepeat">
+              <option value="none">Does not repeat</option>
+              <option value="weekly">Every week</option>
+              <option value="business">Every business day</option>
+            </select>
+          </div>
+        </div>
+        <div class="field date-field" id="eventRepeatUntilField" hidden>
+          <label for="eventRepeatUntil">Repeat until</label>
+          <div class="date-shell">
+            <span class="date-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><rect x="3" y="5" width="18" height="16" rx="3"/><path d="M8 3v4M16 3v4M3 10h18"/></svg></span>
+            <input type="text" id="eventRepeatUntil" class="pretty-date-input" placeholder="Choose an end date" readonly />
+          </div>
+        </div>
+      </div>
+      <p class="field-hint event-repeat-hint" id="eventRepeatHint" style="display:none">Recurring events are created as individual events, so each one can be edited or deleted separately.</p>
+
       <div class="ev-row" id="eventTimeRow">
         <div class="field date-field">
           <label for="eventStart">Starts</label>

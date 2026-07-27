@@ -5030,3 +5030,11 @@ body.modal-open .prio-filter-panel { display: none !important; }
 @media (max-width: 620px) {
   .shift-repeat-grid { grid-template-columns: 1fr; gap: 4px; }
 }
+
+/* Event recurrence */
+.event-repeat-row { align-items: end; }
+.event-repeat-hint { margin-top: -4px; margin-bottom: 14px; }
+#eventRepeatUntilField[hidden] { display: none !important; }
+@media (max-width: 620px) {
+  .event-repeat-row { grid-template-columns: 1fr; }
+}
