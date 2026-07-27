@@ -5016,3 +5016,17 @@ body.modal-open .prio-filter-panel { display: none !important; }
   .shift-break-row { flex-wrap: wrap; }
   .ws-actions { flex-wrap: wrap; justify-content: flex-end; max-width: 80px; }
 }
+
+
+/* Work recurrence controls */
+.shift-repeat-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  align-items: end;
+}
+.shift-repeat-grid [hidden] { display: none !important; }
+.shift-repeat-hint { margin-top: -4px; }
+@media (max-width: 620px) {
+  .shift-repeat-grid { grid-template-columns: 1fr; gap: 4px; }
+}

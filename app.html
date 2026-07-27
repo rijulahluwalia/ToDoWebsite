@@ -340,6 +340,27 @@
         </div>
       </div>
 
+      <div class="shift-repeat-grid">
+        <div class="field">
+          <label for="shiftRepeat">Repeat</label>
+          <div class="select-shell">
+            <select id="shiftRepeat">
+              <option value="none">Does not repeat</option>
+              <option value="weekly">Every week</option>
+              <option value="business">Every business day</option>
+            </select>
+          </div>
+        </div>
+        <div class="field date-field" id="shiftRepeatUntilField" hidden>
+          <label for="shiftRepeatUntil">Repeat until</label>
+          <div class="date-shell">
+            <span class="date-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><rect x="3" y="5" width="18" height="16" rx="3"/><path d="M8 3v4M16 3v4M3 10h18"/></svg></span>
+            <input type="text" id="shiftRepeatUntil" class="pretty-date-input" placeholder="Choose an end date" readonly />
+          </div>
+        </div>
+      </div>
+      <p class="field-hint shift-repeat-hint" id="shiftRepeatHint">Recurring shifts are created as individual shifts, so each one can be edited or deleted separately.</p>
+
       <div class="ev-row">
         <div class="field date-field">
           <label for="shiftStart">Starts</label>
@@ -713,13 +734,13 @@
       </div>
 
       <p class="gcal-note">
-        Prio can push your events and dated tasks straight into Google Calendar,
+        Prio can push everything shown on your Prio calendar into Google Calendar,
         so reminders and notifications come through on your phone.
       </p>
 
       <ul class="gcal-points">
-        <li>Events you organise, with time, location and guest names</li>
-        <li>Tasks with a due date, as all-day entries</li>
+        <li>Events, dated tasks and work shifts</li>
+        <li>Project deadlines, routines, assessments, classes and semester breaks</li>
         <li>Re-syncing updates the same entry — no duplicates</li>
       </ul>
 
