@@ -5079,39 +5079,37 @@ body.nav-dragging > .mobile-menu-backdrop {
 /* the tab being dragged fades in place until it snaps back or is removed */
 .nav-source-dragging { opacity: .28; transition: opacity .15s ease; }
 
-/* the bin */
+/* clean icon-only drop target */
 .nav-drag-bin {
   position: absolute;
   left: 50%;
-  bottom: max(30px, env(safe-area-inset-bottom));
-  transform: translateX(-50%) translateY(24px) scale(.9);
-  width: min(230px, calc(100vw - 40px));
-  padding: 22px 20px 18px;
-  border-radius: 26px;
-  background: var(--card, rgba(255,255,255,.94));
-  border: 1.5px solid rgba(240,69,90,.28);
-  box-shadow: 0 26px 70px rgba(15,23,42,.24);
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 4px;
+  bottom: max(34px, env(safe-area-inset-bottom));
+  transform: translateX(-50%) translateY(22px) scale(.82);
+  width: 82px;
+  height: 82px;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--card, #fff) 92%, transparent);
+  border: 1.5px solid rgba(240,69,90,.32);
+  box-shadow: 0 20px 54px rgba(15,23,42,.22);
+  display: grid;
+  place-items: center;
   opacity: 0;
-  transition: transform .26s cubic-bezier(.2,.9,.25,1), opacity .2s ease, background .2s ease, box-shadow .2s ease, border-color .2s ease;
+  transition: transform .26s cubic-bezier(.2,.9,.25,1), opacity .2s ease,
+              background .2s ease, box-shadow .2s ease, border-color .2s ease;
 }
 .nav-drag-overlay.open .nav-drag-bin {
   opacity: 1;
   transform: translateX(-50%) translateY(0) scale(1);
 }
-.nav-drag-bin strong { font-size: .9rem; margin-top: 6px; color: var(--ink); }
-.nav-drag-bin small { color: var(--ink-soft); font-size: .72rem; text-align: center; }
 
-/* the whole bin gently shakes to invite the drop... */
 .nav-bin-icon {
-  width: 46px; height: 46px;
-  display: grid; place-items: center;
+  width: 38px;
+  height: 38px;
+  display: grid;
+  place-items: center;
   color: var(--danger, #f0455a);
-  animation: nav-bin-shake .5s ease-in-out infinite;
-  transform-origin: 50% 60%;
+  animation: nav-bin-shake .52s ease-in-out infinite;
+  transform-origin: 50% 65%;
 }
 .nav-bin-icon svg { width: 100%; height: 100%; }
 @keyframes nav-bin-shake {
@@ -5119,15 +5117,16 @@ body.nav-dragging > .mobile-menu-backdrop {
   50% { transform: rotate(7deg); }
 }
 
-/* ...and enlarges + reddens when the name is dragged over it */
 .nav-drag-bin.over {
-  transform: translateX(-50%) translateY(-6px) scale(1.14);
-  background: color-mix(in srgb, var(--danger, #f0455a) 12%, var(--card, #fff));
+  transform: translateX(-50%) translateY(-5px) scale(1.22);
+  background: color-mix(in srgb, var(--danger, #f0455a) 14%, var(--card, #fff));
   border-color: var(--danger, #f0455a);
-  box-shadow: 0 32px 90px rgba(240,69,90,.34);
+  box-shadow: 0 26px 72px rgba(240,69,90,.38);
 }
-.nav-drag-bin.over .nav-bin-icon { animation-duration: .2s; }
-.nav-drag-bin.over strong { color: var(--danger, #f0455a); }
+.nav-drag-bin.over .nav-bin-icon {
+  animation-duration: .2s;
+  transform: scale(1.08);
+}
 
 .nav-settings-list { display:flex; flex-direction:column; gap:9px; margin-top:14px; }
 .nav-setting-row { display:flex; align-items:center; justify-content:space-between; gap:14px; padding:11px 12px; border:1px solid var(--line); border-radius:14px; background:var(--bg); }
@@ -5137,9 +5136,13 @@ body.nav-dragging > .mobile-menu-backdrop {
 .nav-setting-copy small { display:block; color:var(--ink-soft); font-size:.72rem; margin-top:1px; }
 .nav-setting-state { border:0; border-radius:999px; padding:8px 12px; font-weight:750; font-size:.75rem; cursor:pointer; background:var(--primary-soft); color:var(--primary); }
 .nav-setting-state.locked { cursor:default; color:var(--ink-soft); background:transparent; border:1px solid var(--line); }
-:root[data-theme="dark"] .nav-drag-bin { background:rgba(23,27,48,.94); border-color:rgba(255,255,255,.12); }
+:root[data-theme="dark"] .nav-drag-bin { background:rgba(23,27,48,.92); border-color:rgba(255,255,255,.14); }
 :root[data-theme="dark"] .nav-drag-bin.over { background:rgba(57,25,35,.96); }
 @media (max-width: 720px) {
-  .nav-drag-bin { bottom:max(22px,env(safe-area-inset-bottom)); min-height:126px; border-radius:24px; }
+  .nav-drag-bin {
+    bottom: max(24px, env(safe-area-inset-bottom));
+    width: 76px;
+    height: 76px;
+  }
   .nav-drag-ghost { min-width:150px; }
 }

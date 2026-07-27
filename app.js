@@ -478,10 +478,23 @@ function moveNavGhost(x, y) {
   navDrag.overBin = over;
 }
 
-function finishNavDrag(cancelled = false) {
+function finishNavDrag(cancelled = false, releaseX = null, releaseY = null) {
   clearTimeout(navLongPressTimer);
   if (!navDrag) return;
-  const { source, ghost, id, label, overBin } = navDrag;
+
+  // Re-check the actual release position instead of trusting the last
+  // pointermove. Real mouse/touch hardware can skip the final move event,
+  // especially while pointer capture is active.
+  let droppedOnBin = navDrag.overBin;
+  const bin = $("navDragBin");
+  if (!cancelled && Number.isFinite(releaseX) && Number.isFinite(releaseY) && bin) {
+    const r = bin.getBoundingClientRect();
+    const pad = 18;
+    droppedOnBin = releaseX >= r.left - pad && releaseX <= r.right + pad &&
+                   releaseY >= r.top - pad && releaseY <= r.bottom + pad;
+  }
+
+  const { source, ghost, id, label } = navDrag;
   navDrag = null;   // clear first so a stray event can't double-fire
 
   const cleanup = () => {
@@ -494,7 +507,7 @@ function finishNavDrag(cancelled = false) {
   };
 
   // Dropped in the bin → hide the tab.
-  if (!cancelled && overBin) {
+  if (!cancelled && droppedOnBin) {
     hiddenNavItems.add(id);
     saveNavPreferences();
     ghost.classList.add('nav-drop-success');
@@ -542,18 +555,30 @@ function wireNavCustomization() {
     const end = (e) => {
       btn.classList.remove('nav-pressing');
       clearTimeout(navLongPressTimer);
-      if (navDrag) { e.preventDefault(); finishNavDrag(false); }
+      if (navDrag) {
+        e.preventDefault();
+        finishNavDrag(false, e.clientX, e.clientY);
+      }
       pressed = false; armed = false;
     };
     btn.addEventListener('pointerup', end);
-    btn.addEventListener('pointercancel', () => { cancelArm(); finishNavDrag(true); });
-    btn.addEventListener('lostpointercapture', () => { if (navDrag) finishNavDrag(true); });
+    btn.addEventListener('pointercancel', (e) => {
+      cancelArm();
+      finishNavDrag(true, e.clientX, e.clientY);
+    });
+    // Do not cancel on lostpointercapture. Browsers can emit it during a
+    // perfectly valid desktop drag, which used to make the drop silently fail.
+    btn.addEventListener('lostpointercapture', () => {
+      btn.classList.remove('nav-pressing');
+    });
     // swallow the click that follows a drag so it doesn't also switch views
     btn.addEventListener('click', (e) => { if (navDrag) { e.preventDefault(); e.stopImmediatePropagation(); } }, true);
   });
 
   // Safety net: releasing the mouse anywhere on the page ends the drag.
-  window.addEventListener('pointerup', () => { if (navDrag) finishNavDrag(false); });
+  window.addEventListener('pointerup', (e) => {
+    if (navDrag) finishNavDrag(false, e.clientX, e.clientY);
+  });
 }
 
 // ---------- navigation ----------
